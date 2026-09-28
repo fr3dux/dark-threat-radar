@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-28
+
+### Added
+- **Automated 5-Minute Ingestion Scheduler**: Configured continuous background feed synchronization cycle every 5 minutes (`SYNC_INTERVAL_SECONDS = 300`), removing manual sync friction.
+- **Enterprise Header & Navigation System**: Redesigned top navigation into a sleek, unified enterprise SOC header with integrated live auto-sync beacon, SANS Infocon indicator, refined tab pills, and active status telemetry.
+
+### Removed
+- **Manual SYNC FEEDS Button**: Retired manual sync button in favor of fully autonomous, zero-touch continuous background ingestion.
+
 ## [1.3.1] - 2026-09-28
 
 ### Changed

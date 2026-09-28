@@ -10,7 +10,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=9220
-      - SYNC_INTERVAL_SECONDS=${SYNC_INTERVAL_SECONDS:-3600}
+      - SYNC_INTERVAL_SECONDS=${SYNC_INTERVAL_SECONDS:-300}
       - NVD_API_KEY=${NVD_API_KEY:-}
       - MB_API_KEY=${MB_API_KEY:-}
       - DB_PATH=/app/data/threat_radar.db
