@@ -12,7 +12,7 @@
   <header class="app-header">
     <div class="header-top">
       <div class="brand-section">
-        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.3.0</span></span>
+        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.3.1</span></span>
         
         <!-- INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -191,6 +191,68 @@
       <!-- Executive Threat Posture & Top Distributions Grid -->
       <div class="dashboard-grid">
         
+        <!-- Widget: Fabricantes com CVEs Críticos Recentes (Últimas Semanas) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet crit">●</span> FABRICANTES C/ CVES CRÍTICOS (ÚLTIMAS SEMANAS)</span>
+              <span class="badge badge-crit">ZERO-DAYS / KEV</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VER TODOS &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 8px 12px;">
+            <div class="critical-vendor-list">
+              {% for item in stats.recent_critical_vendors %}
+              <div class="critical-vendor-item" onclick="openArtifact('cve', '{{ item.cve_id }}')">
+                <div class="crit-vendor-top">
+                  <span class="crit-vendor-name font-bold">{{ item.vendor_project }} <span class="text-muted" style="font-weight: normal;">{{ item.product or '' }}</span></span>
+                  <span class="badge badge-crit mono font-bold">{{ item.cve_id }}</span>
+                </div>
+                <div class="crit-vendor-desc">{{ item.vulnerability_name or '' }}</div>
+                <div class="crit-vendor-meta">
+                  <span class="badge badge-kev mono">CISA KEV EXPLOITED</span>
+                  <span class="mono text-muted" style="font-size: 11px;">Incluso em: {{ item.date_added }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Widget: Vítimas Recentes de Ransomware -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet purple">●</span> EXTORSÕES DE RANSOMWARE RECENTES</span>
+              <span class="badge badge-ransomware">RANSOMWARE.LIVE</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-ransomware', {})">RANSOMWARE TRACKER &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 8px 12px;">
+            <div class="critical-vendor-list">
+              {% for victim in stats.recent_ransomware_victims %}
+              <div class="critical-vendor-item" onclick="openArtifact('ransomware', '{{ victim.id }}')">
+                <div class="crit-vendor-top">
+                  <span class="crit-vendor-name font-bold">{{ victim.victim_name }}</span>
+                  <span class="badge badge-ransomware mono font-bold">{{ victim.group_name | upper }}</span>
+                </div>
+                <div class="crit-vendor-desc text-muted mono" style="font-size: 11.5px;">{{ victim.domain or victim.activity or 'Alvo Corporativo' }}</div>
+                <div class="crit-vendor-meta">
+                  {% if victim.country and (victim.country.upper() == 'BR' or victim.country.upper() == 'BRAZIL') %}
+                  <span class="badge badge-crit font-bold">🇧🇷 BRASIL</span>
+                  {% elif victim.country %}
+                  <span class="badge badge-filetype mono">{{ victim.country }}</span>
+                  {% else %}
+                  <span class="mono text-muted">-</span>
+                  {% endif %}
+                  <span class="mono text-muted" style="font-size: 11px;">Divulgado: {{ (victim.discovered or victim.attackdate or '')[:16] }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
         <!-- Widget 1: CVSS Severity Breakdown & Threat Posture -->
         <div class="dash-card">
           <div class="dash-card-header">
@@ -303,68 +365,6 @@
             </div>
             <div class="widget-footer-action">
               <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-cves', {})">EXPLORAR TODOS OS VENDORES NO CVE EXPLORER &rarr;</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Widget: Fabricantes com CVEs Críticos Recentes (Últimas Semanas) -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet crit">●</span> FABRICANTES C/ CVES CRÍTICOS (ÚLTIMAS SEMANAS)</span>
-              <span class="badge badge-crit">ZERO-DAYS / KEV</span>
-            </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VER TODOS &rarr;</button>
-          </div>
-          <div class="dash-card-body" style="padding: 8px 12px;">
-            <div class="critical-vendor-list">
-              {% for item in stats.recent_critical_vendors %}
-              <div class="critical-vendor-item" onclick="openArtifact('cve', '{{ item.cve_id }}')">
-                <div class="crit-vendor-top">
-                  <span class="crit-vendor-name font-bold">{{ item.vendor_project }} <span class="text-muted" style="font-weight: normal;">{{ item.product or '' }}</span></span>
-                  <span class="badge badge-crit mono font-bold">{{ item.cve_id }}</span>
-                </div>
-                <div class="crit-vendor-desc">{{ item.vulnerability_name or '' }}</div>
-                <div class="crit-vendor-meta">
-                  <span class="badge badge-kev mono">CISA KEV EXPLOITED</span>
-                  <span class="mono text-muted" style="font-size: 11px;">Incluso em: {{ item.date_added }}</span>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        <!-- Widget: Vítimas Recentes de Ransomware -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet purple">●</span> EXTORSÕES DE RANSOMWARE RECENTES</span>
-              <span class="badge badge-ransomware">RANSOMWARE.LIVE</span>
-            </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-ransomware', {})">RANSOMWARE TRACKER &rarr;</button>
-          </div>
-          <div class="dash-card-body" style="padding: 8px 12px;">
-            <div class="critical-vendor-list">
-              {% for victim in stats.recent_ransomware_victims %}
-              <div class="critical-vendor-item" onclick="openArtifact('ransomware', '{{ victim.id }}')">
-                <div class="crit-vendor-top">
-                  <span class="crit-vendor-name font-bold">{{ victim.victim_name }}</span>
-                  <span class="badge badge-ransomware mono font-bold">{{ victim.group_name | upper }}</span>
-                </div>
-                <div class="crit-vendor-desc text-muted mono" style="font-size: 11.5px;">{{ victim.domain or victim.activity or 'Alvo Corporativo' }}</div>
-                <div class="crit-vendor-meta">
-                  {% if victim.country and (victim.country.upper() == 'BR' or victim.country.upper() == 'BRAZIL') %}
-                  <span class="badge badge-crit font-bold">🇧🇷 BRASIL</span>
-                  {% elif victim.country %}
-                  <span class="badge badge-filetype mono">{{ victim.country }}</span>
-                  {% else %}
-                  <span class="mono text-muted">-</span>
-                  {% endif %}
-                  <span class="mono text-muted" style="font-size: 11px;">Divulgado: {{ (victim.discovered or victim.attackdate or '')[:16] }}</span>
-                </div>
-              </div>
-              {% endfor %}
             </div>
           </div>
         </div>
@@ -649,7 +649,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.3.0)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.3.1)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -722,7 +722,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>ThreatRadar v1.3.0 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>ThreatRadar v1.3.1 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
