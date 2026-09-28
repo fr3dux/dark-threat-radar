@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-28
+
+### Added
+- **Critical Vendor Threats Spotlight**: Added dedicated dashboard widget tracking vendors with actively exploited, critical CVEs from recent weeks (highlighting Citrix NetScaler, Microsoft SharePoint, MikroTik RouterOS, Adobe, F5 BIG-IP).
+- **Ransomware Spotlight Widget**: Paired the critical vendor widget with live recent ransomware extortion disclosures from Ransomware.live v2, maintaining clean 2-column symmetry.
+- **Database Schema Migration 1.3.0**: Registered migration ('1.3.0', 'Add critical vendor threats query and recent ransomware spotlight') in app/database.py.
+- **Enriched Stats Endpoint**: Updated /api/stats and get_dashboard_stats() to deliver recent_critical_vendors and recent_ransomware_victims.
+
 ## [1.2.0] - 2026-09-28
 
 ### Added

@@ -109,7 +109,9 @@ class DashboardStats(BaseModel):
     top_vendors: List[TopVendor] = []
     top_malware: List[TopMalware] = []
     recent_kevs: List[RecentKev] = []
-    top_ports: List[TopPort] = []
+    top_ports: List[TopPort]
+    recent_critical_vendors: Optional[List[Dict[str, Any]]] = None
+    recent_ransomware_victims: Optional[List[Dict[str, Any]]] = None
     recent_news: List[RecentNews] = []
 
 

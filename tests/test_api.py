@@ -155,7 +155,7 @@ def test_database_schema_migrations():
     assert len(migrations) >= 2
     versions = [m["version"] for m in migrations]
     assert "1.0.0" in versions
-    assert "1.1.0" in versions
+    assert "1.3.0" in versions
 
 
 def test_api_ransomware(client):
@@ -177,3 +177,22 @@ def test_schema_migration_120(client):
         versions = [m["version"] for m in migrations]
         assert "1.2.0" in versions
     asyncio.run(check())
+
+
+def test_schema_migration_130(client):
+    """Test database schema contains 1.3.0 migration record."""
+    import asyncio
+    async def check():
+        migrations = await get_schema_migrations()
+        versions = [m["version"] for m in migrations]
+        assert "1.3.0" in versions
+    asyncio.run(check())
+
+
+def test_recent_critical_vendors_in_stats(client):
+    """Test /api/stats includes recent_critical_vendors and recent_ransomware_victims."""
+    response = client.get("/api/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert "recent_critical_vendors" in data["stats"]
+    assert "recent_ransomware_victims" in data["stats"]
