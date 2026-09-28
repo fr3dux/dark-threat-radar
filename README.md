@@ -87,7 +87,7 @@ The fastest and most reliable way to spin up ThreatRadar is using Docker Compose
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/threat-radar.git
+git clone https://github.com/fr3dux/threat-radar.git
 cd threat-radar
 
 # 2. Copy the sample environment file
@@ -116,7 +116,7 @@ For standalone bare-metal or Linux virtual machines (Debian/Ubuntu/RHEL):
 sudo apt-get update && sudo apt-get install -y python3 python3-venv git
 
 # Clone and navigate
-git clone https://github.com/your-org/threat-radar.git /opt/threat-radar
+git clone https://github.com/fr3dux/threat-radar.git /opt/threat-radar
 cd /opt/threat-radar
 
 # Create virtualenv and install dependencies
