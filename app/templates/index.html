@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThreatRadar // Cyber Threat Intelligence Platform</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand-section">
+        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span></span>
+        
+        <!-- INFOCON Badge -->
+        {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
+        <div id="infocon-badge" class="infocon-badge infocon-{{ infocon_status }}" title="SANS Internet Storm Center INFOCON Status">
+          <span class="pulse-indicator"></span>
+          INFOCON: <span id="infocon-val">{{ infocon_status | upper }}</span>
+        </div>
+      </div>
+
+      <!-- Feeds Status Ribbon -->
+      <div class="feeds-status-bar" id="feeds-status-container">
+        {% for feed in feed_statuses %}
+        <div class="feed-chip" title="{{ feed.message or '' }}" data-feed="{{ feed.feed_name }}">
+          <span class="status-dot {{ feed.status }}"></span>
+          <span>{{ feed.feed_name | upper }}</span>
+          <span class="mono" style="color: var(--text-muted);">({{ feed.items_count }})</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <button id="btn-sync" class="btn btn-primary" onclick="triggerManualSync()">
+          <span id="sync-spinner" class="spinner" style="display: none;"></span>
+          <span id="sync-label">SYNC FEEDS</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-bar">
+    <div class="tab-group">
+      <button class="tab-btn active" id="tab-dashboard" data-target="panel-dashboard" onclick="switchTab('panel-dashboard', this)">
+        <span class="tab-icon">◈</span> DASHBOARD PRINCIPAL
+      </button>
+      <button class="tab-btn" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
+        <span class="tab-icon">⛨</span> CVE EXPLORER <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
+      </button>
+      <button class="tab-btn" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
+        <span class="tab-icon">☣</span> MALWARE FEED <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
+      </button>
+      <button class="tab-btn" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
+        <span class="tab-icon">☵</span> NETWORK TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
+      </button>
+      <button class="tab-btn" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
+        <span class="tab-icon">✦</span> CTI NEWS & INTEL <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Metric Strip (Executive Overview) -->
+  <section class="metrics-strip">
+    <div class="metric-card">
+      <div class="metric-label">TOTAL MONITORED CVES</div>
+      <div class="metric-val mono" id="stat-total-cves">{{ stats.total_cves }}</div>
+      <div class="metric-sub mono"><span class="crit font-bold">{{ stats.total_kev }}</span> in CISA KEV</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">CISA KEV EXPLOITED</div>
+      <div class="metric-val mono crit" id="stat-total-kev">{{ stats.total_kev }}</div>
+      <div class="metric-sub mono">Active in the wild</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">CRITICAL CVSS (>= 9.0)</div>
+      <div class="metric-val mono crit" id="stat-total-critical">{{ stats.total_critical_cves }}</div>
+      <div class="metric-sub mono">Immediate patch priority</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">RANSOMWARE WEAPONIZED</div>
+      <div class="metric-val mono warn" id="stat-total-ransomware">{{ stats.total_ransomware }}</div>
+      <div class="metric-sub mono">Confirmed extortion use</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">MALWARE SAMPLES</div>
+      <div class="metric-val mono info" id="stat-total-malware">{{ stats.total_malware }}</div>
+      <div class="metric-sub mono">MalwareBazaar indicators</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">DSHIELD ATTACKERS</div>
+      <div class="metric-val mono cyan" id="stat-total-ips">{{ stats.total_dshield_ips }}</div>
+      <div class="metric-sub mono">Top active scanner IPs</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">TARGETED PORTS</div>
+      <div class="metric-val mono orange" id="stat-total-ports">{{ stats.total_dshield_ports }}</div>
+      <div class="metric-sub mono">SANS ISC port telemetry</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">CTI NEWS & ALERTS</div>
+      <div class="metric-val mono" id="stat-total-news">{{ stats.total_news }}</div>
+      <div class="metric-sub mono">Aggregated intel feeds</div>
+    </div>
+  </section>
+
+  <!-- Explorer Toolbar & Filters (Only displayed on Explorer/Feed/Telemetry/News tabs) -->
+  <section class="toolbar-bar" id="explorer-toolbar" style="display: none;">
+    <div class="search-box">
+      <span class="search-icon">/</span>
+      <input type="text" id="global-search" class="search-input" placeholder="Search CVEs, hashes, IPs, tags, titles..." oninput="debounceSearch()">
+    </div>
+
+    <!-- CVE Explorer Filters -->
+    <div class="filter-group" id="cve-filters" style="display: none;">
+      <select id="filter-cve-source" class="filter-select" onchange="cveState.page=1; loadCves();">
+        <option value="all">Source: All</option>
+        <option value="cisa_kev">CISA KEV Catalog</option>
+        <option value="nvd">NIST NVD</option>
+      </select>
+      <select id="filter-cve-ransomware" class="filter-select" onchange="cveState.page=1; loadCves();">
+        <option value="all">Ransomware: All</option>
+        <option value="Known">Known Ransomware Use</option>
+      </select>
+      <select id="filter-cve-severity" class="filter-select" onchange="cveState.page=1; loadCves();">
+        <option value="all">Severity: All</option>
+        <option value="CRITICAL">Critical (9.0 - 10.0)</option>
+        <option value="HIGH">High (7.0 - 8.9)</option>
+        <option value="MEDIUM">Medium (4.0 - 6.9)</option>
+        <option value="LOW">Low (0.1 - 3.9)</option>
+      </select>
+      <select id="filter-cve-pagesize" class="filter-select" onchange="changeCvePageSize(this.value)">
+        <option value="25">25 per page</option>
+        <option value="50" selected>50 per page</option>
+        <option value="100">100 per page</option>
+      </select>
+    </div>
+
+    <!-- Malware Feed Filters -->
+    <div class="filter-group" id="malware-filters" style="display: none;">
+      <select id="filter-malware-type" class="filter-select" onchange="malwareState.page=1; loadMalware();">
+        <option value="all">File Type: All</option>
+        <option value="exe">EXE</option>
+        <option value="elf">ELF</option>
+        <option value="dll">DLL</option>
+        <option value="zip">ZIP</option>
+        <option value="pdf">PDF</option>
+        <option value="msi">MSI</option>
+      </select>
+      <select id="filter-malware-pagesize" class="filter-select" onchange="changeMalwarePageSize(this.value)">
+        <option value="25">25 per page</option>
+        <option value="50" selected>50 per page</option>
+        <option value="100">100 per page</option>
+      </select>
+    </div>
+
+    <!-- News Feed Filters -->
+    <div class="filter-group" id="news-filters" style="display: none;">
+      <select id="filter-news-source" class="filter-select" onchange="newsState.page=1; loadNews();">
+        <option value="all">Source: All Sources</option>
+        <option value="CISO Advisor">CISO Advisor</option>
+        <option value="SecurityWeek">SecurityWeek</option>
+        <option value="The Hacker News">The Hacker News</option>
+        <option value="BleepingComputer">BleepingComputer</option>
+        <option value="Local CTI">Local CTI</option>
+      </select>
+      <select id="filter-news-pagesize" class="filter-select" onchange="changeNewsPageSize(this.value)">
+        <option value="20" selected>20 per page</option>
+        <option value="40">40 per page</option>
+        <option value="60">60 per page</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Main Views Container -->
+  <main class="main-content">
+    
+    <!-- ========================================== -->
+    <!-- TAB 1: DASHBOARD PRINCIPAL (DEFAULT VIEW)  -->
+    <!-- Executive high-level overview, no raw table -->
+    <!-- ========================================== -->
+    <div id="panel-dashboard" class="view-panel active">
+      
+      <!-- Executive Threat Posture & Top Distributions Grid -->
+      <div class="dashboard-grid">
+        
+        <!-- Widget 1: CVSS Severity Breakdown & Threat Posture -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet crit">●</span> CVSS SEVERITY DISTRIBUTION</span>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {})">CVE EXPLORER &rarr;</button>
+          </div>
+          <div class="dash-card-body">
+            
+            <!-- Proportional Segmented Bar -->
+            {% set total_scored = stats.cvss_distribution.scored_total if stats.cvss_distribution.scored_total > 0 else 1 %}
+            {% set pct_crit = (stats.cvss_distribution.critical / total_scored * 100) | round(1) %}
+            {% set pct_high = (stats.cvss_distribution.high / total_scored * 100) | round(1) %}
+            {% set pct_med = (stats.cvss_distribution.medium / total_scored * 100) | round(1) %}
+            {% set pct_low = (stats.cvss_distribution.low / total_scored * 100) | round(1) %}
+            
+            <div class="distribution-bar-wrap" title="Critical: {{ pct_crit }}% | High: {{ pct_high }}% | Medium: {{ pct_med }}% | Low: {{ pct_low }}%">
+              <div class="dist-seg seg-crit" style="width: {{ pct_crit }}%;"></div>
+              <div class="dist-seg seg-high" style="width: {{ pct_high }}%;"></div>
+              <div class="dist-seg seg-med" style="width: {{ pct_med }}%;"></div>
+              <div class="dist-seg seg-low" style="width: {{ pct_low }}%;"></div>
+            </div>
+
+            <!-- Detailed Breakdown Rows -->
+            <div class="breakdown-list">
+              <div class="breakdown-item" onclick="goToTabWithFilter('panel-cves', {severity: 'CRITICAL'})">
+                <div class="breakdown-label">
+                  <span class="badge badge-crit">CRITICAL (9.0 - 10.0)</span>
+                </div>
+                <div class="breakdown-bar-col">
+                  <div class="mini-bar-bg"><div class="mini-bar-fill seg-crit" style="width: {{ pct_crit }}%;"></div></div>
+                </div>
+                <div class="breakdown-count mono crit font-bold" id="cvss-count-crit">{{ stats.cvss_distribution.critical }}</div>
+                <div class="breakdown-pct mono text-muted">{{ pct_crit }}%</div>
+              </div>
+
+              <div class="breakdown-item" onclick="goToTabWithFilter('panel-cves', {severity: 'HIGH'})">
+                <div class="breakdown-label">
+                  <span class="badge badge-high">HIGH (7.0 - 8.9)</span>
+                </div>
+                <div class="breakdown-bar-col">
+                  <div class="mini-bar-bg"><div class="mini-bar-fill seg-high" style="width: {{ pct_high }}%;"></div></div>
+                </div>
+                <div class="breakdown-count mono high font-bold" id="cvss-count-high">{{ stats.cvss_distribution.high }}</div>
+                <div class="breakdown-pct mono text-muted">{{ pct_high }}%</div>
+              </div>
+
+              <div class="breakdown-item" onclick="goToTabWithFilter('panel-cves', {severity: 'MEDIUM'})">
+                <div class="breakdown-label">
+                  <span class="badge badge-med">MEDIUM (4.0 - 6.9)</span>
+                </div>
+                <div class="breakdown-bar-col">
+                  <div class="mini-bar-bg"><div class="mini-bar-fill seg-med" style="width: {{ pct_med }}%;"></div></div>
+                </div>
+                <div class="breakdown-count mono warn font-bold" id="cvss-count-med">{{ stats.cvss_distribution.medium }}</div>
+                <div class="breakdown-pct mono text-muted">{{ pct_med }}%</div>
+              </div>
+
+              <div class="breakdown-item" onclick="goToTabWithFilter('panel-cves', {severity: 'LOW'})">
+                <div class="breakdown-label">
+                  <span class="badge badge-low">LOW (0.1 - 3.9)</span>
+                </div>
+                <div class="breakdown-bar-col">
+                  <div class="mini-bar-bg"><div class="mini-bar-fill seg-low" style="width: {{ pct_low }}%;"></div></div>
+                </div>
+                <div class="breakdown-count mono ok font-bold" id="cvss-count-low">{{ stats.cvss_distribution.low }}</div>
+                <div class="breakdown-pct mono text-muted">{{ pct_low }}%</div>
+              </div>
+
+              <div class="breakdown-divider"></div>
+
+              <div class="breakdown-callouts">
+                <div class="callout-box" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">
+                  <div class="callout-num mono crit">{{ stats.total_kev }}</div>
+                  <div class="callout-desc">CISA KEV Actively Exploited</div>
+                </div>
+                <div class="callout-box" onclick="goToTabWithFilter('panel-cves', {ransomware: 'Known'})">
+                  <div class="callout-num mono warn">{{ stats.total_ransomware }}</div>
+                  <div class="callout-desc">Ransomware Campaign Linked</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Widget 2: Top 5 Affected Vendors / Technologies -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet info">●</span> TOP 5 AFFECTED VENDORS</span>
+            <span class="mono text-muted" style="font-size: 11px;">By CVE Volume</span>
+          </div>
+          <div class="dash-card-body">
+            <div class="rank-list" id="dash-vendors-list">
+              {% for vendor in stats.top_vendors %}
+              {% set max_vendor_count = stats.top_vendors[0].count if stats.top_vendors else 1 %}
+              {% set vendor_bar_pct = (vendor.count / max_vendor_count * 100) | round(1) %}
+              <div class="rank-item" onclick="goToTabWithFilter('panel-cves', {query: '{{ vendor.vendor_project }}'})" title="Filter CVEs by {{ vendor.vendor_project }}">
+                <div class="rank-badge mono">#{{ loop.index }}</div>
+                <div class="rank-info">
+                  <div class="rank-header">
+                    <span class="rank-name font-bold">{{ vendor.vendor_project }}</span>
+                    <span class="rank-val mono">{{ vendor.count }} CVEs</span>
+                  </div>
+                  <div class="rank-bar-bg">
+                    <div class="rank-bar-fill bar-blue" style="width: {{ vendor_bar_pct }}%;"></div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="widget-footer-action">
+              <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-cves', {})">EXPLORAR TODOS OS VENDORES NO CVE EXPLORER &rarr;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Widget 3: Prevalent Malware Families (MalwareBazaar) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet purple">●</span> TOP MALWARE FAMILIES</span>
+            <span class="mono text-muted" style="font-size: 11px;">Active Threat Feed</span>
+          </div>
+          <div class="dash-card-body">
+            <div class="rank-list" id="dash-malware-list">
+              {% for mal in stats.top_malware %}
+              {% set max_mal_count = stats.top_malware[0].count if stats.top_malware else 1 %}
+              {% set mal_bar_pct = (mal.count / max_mal_count * 100) | round(1) %}
+              <div class="rank-item" onclick="goToTabWithFilter('panel-malware', {query: '{{ mal.signature }}'})" title="Filter Malware by {{ mal.signature }}">
+                <div class="rank-badge mono purple">#{{ loop.index }}</div>
+                <div class="rank-info">
+                  <div class="rank-header">
+                    <span class="rank-name mono" style="color: var(--accent-purple); font-weight: 700;">{{ mal.signature }}</span>
+                    <span class="rank-val mono">{{ mal.count }} samples</span>
+                  </div>
+                  <div class="rank-bar-bg">
+                    <div class="rank-bar-fill bar-purple" style="width: {{ mal_bar_pct }}%;"></div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="widget-footer-action">
+              <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-malware', {})">ACESSAR AMOSTRAS NO MALWARE FEED &rarr;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Widget 4: Top Targeted Network Ports (DShield) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet orange">●</span> TOP TARGETED PORTS UNDER ATTACK</span>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-dshield', {})">TELEMETRY &rarr;</button>
+          </div>
+          <div class="dash-card-body">
+            <div class="port-rank-list" id="dash-ports-list">
+              {% for p in stats.top_ports %}
+              <div class="port-item" onclick="openArtifact('port', '{{ p.port }}')">
+                <div class="port-col-main">
+                  <span class="port-number mono font-bold">{{ p.port }}</span>
+                  <span class="badge badge-filetype mono">{{ p.service or 'Unknown' }}</span>
+                </div>
+                <div class="port-col-stats">
+                  <div class="mono" style="color: var(--accent-orange); font-weight: 700;">{{ "{:,}".format(p.records) }} records</div>
+                  <div class="mono text-muted" style="font-size: 11px;">{{ "{:,}".format(p.count) }} attacker IPs &bull; {{ p.targets }} targets</div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Spotlights Grid (Recent KEVs & Intelligence News) -->
+      <div class="spotlight-grid">
+        
+        <!-- Spotlight 1: KEV Spotlight (Top 5 Recent Exploited Vulnerabilities) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet crit">●</span> KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD</span>
+              <span class="badge badge-kev">CISA KEV</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VER TODOS OS KEVS &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 0;">
+            <table class="spotlight-table">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">CVE ID</th>
+                  <th style="width: 170px;">VENDOR / PRODUCT</th>
+                  <th>VULNERABILITY DESCRIPTION</th>
+                  <th style="width: 100px;">DATE ADDED</th>
+                  <th style="width: 100px;">RANSOMWARE</th>
+                </tr>
+              </thead>
+              <tbody id="dash-kevs-tbody">
+                {% for kev in stats.recent_kevs %}
+                <tr onclick="openArtifact('cve', '{{ kev.cve_id }}')">
+                  <td class="mono font-bold" style="color: var(--accent-blue);">{{ kev.cve_id }}</td>
+                  <td class="font-bold">{{ (kev.vendor_project or '') + ' ' + (kev.product or '') }}</td>
+                  <td class="vuln-cell" title="{{ kev.vulnerability_name or '' }}">{{ (kev.vulnerability_name or '') | truncate(75) }}</td>
+                  <td class="mono text-muted">{{ kev.date_added }}</td>
+                  <td>
+                    {% if kev.known_ransomware_campaign_use == 'Known' %}
+                    <span class="badge badge-ransomware">KNOWN</span>
+                    {% else %}
+                    <span class="mono text-muted">-</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Spotlight 2: CTI News Spotlight (Top 5 Recent Intelligence Advisories) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet cyan">●</span> CTI INTEL SPOTLIGHT: LATEST ADVISORIES</span>
+              <span class="badge badge-nvd">LIVE FEEDS</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VER TODAS AS NOTÍCIAS &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 8px 12px;">
+            <div class="spotlight-news-list" id="dash-news-list">
+              {% for news in stats.recent_news %}
+              <div class="spotlight-news-item" onclick="openArtifact('news', '{{ news.id }}')">
+                <div class="spotlight-news-header">
+                  <span class="badge badge-filetype mono">{{ news.source }}</span>
+                  <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(26) }}</span>
+                </div>
+                <div class="spotlight-news-title">{{ news.title }}</div>
+                {% if news.snippet %}
+                <div class="spotlight-news-snippet">{{ news.snippet | truncate(110) }}</div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: CVE EXPLORER                        -->
+    <!-- Full searchable, filterable, paginated CVEs -->
+    <!-- ========================================== -->
+    <div id="panel-cves" class="view-panel">
+      
+      <!-- Pagination Top Bar -->
+      <div class="pagination-bar">
+        <div class="pagination-info mono" id="cve-page-info">Showing 0 - 0 of 0 CVEs</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="cve-btn-prev" onclick="cvePrevPage()">&larr; PREVIOUS</button>
+          <span class="page-number-display mono" id="cve-page-num">PAGE 1 / 1</span>
+          <button class="btn btn-sm" id="cve-btn-next" onclick="cveNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="cve-table">
+          <thead>
+            <tr>
+              <th style="width: 140px;">CVE ID</th>
+              <th style="width: 100px;">SOURCE</th>
+              <th style="width: 170px;">VENDOR / PRODUCT</th>
+              <th>VULNERABILITY DESCRIPTION</th>
+              <th style="width: 85px;">CVSS</th>
+              <th style="width: 110px;">RANSOMWARE</th>
+              <th style="width: 110px;">ADDED DATE</th>
+            </tr>
+          </thead>
+          <tbody id="cve-tbody">
+            <tr><td colspan="7" class="loading-row">Querying CVE intelligence index...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Bottom Bar -->
+      <div class="pagination-bar" style="margin-top: 8px;">
+        <div class="pagination-info mono" id="cve-page-info-bottom">Showing 0 - 0 of 0 CVEs</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="cve-btn-prev-b" onclick="cvePrevPage()">&larr; PREVIOUS</button>
+          <button class="btn btn-sm" id="cve-btn-next-b" onclick="cveNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: MALWARE FEED                        -->
+    <!-- Full searchable, paginated malware samples -->
+    <!-- ========================================== -->
+    <div id="panel-malware" class="view-panel">
+      
+      <!-- Pagination Top Bar -->
+      <div class="pagination-bar">
+        <div class="pagination-info mono" id="malware-page-info">Showing 0 - 0 of 0 samples</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="malware-btn-prev" onclick="malwarePrevPage()">&larr; PREVIOUS</button>
+          <span class="page-number-display mono" id="malware-page-num">PAGE 1 / 1</span>
+          <button class="btn btn-sm" id="malware-btn-next" onclick="malwareNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="malware-table">
+          <thead>
+            <tr>
+              <th style="width: 160px;">FIRST SEEN (UTC)</th>
+              <th style="width: 220px;">SHA256 HASH</th>
+              <th style="width: 200px;">FILE NAME</th>
+              <th style="width: 90px;">TYPE</th>
+              <th>SIGNATURE / MALWARE FAMILY</th>
+              <th style="width: 120px;">REPORTER</th>
+            </tr>
+          </thead>
+          <tbody id="malware-tbody">
+            <tr><td colspan="6" class="loading-row">Loading malware samples...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Bottom Bar -->
+      <div class="pagination-bar" style="margin-top: 8px;">
+        <div class="pagination-info mono" id="malware-page-info-bottom">Showing 0 - 0 of 0 samples</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="malware-btn-prev-b" onclick="malwarePrevPage()">&larr; PREVIOUS</button>
+          <button class="btn btn-sm" id="malware-btn-next-b" onclick="malwareNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: NETWORK TELEMETRY (DSHIELD)         -->
+    <!-- Top attacking IPs and targeted ports       -->
+    <!-- ========================================== -->
+    <div id="panel-dshield" class="view-panel">
+      <div class="split-grid">
+        <!-- Top Attacking Sources -->
+        <div class="split-card">
+          <div class="split-card-header">
+            <span>TOP ATTACKING SOURCES (SANS ISC DSHIELD)</span>
+            <span class="mono" id="dshield-sources-count" style="color: var(--accent-cyan);">--</span>
+          </div>
+          <div class="table-container" style="border: none;">
+            <table class="data-table" id="dshield-sources-table">
+              <thead>
+                <tr>
+                  <th>SOURCE IP</th>
+                  <th>ATTACKS</th>
+                  <th>PACKETS</th>
+                  <th>AS NAME / ORG</th>
+                  <th>LAST SEEN</th>
+                </tr>
+              </thead>
+              <tbody id="dshield-sources-tbody">
+                <tr><td colspan="5" class="loading-row">Loading attacking IP telemetry...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Targeted Ports -->
+        <div class="split-card">
+          <div class="split-card-header">
+            <span>TOP TARGETED PORTS (SANS ISC DSHIELD)</span>
+            <span class="mono" id="dshield-ports-count" style="color: var(--accent-orange);">--</span>
+          </div>
+          <div class="table-container" style="border: none;">
+            <table class="data-table" id="dshield-ports-table">
+              <thead>
+                <tr>
+                  <th>PORT</th>
+                  <th>SERVICE</th>
+                  <th>RECORDS</th>
+                  <th>TARGETS</th>
+                  <th>SOURCES</th>
+                </tr>
+              </thead>
+              <tbody id="dshield-ports-tbody">
+                <tr><td colspan="5" class="loading-row">Loading port telemetry...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: CTI NEWS & INTEL                    -->
+    <!-- Full stream of intelligence advisories     -->
+    <!-- ========================================== -->
+    <div id="panel-news" class="view-panel">
+      <!-- Pagination Top Bar -->
+      <div class="pagination-bar">
+        <div class="pagination-info mono" id="news-page-info">Showing 0 - 0 of 0 news advisories</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="news-btn-prev" onclick="newsPrevPage()">&larr; PREVIOUS</button>
+          <span class="page-number-display mono" id="news-page-num">PAGE 1 / 1</span>
+          <button class="btn btn-sm" id="news-btn-next" onclick="newsNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+
+      <div class="news-grid" id="news-container">
+        <div class="loading-row">Loading CTI news stream...</div>
+      </div>
+
+      <!-- Pagination Bottom Bar -->
+      <div class="pagination-bar" style="margin-top: 8px;">
+        <div class="pagination-info mono" id="news-page-info-bottom">Showing 0 - 0 of 0 news advisories</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="news-btn-prev-b" onclick="newsPrevPage()">&larr; PREVIOUS</button>
+          <button class="btn btn-sm" id="news-btn-next-b" onclick="newsNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Deep Inspection Lateral Drawer -->
+  <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+  <aside class="inspection-drawer" id="inspection-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <span class="badge badge-kev" id="drawer-badge">ARTIFACT</span>
+        <span class="drawer-title mono" id="drawer-title">ARTIFACT INSPECTOR</span>
+      </div>
+      <button class="drawer-close mono" onclick="closeDrawer()">ESC [X]</button>
+    </div>
+
+    <div class="drawer-body" id="drawer-content">
+      <div class="loading-row">Loading artifact details...</div>
+    </div>
+  </aside>
+
+  <!-- Client Application Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

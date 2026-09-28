@@ -1,0 +1,28 @@
+services:
+  threat-radar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: threat-radar
+    restart: unless-stopped
+    ports:
+      - "${PORT:-9220}:9220"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9220
+      - SYNC_INTERVAL_SECONDS=${SYNC_INTERVAL_SECONDS:-3600}
+      - NVD_API_KEY=${NVD_API_KEY:-}
+      - MB_API_KEY=${MB_API_KEY:-}
+      - DB_PATH=/app/data/threat_radar.db
+    volumes:
+      - threat-radar-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; exit(0 if urllib.request.urlopen('http://127.0.0.1:9220/api/status', timeout=3).getcode() == 200 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  threat-radar-data:
+    driver: local
