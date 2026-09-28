@@ -9,7 +9,7 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "9220"))
 
 # Sync interval in seconds (default 1 hour = 3600)
-SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "3600"))
+SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
 
 # MalwareBazaar API key if available
 MB_API_KEY = os.getenv("MB_API_KEY", "")
