@@ -1450,31 +1450,39 @@ table.data-table tr:last-child td {
   flex-shrink: 0;
 }
 
-/* ==================== LIVE ATTACK MAP (v1.5.0) ==================== */
+/* ==================== LIVE ATTACK MAP (v1.5.3 FIXED BOUNDS) ==================== */
 .attack-map-container {
   display: grid;
   grid-template-columns: 1fr 340px;
   gap: 16px;
-  height: calc(100vh - 190px);
-  min-height: 580px;
+  height: 540px;
+  max-height: 540px;
+  min-height: 540px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 @media (max-width: 1100px) {
   .attack-map-container {
     grid-template-columns: 1fr;
     height: auto;
+    max-height: none;
   }
 }
 
 .map-stage-wrapper {
-  background: #06090f;
+  background: #040711;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   position: relative;
   overflow: hidden;
+  height: 100%;
+  max-height: 540px;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 #attack-map-canvas {
@@ -1485,19 +1493,19 @@ table.data-table tr:last-child td {
 
 .map-hud-overlay {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: 12px;
+  left: 12px;
   display: flex;
-  gap: 12px;
+  gap: 10px;
   pointer-events: none;
   z-index: 10;
 }
 
 .map-hud-stat {
-  background: rgba(13, 17, 23, 0.85);
+  background: rgba(13, 17, 23, 0.88);
   border: 1px solid var(--border-color);
   backdrop-filter: blur(4px);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 3px;
   display: flex;
   flex-direction: column;
@@ -1505,14 +1513,14 @@ table.data-table tr:last-child td {
 
 .hud-label {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.05em;
 }
 
 .hud-val {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -1521,51 +1529,70 @@ table.data-table tr:last-child td {
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 540px;
+  overflow: hidden;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .sidebar-block {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  flex: 1;
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+.sidebar-block:first-child {
+  flex: 1;
+  max-height: 340px;
+  min-height: 320px;
+}
+
+.sidebar-block:last-child {
+  height: 180px;
+  max-height: 180px;
 }
 
 .sidebar-block-header {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .live-stream-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
+  max-height: 290px;
+  padding-right: 2px;
 }
 
 .stream-item {
-  padding: 6px 8px;
+  padding: 5px 8px;
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 2px;
   font-size: 11px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  animation: fadeIn 0.3s ease;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .stream-item-top {
@@ -1587,6 +1614,7 @@ table.data-table tr:last-child td {
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-muted);
 }
+

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-09-28
+
+### Added
+- **Cartographic World Basemap**: Integrated real-world geospatial polygons (`app/static/data/world_polygons.json`, 287 geographic features) accurately rendering all global coastlines, continents, and nation borders (including Brazil, Americas, Europe, Asia, Africa, and Oceania).
+- **Proportional Aspect Ratio Engine**: Configured geographic projection with guaranteed 2:1 equirectangular ratio enforcement, preventing vertical stretching or distortion across different monitor aspect ratios.
+
+### Fixed
+- **Container Height Lock & Stream Overflow**: Fixed CSS layout bug where prepending live stream attack items caused the sidebar and canvas to expand unbounded vertically. Bounded map stage and attack stream list to fixed height (`540px`) with scrollable viewport (`overflow-y: auto`).
+
 ## [1.5.2] - 2026-09-28
 
 ### Changed
