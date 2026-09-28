@@ -13,7 +13,7 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.5.3</span></span>
+        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.5.4</span></span>
         
         <!-- SANS INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -56,9 +56,6 @@
       </button>
       <button class="tab-btn" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
         <span class="tab-icon">☣</span> MALWARE FEED <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
-      </button>
-      <button class="tab-btn" id="tab-attackmap" data-target="panel-attackmap" onclick="switchTab('panel-attackmap', this)">
-        <span class="tab-icon">🌐</span> LIVE ATTACK MAP <span class="tab-count mono" style="color: var(--accent-red); background: rgba(248, 81, 73, 0.2);">LIVE</span>
       </button>
       <button class="tab-btn" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
         <span class="tab-icon">☵</span> NETWORK TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
@@ -193,6 +190,74 @@
     <div id="panel-dashboard" class="view-panel active">
       
       <!-- Executive Threat Posture & Top Distributions Grid -->
+      <!-- ==================== HERO RADAR: GLOBAL LIVE CYBERATTACK MAP ==================== -->
+      <div class="dash-card dash-card-attackmap" style="margin-bottom: 16px;">
+        <div class="dash-card-header">
+          <div class="header-with-badge">
+            <span class="dash-card-title"><span class="widget-bullet crit">●</span> GLOBAL LIVE CYBERATTACK MAP</span>
+            <span class="badge badge-crit">LIVE TELEMETRY</span>
+            <span class="badge badge-filetype mono">SANS ISC DSHIELD</span>
+          </div>
+          <div class="header-actions-inline">
+            <span class="mono text-muted" style="font-size: 11px;">PROBES EM TEMPO REAL // 60 FPS VECTOR</span>
+          </div>
+        </div>
+        <div class="dash-card-body" style="padding: 10px;">
+          <div class="attack-map-container" style="height: 480px; max-height: 480px;">
+            <!-- Canvas Map Stage -->
+            <div class="map-stage-wrapper">
+              <canvas id="attack-map-canvas"></canvas>
+              <div class="map-hud-overlay">
+                <div class="map-hud-stat">
+                  <span class="hud-label">GLOBAL SCAN FREQUENCY</span>
+                  <span class="hud-val mono" id="hud-attack-rate">~1,420 <small>probes/min</small></span>
+                </div>
+                <div class="map-hud-stat">
+                  <span class="hud-label">INFOCON STATUS</span>
+                  <span class="hud-val mono ok">GREEN</span>
+                </div>
+                <div class="map-hud-stat">
+                  <span class="hud-label">CARTOGRAPHY</span>
+                  <span class="hud-val mono info">NATURAL ATLAS / 287 BORDERS</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lateral Attack Stream & Targeted Services -->
+            <div class="attack-stream-sidebar">
+              <div class="sidebar-block">
+                <div class="sidebar-block-header">
+                  <span class="widget-bullet crit">●</span> LIVE ATTACK STREAM
+                </div>
+                <div class="live-stream-list" id="map-live-stream">
+                  <div class="stream-item-placeholder">Connecting to attack stream...</div>
+                </div>
+              </div>
+
+              <div class="sidebar-block" style="margin-top: 10px;">
+                <div class="sidebar-block-header">
+                  <span class="widget-bullet orange">●</span> TOP TARGETED SERVICES
+                </div>
+                <div class="port-rank-list" style="margin-top: 6px;">
+                  <div class="port-item" style="padding: 5px 8px;">
+                    <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 11px;">443</span><span class="badge badge-port-service mono" style="font-size: 9px;">HTTPS</span></div>
+                    <div class="mono font-bold orange" style="font-size: 10.5px;">561k probes</div>
+                  </div>
+                  <div class="port-item" style="padding: 5px 8px;">
+                    <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 11px;">80</span><span class="badge badge-port-service mono" style="font-size: 9px;">HTTP</span></div>
+                    <div class="mono font-bold orange" style="font-size: 10.5px;">472k probes</div>
+                  </div>
+                  <div class="port-item" style="padding: 5px 8px;">
+                    <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 11px;">22</span><span class="badge badge-port-service mono" style="font-size: 9px;">SSH</span></div>
+                    <div class="mono font-bold orange" style="font-size: 10.5px;">374k probes</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="dashboard-grid">
         
         <!-- Widget: Fabricantes com CVEs Críticos Recentes (Últimas Semanas) -->
@@ -506,69 +571,6 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: LIVE CYBERATTACK MAP (v1.5.3)         -->
-    <!-- Dedicated full-screen global attack radar  -->
-    <!-- ========================================== -->
-    <div id="panel-attackmap" class="view-panel">
-      <div class="attack-map-container" style="height: calc(100vh - 170px); min-height: 580px;">
-        <!-- Canvas Map Stage -->
-        <div class="map-stage-wrapper">
-          <canvas id="attack-map-canvas"></canvas>
-          <div class="map-hud-overlay">
-            <div class="map-hud-stat">
-              <span class="hud-label">GLOBAL SCAN FREQUENCY</span>
-              <span class="hud-val mono" id="hud-attack-rate">~1,420 <small>probes/min</small></span>
-            </div>
-            <div class="map-hud-stat">
-              <span class="hud-label">SANS ISC THREAT POSTURE</span>
-              <span class="hud-val mono ok">INFOCON GREEN</span>
-            </div>
-            <div class="map-hud-stat">
-              <span class="hud-label">PROJECTION ENGINE</span>
-              <span class="hud-val mono info">60 FPS VECTOR</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Lateral Attack Stream & Targeted Services -->
-        <div class="attack-stream-sidebar">
-          <div class="sidebar-block">
-            <div class="sidebar-block-header">
-              <span class="widget-bullet crit">●</span> REAL-TIME ATTACK STREAM
-            </div>
-            <div class="live-stream-list" id="map-live-stream">
-              <div class="stream-item-placeholder">Connecting to attack stream...</div>
-            </div>
-          </div>
-
-          <div class="sidebar-block" style="margin-top: 14px;">
-            <div class="sidebar-block-header">
-              <span class="widget-bullet orange">●</span> TOP TARGETED SERVICES
-            </div>
-            <div class="port-rank-list" style="margin-top: 8px;">
-              <div class="port-item" style="padding: 6px 10px;">
-                <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 12px;">443</span><span class="badge badge-port-service mono">HTTPS</span></div>
-                <div class="mono font-bold orange" style="font-size: 11px;">561k probes</div>
-              </div>
-              <div class="port-item" style="padding: 6px 10px;">
-                <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 12px;">80</span><span class="badge badge-port-service mono">HTTP</span></div>
-                <div class="mono font-bold orange" style="font-size: 11px;">472k probes</div>
-              </div>
-              <div class="port-item" style="padding: 6px 10px;">
-                <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 12px;">22</span><span class="badge badge-port-service mono">SSH</span></div>
-                <div class="mono font-bold orange" style="font-size: 11px;">374k probes</div>
-              </div>
-              <div class="port-item" style="padding: 6px 10px;">
-                <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 12px;">8080</span><span class="badge badge-port-service mono">PROXY</span></div>
-                <div class="mono font-bold orange" style="font-size: 11px;">283k probes</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================== -->
     <!-- TAB 2: CVE EXPLORER                        -->
     <!-- Full searchable, filterable, paginated CVEs -->
     <!-- ========================================== -->
@@ -716,7 +718,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.5.3)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.5.4)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -789,7 +791,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>ThreatRadar v1.5.3 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>ThreatRadar v1.5.4 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
