@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-09-28
+
+### Changed
+- **Dashboard Principal Integration**: Embedded the Live Cyberattack Map directly into the Dashboard Principal as an executive hero section, eliminating the separate tab.
+- **Attack Map Engine Implementation**: Fixed engine initialization bug by properly wiring HTML5 Canvas 60 FPS animation loop, automatic canvas scaling, equirectangular world continent projection, and real-time streaming feed updates on page load.
+
 ## [1.5.0] - 2026-09-28
 
 ### Added
