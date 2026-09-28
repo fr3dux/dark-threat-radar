@@ -49,7 +49,7 @@ function switchTab(panelId, btnElement) {
   const newsFilters = document.getElementById('news-filters');
   const ransomwareFilters = document.getElementById('ransomware-filters');
 
-  if (panelId === 'panel-dashboard') {
+  if (panelId === 'panel-dashboard' || panelId === 'panel-attackmap') {
     toolbar.style.display = 'none';
   } else {
     toolbar.style.display = 'flex';
@@ -60,7 +60,9 @@ function switchTab(panelId, btnElement) {
   }
 
   // Lazy load data on tab switch if not already populated
-  if (panelId === 'panel-ransomware') {
+  if (panelId === 'panel-attackmap') {
+    initAttackMap();
+  } else if (panelId === 'panel-ransomware') {
     loadRansomware();
   } else if (panelId === 'panel-cves') {
     loadCves();
@@ -83,7 +85,9 @@ function goToTabWithFilter(panelId, filters) {
   }
 
   // Apply filters
-  if (panelId === 'panel-ransomware') {
+  if (panelId === 'panel-attackmap') {
+    initAttackMap();
+  } else if (panelId === 'panel-ransomware') {
     loadRansomware();
   } else if (panelId === 'panel-cves') {
     if (filters.severity) document.getElementById('filter-cve-severity').value = filters.severity;

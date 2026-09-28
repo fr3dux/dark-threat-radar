@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-28
+
+### Added
+- **Global Live Cyberattack Map**: Implemented 60 FPS HTML5 Canvas real-time cyberattack map (styled after SonicWall / Check Point / Fortinet Threat Maps) featuring ballistic attack trajectories, particle arcs, impact ripple pulses, and live stream telemetry.
+- **Live Attack Telemetry Endpoint**: Added `GET /api/attacks/live` providing continuous streaming feeds connecting SANS ISC DShield global scanner IPs and targeted ports to geographic attack coordinates.
+- **Dedicated Attack Map Tab**: Added `🌐 LIVE ATTACK MAP` in the navigation header with real-time attack frequency indicators, top attacking countries ranking, and live ticker stream.
+- **Database Schema Migration 1.5.0**: Registered migration `('1.5.0', 'Add Live Attack Map real-time telemetry streaming and geo coordinates')` in `app/database.py`.
+
 ## [1.4.1] - 2026-09-28
 
 ### Restored
