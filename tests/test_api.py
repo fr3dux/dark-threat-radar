@@ -180,7 +180,7 @@ def test_schema_migration_120(client):
 
 
 def test_schema_migration_130(client):
-    """Test database schema contains 1.4.1 migration record."""
+    """Test database schema contains 1.5.0 migration record."""
     import asyncio
     async def check():
         migrations = await get_schema_migrations()
@@ -196,3 +196,29 @@ def test_recent_critical_vendors_in_stats(client):
     data = response.json()
     assert "recent_critical_vendors" in data["stats"]
     assert "recent_ransomware_victims" in data["stats"]
+
+
+def test_api_attacks_live(client):
+    """Test /api/attacks/live returns real-time attack trajectories."""
+    response = client.get("/api/attacks/live")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "online"
+    assert "attacks" in data
+    assert isinstance(data["attacks"], list)
+    if data["attacks"]:
+        atk = data["attacks"][0]
+        assert "src_country" in atk
+        assert "dst_country" in atk
+        assert "port" in atk
+        assert "service" in atk
+
+
+def test_schema_migration_150(client):
+    """Test database schema contains 1.5.0 migration record."""
+    import asyncio
+    async def check():
+        migrations = await get_schema_migrations()
+        versions = [m["version"] for m in migrations]
+        assert "1.5.0" in versions
+    asyncio.run(check())
