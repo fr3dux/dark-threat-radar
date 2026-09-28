@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-09-28
+
+### Security & Hygiene
+- **Repository Security Audit**: Verified zero leaked secrets, API keys, credentials, or private keys across git history. Confirmed repository privacy (`isPrivate: true`).
+- **Hygiene & Artifact Verification**: Verified strict `.gitignore` protection over SQLite databases, virtual environments, bytecode caches, and logs. Confirmed zero junk files tracked.
+
+### Documentation
+- **Comprehensive README.md Overhaul**: Completely updated documentation with all 7 synchronized threat feeds (including Ransomware.live v2 and FIRST.org EPSS), the 60 FPS cartographic Live Attack Map, updated REST API endpoints (`/api/attacks/live`, `/api/ransomware`), and automated test instructions.
+
 ## [1.5.4] - 2026-09-28
 
 ### Changed
