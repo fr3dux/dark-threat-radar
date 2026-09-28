@@ -918,40 +918,47 @@ function changeRansomwarePageSize(newSize) {
 
 
 
-// ==================== LIVE CYBERATTACK MAP ENGINE (v1.5.1) ====================
+// ==================== LIVE CYBERATTACK MAP ENGINE (v1.5.3 REAL ATLAS) ====================
 
 let mapCanvas = null;
 let mapCtx = null;
 let attackMapInitialized = false;
 let activeArcs = [];
 let impactRipples = [];
+let worldPolygons = null;
 
-// Equirectangular continent paths for realistic world map projection
-const WORLD_CONTINENTS = [
-  // North America
-  [[-130, 55], [-120, 60], [-100, 65], [-80, 60], [-60, 50], [-70, 42], [-75, 35], [-80, 25], [-90, 30], [-105, 25], [-115, 32], [-125, 40], [-125, 50]],
-  // Central America
-  [[-105, 25], [-90, 18], [-83, 8], [-77, 8], [-80, 15], [-95, 20], [-105, 25]],
-  // South America
-  [[-80, 8], [-60, 10], [-45, -2], [-35, -7], [-40, -22], [-55, -35], [-68, -54], [-75, -45], [-72, -30], [-80, -5], [-80, 8]],
-  // Europe & Scandinavia
-  [[-10, 36], [0, 45], [10, 54], [20, 60], [30, 70], [25, 71], [15, 65], [5, 60], [-5, 50], [-9, 42], [-10, 36]],
-  // British Isles
-  [[-5, 50], [-3, 58], [-10, 54], [-5, 50]],
-  // Africa
-  [[-17, 30], [10, 37], [32, 31], [40, 15], [50, 12], [40, -5], [35, -20], [28, -34], [18, -34], [12, -15], [8, 4], [-5, 5], [-15, 12], [-17, 22], [-17, 30]],
-  // Asia
-  [[35, 32], [50, 25], [60, 25], [70, 22], [80, 15], [90, 22], [105, 20], [105, 10], [120, 25], [130, 32], [140, 40], [140, 55], [130, 65], [110, 72], [80, 72], [60, 68], [40, 55], [35, 42], [35, 32]],
-  // Japan
-  [[130, 32], [140, 40], [142, 44], [140, 36], [130, 32]],
-  // Australia
-  [[115, -22], [130, -15], [145, -15], [152, -28], [150, -38], [138, -38], [128, -32], [115, -35], [115, -22]]
-];
+// Enforce strict 2:1 equirectangular projection centered inside canvas
+function geoToCanvas(lon, lat, w, h) {
+  const mapAspect = 2.0;
+  let mapW, mapH, offsetX, offsetY;
 
-function geoToCanvas(lon, lat, width, height) {
-  const x = (lon + 180) * (width / 360);
-  const y = ((-lat) + 90) * (height / 180);
+  if (w / h > mapAspect) {
+    mapH = h * 0.94;
+    mapW = mapH * mapAspect;
+    offsetX = (w - mapW) / 2;
+    offsetY = (h - mapH) / 2;
+  } else {
+    mapW = w * 0.98;
+    mapH = mapW / mapAspect;
+    offsetX = (w - mapW) / 2;
+    offsetY = (h - mapH) / 2;
+  }
+
+  const x = offsetX + (lon + 180) * (mapW / 360);
+  const y = offsetY + ((-lat) + 90) * (mapH / 180);
   return { x, y };
+}
+
+async function loadWorldPolygons() {
+  if (worldPolygons) return;
+  try {
+    const res = await fetch('/static/data/world_polygons.json');
+    if (res.ok) {
+      worldPolygons = await res.json();
+    }
+  } catch (e) {
+    console.warn('Failed to load world polygons, using fallback:', e);
+  }
 }
 
 function initAttackMap() {
@@ -964,14 +971,16 @@ function initAttackMap() {
     const parent = mapCanvas.parentElement;
     if (parent && parent.clientWidth > 50) {
       mapCanvas.width = parent.clientWidth;
-      mapCanvas.height = parent.clientHeight || 420;
+      mapCanvas.height = parent.clientHeight || 540;
     }
   }
 
   resizeCanvas();
-  setTimeout(resizeCanvas, 100);
-  setTimeout(resizeCanvas, 400);
+  setTimeout(resizeCanvas, 80);
+  setTimeout(resizeCanvas, 300);
   window.addEventListener('resize', resizeCanvas);
+
+  loadWorldPolygons();
 
   if (!attackMapInitialized) {
     attackMapInitialized = true;
@@ -991,7 +1000,7 @@ function startAttackSimulation() {
           setTimeout(() => {
             spawnAttackArc(atk);
             prependLiveStream(atk);
-          }, idx * 380);
+          }, idx * 360);
         });
       }
     } catch (e) {
@@ -999,7 +1008,6 @@ function startAttackSimulation() {
     }
   }
 
-  // Initial trigger + periodic polling
   fetchLiveAttacks();
   setInterval(fetchLiveAttacks, 5000);
 }
@@ -1013,7 +1021,7 @@ function spawnAttackArc(atk) {
   const end = geoToCanvas(atk.dst_lon, atk.dst_lat, w, h);
 
   const midX = (start.x + end.x) / 2;
-  const midY = Math.min(start.y, end.y) - Math.abs(start.x - end.x) * 0.22 - 35;
+  const midY = Math.min(start.y, end.y) - Math.abs(start.x - end.x) * 0.22 - 30;
 
   activeArcs.push({
     start,
@@ -1062,42 +1070,50 @@ function renderAttackMapFrame() {
   const w = mapCanvas.width;
   const h = mapCanvas.height;
 
-  // Clear background
-  ctx.fillStyle = '#06090f';
+  // Background
+  ctx.fillStyle = '#040711';
   ctx.fillRect(0, 0, w, h);
 
-  // Subtle grid lines
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  // Subtle coordinate grid
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
   ctx.lineWidth = 1;
-  for (let x = 0; x < w; x += 50) {
+  for (let x = 0; x < w; x += 45) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, h);
     ctx.stroke();
   }
-  for (let y = 0; y < h; y += 50) {
+  for (let y = 0; y < h; y += 45) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(w, y);
     ctx.stroke();
   }
 
-  // Draw continents
-  ctx.fillStyle = '#141e2e';
-  ctx.strokeStyle = '#1e2d42';
-  ctx.lineWidth = 1.2;
+  // Draw Real Cartographic World Map
+  if (worldPolygons && worldPolygons.length > 0) {
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1.0;
 
-  WORLD_CONTINENTS.forEach(poly => {
-    ctx.beginPath();
-    poly.forEach((pt, i) => {
-      const c = geoToCanvas(pt[0], pt[1], w, h);
-      if (i === 0) ctx.moveTo(c.x, c.y);
-      else ctx.lineTo(c.x, c.y);
-    });
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  });
+    for (let i = 0; i < worldPolygons.length; i++) {
+      const ring = worldPolygons[i];
+      if (ring.length < 3) continue;
+
+      ctx.beginPath();
+      const first = geoToCanvas(ring[0][0], ring[0][1], w, h);
+      ctx.moveTo(first.x, first.y);
+
+      for (let j = 1; j < ring.length; j++) {
+        const pt = geoToCanvas(ring[j][0], ring[j][1], w, h);
+        ctx.lineTo(pt.x, pt.y);
+      }
+
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
 
   // Animate Ballistic Laser Arcs
   for (let i = activeArcs.length - 1; i >= 0; i--) {
@@ -1108,15 +1124,15 @@ function renderAttackMapFrame() {
     const currX = (1 - t) * (1 - t) * arc.start.x + 2 * (1 - t) * t * arc.ctrl.x + t * t * arc.end.x;
     const currY = (1 - t) * (1 - t) * arc.start.y + 2 * (1 - t) * t * arc.ctrl.y + t * t * arc.end.y;
 
-    // Trajectory curve
-    ctx.strokeStyle = arc.color + '33';
-    ctx.lineWidth = 1.5;
+    // Glowing trajectory line
+    ctx.strokeStyle = arc.color + '44';
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
     ctx.moveTo(arc.start.x, arc.start.y);
     ctx.quadraticCurveTo(arc.ctrl.x, arc.ctrl.y, arc.end.x, arc.end.y);
     ctx.stroke();
 
-    // Laser head
+    // Laser particle
     ctx.fillStyle = arc.color;
     ctx.shadowColor = arc.color;
     ctx.shadowBlur = 8;
@@ -1125,8 +1141,8 @@ function renderAttackMapFrame() {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Origin dot
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    // Origin node point
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.beginPath();
     ctx.arc(arc.start.x, arc.start.y, 2, 0, Math.PI * 2);
     ctx.fill();
@@ -1146,12 +1162,12 @@ function renderAttackMapFrame() {
   // Impact Ripples
   for (let i = impactRipples.length - 1; i >= 0; i--) {
     const rip = impactRipples[i];
-    rip.radius += 0.75;
+    rip.radius += 0.7;
     rip.alpha -= 0.025;
 
     ctx.strokeStyle = rip.color;
     ctx.globalAlpha = Math.max(0, rip.alpha);
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
     ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
     ctx.stroke();
@@ -1165,8 +1181,7 @@ function renderAttackMapFrame() {
   requestAnimationFrame(renderAttackMapFrame);
 }
 
-
-// Ensure attack map starts immediately on load
+// Auto-start on load
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   setTimeout(initAttackMap, 100);
 } else {

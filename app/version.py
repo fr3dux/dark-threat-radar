@@ -2,7 +2,7 @@
 Centralized Semantic Versioning (SemVer)
 """
 
-__version__ = "1.5.2"
+__version__ = "1.5.3"
 __app_name__ = "ThreatRadar"
 __description__ = "Autonomous Standalone Cyber Threat Intelligence Hub & SOC Radar"
 __release_date__ = "2026-09-28"
