@@ -21,6 +21,7 @@ SCHEMA_MIGRATIONS = [
     ("1.0.0", "Initial CTI engine schema (cve, malware, dshield, news, ingestion_status)"),
     ("1.1.0", "Centralized semantic versioning and schema migrations control table"),
     ("1.2.0", "Add ransomware_victims table, Brazil telemetry, and EPSS scoring columns"),
+    ("1.3.0", "Add critical vendor threats query and recent ransomware spotlight"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -368,7 +369,37 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "scored_total": total_critical_cves + total_high_cves + total_medium_cves + total_low_cves
         }
 
+        
+        # Recent Critical Vendors (Vendors with recent critical/KEV exploits)
+        cur = await conn.execute("""
+            SELECT c1.vendor_project, c1.product, c1.cve_id, c1.vulnerability_name, 
+                   c1.cvss_score, c1.cvss_severity, c1.source, c1.date_added, 
+                   c1.known_ransomware_campaign_use, c1.epss_score
+            FROM cve_records c1
+            INNER JOIN (
+                SELECT vendor_project, MAX(date_added) as max_date
+                FROM cve_records
+                WHERE (source = 'cisa_kev' OR cvss_score >= 8.5)
+                  AND vendor_project IS NOT NULL AND TRIM(vendor_project) != ''
+                GROUP BY vendor_project
+            ) c2 ON c1.vendor_project = c2.vendor_project AND c1.date_added = c2.max_date
+            ORDER BY c1.date_added DESC
+            LIMIT 5;
+        """)
+        recent_critical_vendors = [dict(r) for r in await cur.fetchall()]
+
+        # Recent Ransomware Victims (Top 5)
+        cur = await conn.execute("""
+            SELECT id, victim_name, group_name, country, activity, domain, discovered, attackdate
+            FROM ransomware_victims
+            ORDER BY discovered DESC, updated_at DESC
+            LIMIT 5;
+        """)
+        recent_ransomware_victims = [dict(r) for r in await cur.fetchall()]
+
         return {
+            "recent_critical_vendors": recent_critical_vendors,
+            "recent_ransomware_victims": recent_ransomware_victims,
             "total_cves": total_cves,
             "total_kev": total_kev,
             "total_critical_cves": total_critical_cves,
