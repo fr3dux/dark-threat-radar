@@ -20,6 +20,7 @@ async def get_db():
 SCHEMA_MIGRATIONS = [
     ("1.0.0", "Initial CTI engine schema (cve, malware, dshield, news, ingestion_status)"),
     ("1.1.0", "Centralized semantic versioning and schema migrations control table"),
+    ("1.2.0", "Add ransomware_victims table, Brazil telemetry, and EPSS scoring columns"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -31,6 +32,17 @@ async def apply_migrations(conn: aiosqlite.Connection):
             description TEXT
         );
     """)
+
+    # Check cve_records columns for 1.2.0 migration (epss_score, epss_percentile)
+    cur = await conn.execute("PRAGMA table_info(cve_records);")
+    cve_cols = [row[1] for row in await cur.fetchall()]
+    if cve_cols:
+        if "epss_score" not in cve_cols:
+            await conn.execute("ALTER TABLE cve_records ADD COLUMN epss_score REAL;")
+        if "epss_percentile" not in cve_cols:
+            await conn.execute("ALTER TABLE cve_records ADD COLUMN epss_percentile REAL;")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_cve_epss ON cve_records(epss_score DESC);")
+
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     for version, description in SCHEMA_MIGRATIONS:
         cur = await conn.execute("SELECT version FROM schema_migrations WHERE version = ?;", (version,))
@@ -61,6 +73,8 @@ async def init_db():
                 known_ransomware_campaign_use TEXT,
                 cvss_score REAL,
                 cvss_severity TEXT,
+                epss_score REAL,
+                epss_percentile REAL,
                 raw_json TEXT,
                 updated_at TEXT
             );
@@ -68,6 +82,7 @@ async def init_db():
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_cve_date ON cve_records(date_added DESC);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_cve_score ON cve_records(cvss_score DESC);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_cve_source ON cve_records(source);")
+        
 
         # Malware Samples table
         await conn.execute("""
@@ -88,6 +103,29 @@ async def init_db():
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_malware_date ON malware_samples(first_seen DESC);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_malware_sig ON malware_samples(signature);")
+
+        # Ransomware Victims table
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS ransomware_victims (
+                id TEXT PRIMARY KEY,
+                victim_name TEXT NOT NULL,
+                group_name TEXT NOT NULL,
+                country TEXT,
+                activity TEXT,
+                domain TEXT,
+                discovered TEXT,
+                attackdate TEXT,
+                description TEXT,
+                claim_url TEXT,
+                screenshot TEXT,
+                url TEXT,
+                raw_json TEXT,
+                updated_at TEXT
+            );
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_group ON ransomware_victims(group_name);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_country ON ransomware_victims(country);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_discovered ON ransomware_victims(discovered DESC);")
 
         # DShield Infocon
         await conn.execute("""
@@ -150,7 +188,7 @@ async def init_db():
         """)
 
         # Seed feeds in ingestion_status if not present
-        feeds = ["cisa_kev", "nvd_cve", "dshield", "malware_bazaar", "news_feed"]
+        feeds = ["cisa_kev", "nvd_cve", "dshield", "malware_bazaar", "news_feed", "ransomware_live", "epss"]
         for feed in feeds:
             await conn.execute("""
                 INSERT OR IGNORE INTO ingestion_status (feed_name, last_sync, status, items_count, message)
@@ -301,6 +339,27 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         """)
         recent_news = [dict(r) for r in await cur.fetchall()]
 
+        # Total Ransomware Victims
+        cur = await conn.execute("SELECT COUNT(*) as count FROM ransomware_victims;")
+        row = await cur.fetchone()
+        total_ransomware_victims = row["count"] if row else 0
+
+        # Brazil Ransomware Victims
+        cur = await conn.execute("SELECT COUNT(*) as count FROM ransomware_victims WHERE UPPER(country) = 'BR' OR UPPER(country) = 'BRAZIL';")
+        row = await cur.fetchone()
+        total_brazil_victims = row["count"] if row else 0
+
+        # Top 5 Ransomware Groups
+        cur = await conn.execute("""
+            SELECT group_name, COUNT(*) as count 
+            FROM ransomware_victims 
+            WHERE group_name IS NOT NULL AND TRIM(group_name) != '' 
+            GROUP BY group_name 
+            ORDER BY count DESC 
+            LIMIT 5;
+        """)
+        top_ransomware_groups = [dict(r) for r in await cur.fetchall()]
+
         cvss_distribution = {
             "critical": total_critical_cves,
             "high": total_high_cves,
@@ -322,6 +381,9 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "total_dshield_ips": total_dshield_ips,
             "total_dshield_ports": total_dshield_ports,
             "total_news": total_news,
+            "total_ransomware_victims": total_ransomware_victims,
+            "total_brazil_victims": total_brazil_victims,
+            "top_ransomware_groups": top_ransomware_groups,
             "cvss_distribution": cvss_distribution,
             "top_vendors": top_vendors,
             "top_malware": top_malware,

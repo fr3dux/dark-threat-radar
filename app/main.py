@@ -13,6 +13,8 @@ from fastapi.templating import Jinja2Templates
 from app.config import HOST, PORT, BASE_DIR
 from app.version import __version__, __app_name__, __description__, get_version_info
 from app.schemas import (
+    RansomwareVictim,
+    RansomwareListResponse,
     VersionResponse,
     StatusResponse,
     StatsResponse,
@@ -296,6 +298,59 @@ async def api_news(
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
+@app.get("/api/ransomware", response_model=RansomwareListResponse, tags=["Ransomware"])
+async def api_ransomware(
+    q: Optional[str] = Query(None, description="Search victim, group, or domain"),
+    group: Optional[str] = Query("all", description="Filter by threat actor group"),
+    country: Optional[str] = Query("all", description="Filter by country code (e.g. BR)"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0)
+):
+    query = "SELECT * FROM ransomware_victims WHERE 1=1"
+    params = []
+
+    if q:
+        query += " AND (victim_name LIKE ? OR group_name LIKE ? OR domain LIKE ? OR description LIKE ?)"
+        wildcard = f"%{q}%"
+        params.extend([wildcard, wildcard, wildcard, wildcard])
+
+    if group and group != "all":
+        query += " AND LOWER(group_name) = ?"
+        params.append(group.lower())
+
+    if country and country != "all":
+        if country.upper() == "BR":
+            query += " AND (UPPER(country) = 'BR' OR UPPER(country) = 'BRAZIL')"
+        else:
+            query += " AND UPPER(country) = ?"
+            params.append(country.upper())
+
+    count_query = query.replace("SELECT *", "SELECT COUNT(*) as count")
+    async with get_db() as conn:
+        cur = await conn.execute(count_query, params)
+        row = await cur.fetchone()
+        total = row["count"] if row else 0
+
+        cur_br = await conn.execute("SELECT COUNT(*) as count FROM ransomware_victims WHERE UPPER(country) = 'BR' OR UPPER(country) = 'BRAZIL';")
+        row_br = await cur_br.fetchone()
+        brazil_total = row_br["count"] if row_br else 0
+
+        query += " ORDER BY discovered DESC, updated_at DESC LIMIT ? OFFSET ?;"
+        params.extend([limit, offset])
+
+        cur = await conn.execute(query, params)
+        rows = await cur.fetchall()
+        items = [dict(r) for r in rows]
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "brazil_total": brazil_total,
+        "items": items
+    }
+
+
 @app.get(
     "/api/artifact/{artifact_type}/{identifier:path}",
     response_model=ArtifactResponse,
@@ -354,6 +409,17 @@ async def api_artifact(artifact_type: str, identifier: str):
             data = dict(row)
             return {"type": "port", "identifier": identifier, "data": data}
 
+        elif artifact_type == "ransomware":
+            cur = await conn.execute("SELECT * FROM ransomware_victims WHERE id = ?;", (identifier,))
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Ransomware victim '{identifier}' not found")
+            data = dict(row)
+            if data.get("raw_json"):
+                try:
+                    data["raw_json"] = json.loads(data["raw_json"])
+                except Exception:
+                    pass
         elif artifact_type == "news":
             cur = await conn.execute("SELECT * FROM cti_news WHERE id = ?;", (identifier,))
             row = await cur.fetchone()
