@@ -12,7 +12,7 @@
   <header class="app-header">
     <div class="header-top">
       <div class="brand-section">
-        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v{{ version }}</span></span>
+        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.2.0</span></span>
         
         <!-- INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -57,6 +57,9 @@
       </button>
       <button class="tab-btn" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
         <span class="tab-icon">☵</span> NETWORK TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
+      </button>
+      <button class="tab-btn" id="tab-ransomware" data-target="panel-ransomware" onclick="switchTab('panel-ransomware', this)">
+        <span class="tab-icon">☠</span> RANSOMWARE TRACKER <span class="tab-count mono" id="tab-count-ransomware">{{ stats.total_ransomware_victims or 0 }}</span>
       </button>
       <button class="tab-btn" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
         <span class="tab-icon">✦</span> CTI NEWS & INTEL <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
@@ -460,7 +463,8 @@
               <th style="width: 100px;">SOURCE</th>
               <th style="width: 170px;">VENDOR / PRODUCT</th>
               <th>VULNERABILITY DESCRIPTION</th>
-              <th style="width: 85px;">CVSS</th>
+              <th style="width: 75px;">CVSS</th>
+              <th style="width: 75px;">EPSS</th>
               <th style="width: 110px;">RANSOMWARE</th>
               <th style="width: 110px;">ADDED DATE</th>
             </tr>
@@ -582,6 +586,47 @@
     </div>
 
     <!-- ========================================== -->
+    <!-- ========================================== -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.2.0)           -->
+    <!-- Full list of victim disclosures            -->
+    <!-- ========================================== -->
+    <div id="panel-ransomware" class="view-panel">
+      <div class="pagination-bar">
+        <div class="pagination-info mono" id="ransomware-page-info">Showing 0 - 0 of 0 victims</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="ransomware-btn-prev" onclick="ransomwarePrevPage()">&larr; PREVIOUS</button>
+          <span class="page-number-display mono" id="ransomware-page-num">PAGE 1 / 1</span>
+          <button class="btn btn-sm" id="ransomware-btn-next" onclick="ransomwareNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="ransomware-table">
+          <thead>
+            <tr>
+              <th style="width: 130px;">DISCOVERED</th>
+              <th style="width: 140px;">THREAT GROUP</th>
+              <th>VICTIM NAME</th>
+              <th style="width: 100px;">COUNTRY</th>
+              <th style="width: 180px;">DOMAIN / TARGET</th>
+              <th style="width: 110px;">ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="ransomware-tbody">
+            <tr><td colspan="6" class="loading-row">Carregando telemetria de ransomware...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-bar" style="margin-top: 8px;">
+        <div class="pagination-info mono" id="ransomware-page-info-bottom">Showing 0 - 0 of 0 victims</div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm" id="ransomware-btn-prev-b" onclick="ransomwarePrevPage()">&larr; PREVIOUS</button>
+          <button class="btn btn-sm" id="ransomware-btn-next-b" onclick="ransomwareNextPage()">NEXT &rarr;</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 5: CTI NEWS & INTEL                    -->
     <!-- Full stream of intelligence advisories     -->
     <!-- ========================================== -->
@@ -615,7 +660,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>ThreatRadar v{{ version }} // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>ThreatRadar v1.2.0 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 

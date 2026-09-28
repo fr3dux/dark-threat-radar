@@ -5,6 +5,7 @@ let syncPollingInterval = null;
 
 // Pagination states
 const cveState = { page: 1, limit: 50, total: 0 };
+const ransomwareState = { page: 1, limit: 50, total: 0 };
 const malwareState = { page: 1, limit: 50, total: 0 };
 const newsState = { page: 1, limit: 20, total: 0 };
 
@@ -46,6 +47,7 @@ function switchTab(panelId, btnElement) {
   const cveFilters = document.getElementById('cve-filters');
   const malwareFilters = document.getElementById('malware-filters');
   const newsFilters = document.getElementById('news-filters');
+  const ransomwareFilters = document.getElementById('ransomware-filters');
 
   if (panelId === 'panel-dashboard') {
     toolbar.style.display = 'none';
@@ -54,10 +56,13 @@ function switchTab(panelId, btnElement) {
     cveFilters.style.display = (panelId === 'panel-cves') ? 'flex' : 'none';
     malwareFilters.style.display = (panelId === 'panel-malware') ? 'flex' : 'none';
     newsFilters.style.display = (panelId === 'panel-news') ? 'flex' : 'none';
+    if (ransomwareFilters) ransomwareFilters.style.display = (panelId === 'panel-ransomware') ? 'flex' : 'none';
   }
 
   // Lazy load data on tab switch if not already populated
-  if (panelId === 'panel-cves') {
+  if (panelId === 'panel-ransomware') {
+    loadRansomware();
+  } else if (panelId === 'panel-cves') {
     loadCves();
   } else if (panelId === 'panel-malware') {
     loadMalware();
@@ -78,7 +83,9 @@ function goToTabWithFilter(panelId, filters) {
   }
 
   // Apply filters
-  if (panelId === 'panel-cves') {
+  if (panelId === 'panel-ransomware') {
+    loadRansomware();
+  } else if (panelId === 'panel-cves') {
     if (filters.severity) document.getElementById('filter-cve-severity').value = filters.severity;
     else if (!filters.keepSeverity) document.getElementById('filter-cve-severity').value = 'all';
 
@@ -697,7 +704,8 @@ async function triggerManualSync() {
         if (currentTab === 'panel-cves') loadCves();
         else if (currentTab === 'panel-malware') loadMalware();
         else if (currentTab === 'panel-dshield') loadDshield();
-        else if (currentTab === 'panel-news') loadNews();
+        else if (currentTab === 'panel-ransomware') loadRansomware();
+  else if (currentTab === 'panel-news') loadNews();
       }
     }, 2500);
 
@@ -799,4 +807,109 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+
+// ==================== RANSOMWARE TRACKER (v1.2.0) ====================
+
+async function loadRansomware() {
+  const q = document.getElementById('global-search').value.trim();
+  const country = document.getElementById('filter-ransomware-country') ? document.getElementById('filter-ransomware-country').value : 'all';
+
+  const tbody = document.getElementById('ransomware-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-row">Carregando telemetria de ransomware...</td></tr>';
+
+  const offset = (ransomwareState.page - 1) * ransomwareState.limit;
+
+  try {
+    const params = new URLSearchParams({
+      limit: ransomwareState.limit,
+      offset: offset
+    });
+    if (q) params.set('q', q);
+    if (country !== 'all') params.set('country', country);
+
+    const res = await fetch(`/api/ransomware?${params.toString()}`);
+    const data = await res.json();
+
+    ransomwareState.total = data.total;
+    updateRansomwarePagination();
+
+    const countTab = document.getElementById('tab-count-ransomware');
+    if (countTab) countTab.textContent = data.total;
+
+    if (!data.items || data.items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Nenhuma vítima de ransomware encontrada para os filtros atuais.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.items.map(item => {
+      const isBR = (item.country && (item.country.toUpperCase() === 'BR' || item.country.toUpperCase() === 'BRAZIL'));
+      const countryBadge = isBR 
+        ? '<span class="badge badge-crit font-bold" style="background: rgba(248, 81, 73, 0.2);">🇧🇷 BRASIL</span>'
+        : (item.country ? `<span class="badge badge-filetype mono">${escapeHtml(item.country)}</span>` : '<span class="mono text-muted">-</span>');
+
+      return `
+      <tr onclick="openArtifact('ransomware', '${item.id}')">
+        <td class="mono text-muted">${escapeHtml((item.discovered || item.attackdate || '').substring(0, 16))}</td>
+        <td><span class="badge badge-ransomware mono font-bold">${escapeHtml(item.group_name || 'UNKNOWN')}</span></td>
+        <td class="font-bold">${escapeHtml(item.victim_name)}</td>
+        <td>${countryBadge}</td>
+        <td class="mono" style="color: var(--accent-blue);">${escapeHtml(item.domain || item.activity || '-')}</td>
+        <td><button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openArtifact('ransomware', '${item.id}')">DETALHES</button></td>
+      </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load ransomware data:', err);
+    tbody.innerHTML = `<tr><td colspan="6" class="error-row">Erro ao carregar feed de ransomware: ${err.message}</td></tr>`;
+  }
+}
+
+function updateRansomwarePagination() {
+  const totalPages = Math.ceil(ransomwareState.total / ransomwareState.limit) || 1;
+  const start = ransomwareState.total === 0 ? 0 : (ransomwareState.page - 1) * ransomwareState.limit + 1;
+  const end = Math.min(ransomwareState.page * ransomwareState.limit, ransomwareState.total);
+
+  const text = `Exibindo ${start} - ${end} de ${ransomwareState.total} vítimas`;
+  const infoTop = document.getElementById('ransomware-page-info');
+  const infoBottom = document.getElementById('ransomware-page-info-bottom');
+  if (infoTop) infoTop.textContent = text;
+  if (infoBottom) infoBottom.textContent = text;
+
+  const pageNum = document.getElementById('ransomware-page-num');
+  if (pageNum) pageNum.textContent = `PÁGINA ${ransomwareState.page} / ${totalPages}`;
+
+  const prevBtn = document.getElementById('ransomware-btn-prev');
+  const prevBtnB = document.getElementById('ransomware-btn-prev-b');
+  const nextBtn = document.getElementById('ransomware-btn-next');
+  const nextBtnB = document.getElementById('ransomware-btn-next-b');
+
+  if (prevBtn) prevBtn.disabled = (ransomwareState.page <= 1);
+  if (prevBtnB) prevBtnB.disabled = (ransomwareState.page <= 1);
+  if (nextBtn) nextBtn.disabled = (ransomwareState.page >= totalPages);
+  if (nextBtnB) nextBtnB.disabled = (ransomwareState.page >= totalPages);
+}
+
+function ransomwarePrevPage() {
+  if (ransomwareState.page > 1) {
+    ransomwareState.page--;
+    loadRansomware();
+  }
+}
+
+function ransomwareNextPage() {
+  const totalPages = Math.ceil(ransomwareState.total / ransomwareState.limit);
+  if (ransomwareState.page < totalPages) {
+    ransomwareState.page++;
+    loadRansomware();
+  }
+}
+
+function changeRansomwarePageSize(newSize) {
+  ransomwareState.limit = parseInt(newSize, 10);
+  ransomwareState.page = 1;
+  loadRansomware();
 }

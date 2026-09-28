@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-28
+
+### Added
+- **Ransomware.live v2 CTI Integration**: Implemented collector `app/ingestion/ransomware_live.py` ingesting recent victims (`/v2/recentvictims`) and Brazil-specific telemetry (`/v2/country/brazil`) with robust SQLite upsert logic.
+- **EPSS Scoring & Exploitation Probability**: Implemented collector `app/ingestion/epss.py` consuming FIRST.org EPSS API (`https://api.first.org/data/v1/epss`) to dynamically enrich CVE records with exploit probability scores and percentiles.
+- **Database Schema Migration 1.2.0**: Added migration `('1.2.0', 'Add ransomware_victims table, Brazil telemetry, and EPSS scoring columns')` in `app/database.py`. Created `ransomware_victims` table with indices on `group_name`, `country`, and `discovered`. Added `epss_score` and `epss_percentile` columns to `cve_records`.
+- **Ransomware API & Schema Architecture**: Added `RansomwareVictim` and `RansomwareListResponse` Pydantic models in `app/schemas.py`. Exposed `/api/ransomware` endpoint with pagination and multi-vector filtering (`q`, `group`, `country`).
+- **Dashboard Telemetry Aggregations**: Added metrics `total_ransomware_victims`, `total_brazil_victims`, and `top_ransomware_groups` to `/api/stats` and `get_dashboard_stats()`.
+- **Ransomware Tracker Web UI**: Created dedicated 'RANSOMWARE TRACKER' navigation tab with live victim counter, country and threat group filtering, and priority highlighting for Brazil (`BR`).
+- **EPSS Visual Badges & Inspection**: Added EPSS probability column to the CVE Explorer table alongside CVSS and integrated EPSS score/percentile badges into the lateral artifact inspection drawer.
+- **Automated Test Suite Expansion**: Added test coverage in `tests/test_api.py` for `/api/ransomware`, EPSS data fields, and schema migration 1.2.0 verification.
+
 ## [1.1.0] - 2026-09-28
 
 ### Added

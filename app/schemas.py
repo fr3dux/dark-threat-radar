@@ -225,3 +225,29 @@ class ErrorResponse(BaseModel):
     error: str
     status_code: int
     detail: Optional[Any] = None
+
+
+# ==================== RANSOMWARE SCHEMAS (v1.2.0) ====================
+
+class RansomwareVictim(BaseModel):
+    id: str
+    victim_name: str
+    group_name: str
+    country: Optional[str] = None
+    activity: Optional[str] = None
+    domain: Optional[str] = None
+    discovered: Optional[str] = None
+    attackdate: Optional[str] = None
+    description: Optional[str] = None
+    claim_url: Optional[str] = None
+    screenshot: Optional[str] = None
+    url: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class RansomwareListResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    brazil_total: int
+    items: List[RansomwareVictim]

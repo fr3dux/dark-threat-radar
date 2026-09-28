@@ -156,3 +156,24 @@ def test_database_schema_migrations():
     versions = [m["version"] for m in migrations]
     assert "1.0.0" in versions
     assert "1.1.0" in versions
+
+
+def test_api_ransomware(client):
+    """Test /api/ransomware returns victim list and metadata."""
+    response = client.get("/api/ransomware?limit=10&offset=0")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total" in data
+    assert "brazil_total" in data
+    assert "items" in data
+    assert isinstance(data["items"], list)
+
+
+def test_schema_migration_120(client):
+    """Test database schema contains 1.2.0 migration record."""
+    import asyncio
+    async def check():
+        migrations = await get_schema_migrations()
+        versions = [m["version"] for m in migrations]
+        assert "1.2.0" in versions
+    asyncio.run(check())
