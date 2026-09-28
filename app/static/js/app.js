@@ -49,7 +49,7 @@ function switchTab(panelId, btnElement) {
   const newsFilters = document.getElementById('news-filters');
   const ransomwareFilters = document.getElementById('ransomware-filters');
 
-  if (panelId === 'panel-dashboard' || panelId === 'panel-attackmap') {
+  if (panelId === 'panel-dashboard') {
     toolbar.style.display = 'none';
   } else {
     toolbar.style.display = 'flex';
@@ -60,9 +60,7 @@ function switchTab(panelId, btnElement) {
   }
 
   // Lazy load data on tab switch if not already populated
-  if (panelId === 'panel-attackmap') {
-    initAttackMap();
-  } else if (panelId === 'panel-ransomware') {
+  if (panelId === 'panel-ransomware') {
     loadRansomware();
   } else if (panelId === 'panel-cves') {
     loadCves();
@@ -85,9 +83,7 @@ function goToTabWithFilter(panelId, filters) {
   }
 
   // Apply filters
-  if (panelId === 'panel-attackmap') {
-    initAttackMap();
-  } else if (panelId === 'panel-ransomware') {
+  if (panelId === 'panel-ransomware') {
     loadRansomware();
   } else if (panelId === 'panel-cves') {
     if (filters.severity) document.getElementById('filter-cve-severity').value = filters.severity;
@@ -916,4 +912,261 @@ function changeRansomwarePageSize(newSize) {
   ransomwareState.limit = parseInt(newSize, 10);
   ransomwareState.page = 1;
   loadRansomware();
+}
+
+
+
+// ==================== LIVE CYBERATTACK MAP ENGINE (v1.5.1) ====================
+
+let mapCanvas = null;
+let mapCtx = null;
+let attackMapInitialized = false;
+let activeArcs = [];
+let impactRipples = [];
+
+// Equirectangular continent paths for realistic world map projection
+const WORLD_CONTINENTS = [
+  // North America
+  [[-130, 55], [-120, 60], [-100, 65], [-80, 60], [-60, 50], [-70, 42], [-75, 35], [-80, 25], [-90, 30], [-105, 25], [-115, 32], [-125, 40], [-125, 50]],
+  // Central America
+  [[-105, 25], [-90, 18], [-83, 8], [-77, 8], [-80, 15], [-95, 20], [-105, 25]],
+  // South America
+  [[-80, 8], [-60, 10], [-45, -2], [-35, -7], [-40, -22], [-55, -35], [-68, -54], [-75, -45], [-72, -30], [-80, -5], [-80, 8]],
+  // Europe & Scandinavia
+  [[-10, 36], [0, 45], [10, 54], [20, 60], [30, 70], [25, 71], [15, 65], [5, 60], [-5, 50], [-9, 42], [-10, 36]],
+  // British Isles
+  [[-5, 50], [-3, 58], [-10, 54], [-5, 50]],
+  // Africa
+  [[-17, 30], [10, 37], [32, 31], [40, 15], [50, 12], [40, -5], [35, -20], [28, -34], [18, -34], [12, -15], [8, 4], [-5, 5], [-15, 12], [-17, 22], [-17, 30]],
+  // Asia
+  [[35, 32], [50, 25], [60, 25], [70, 22], [80, 15], [90, 22], [105, 20], [105, 10], [120, 25], [130, 32], [140, 40], [140, 55], [130, 65], [110, 72], [80, 72], [60, 68], [40, 55], [35, 42], [35, 32]],
+  // Japan
+  [[130, 32], [140, 40], [142, 44], [140, 36], [130, 32]],
+  // Australia
+  [[115, -22], [130, -15], [145, -15], [152, -28], [150, -38], [138, -38], [128, -32], [115, -35], [115, -22]]
+];
+
+function geoToCanvas(lon, lat, width, height) {
+  const x = (lon + 180) * (width / 360);
+  const y = ((-lat) + 90) * (height / 180);
+  return { x, y };
+}
+
+function initAttackMap() {
+  mapCanvas = document.getElementById('attack-map-canvas');
+  if (!mapCanvas) return;
+  mapCtx = mapCanvas.getContext('2d');
+
+  function resizeCanvas() {
+    if (!mapCanvas) return;
+    const parent = mapCanvas.parentElement;
+    if (parent && parent.clientWidth > 50) {
+      mapCanvas.width = parent.clientWidth;
+      mapCanvas.height = parent.clientHeight || 420;
+    }
+  }
+
+  resizeCanvas();
+  setTimeout(resizeCanvas, 100);
+  setTimeout(resizeCanvas, 400);
+  window.addEventListener('resize', resizeCanvas);
+
+  if (!attackMapInitialized) {
+    attackMapInitialized = true;
+    startAttackSimulation();
+    requestAnimationFrame(renderAttackMapFrame);
+  }
+}
+
+function startAttackSimulation() {
+  async function fetchLiveAttacks() {
+    try {
+      const res = await fetch('/api/attacks/live');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.attacks && data.attacks.length > 0) {
+        data.attacks.forEach((atk, idx) => {
+          setTimeout(() => {
+            spawnAttackArc(atk);
+            prependLiveStream(atk);
+          }, idx * 380);
+        });
+      }
+    } catch (e) {
+      console.warn('Live attack stream poller error:', e);
+    }
+  }
+
+  // Initial trigger + periodic polling
+  fetchLiveAttacks();
+  setInterval(fetchLiveAttacks, 5000);
+}
+
+function spawnAttackArc(atk) {
+  if (!mapCanvas) return;
+  const w = mapCanvas.width;
+  const h = mapCanvas.height;
+
+  const start = geoToCanvas(atk.src_lon, atk.src_lat, w, h);
+  const end = geoToCanvas(atk.dst_lon, atk.dst_lat, w, h);
+
+  const midX = (start.x + end.x) / 2;
+  const midY = Math.min(start.y, end.y) - Math.abs(start.x - end.x) * 0.22 - 35;
+
+  activeArcs.push({
+    start,
+    end,
+    ctrl: { x: midX, y: midY },
+    progress: 0,
+    speed: 0.012 + Math.random() * 0.008,
+    color: atk.severity === 'CRITICAL' ? '#f85149' : (atk.port === 443 ? '#38bdf8' : '#eab308'),
+    data: atk
+  });
+}
+
+function prependLiveStream(atk) {
+  const container = document.getElementById('map-live-stream');
+  if (!container) return;
+
+  const placeholder = container.querySelector('.stream-item-placeholder');
+  if (placeholder) placeholder.remove();
+
+  const item = document.createElement('div');
+  item.className = 'stream-item';
+  item.innerHTML = `
+    <div class="stream-item-top">
+      <div class="stream-trajectory">
+        <span class="mono font-bold" style="color: var(--accent-red);">${atk.src_country}</span>
+        <span class="text-muted">&rarr;</span>
+        <span class="mono font-bold" style="color: var(--accent-green);">${atk.dst_country}</span>
+      </div>
+      <span class="badge ${atk.severity === 'CRITICAL' ? 'badge-crit' : 'badge-warn'} mono font-bold">${atk.port} / ${atk.service}</span>
+    </div>
+    <div class="stream-meta">
+      <span class="mono text-muted">${atk.src_ip}</span>
+      <span class="mono text-muted">${atk.time}</span>
+    </div>
+  `;
+
+  container.prepend(item);
+  while (container.children.length > 25) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+function renderAttackMapFrame() {
+  if (!mapCanvas || !mapCtx) return;
+  const ctx = mapCtx;
+  const w = mapCanvas.width;
+  const h = mapCanvas.height;
+
+  // Clear background
+  ctx.fillStyle = '#06090f';
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle grid lines
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 50) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y < h; y += 50) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  // Draw continents
+  ctx.fillStyle = '#141e2e';
+  ctx.strokeStyle = '#1e2d42';
+  ctx.lineWidth = 1.2;
+
+  WORLD_CONTINENTS.forEach(poly => {
+    ctx.beginPath();
+    poly.forEach((pt, i) => {
+      const c = geoToCanvas(pt[0], pt[1], w, h);
+      if (i === 0) ctx.moveTo(c.x, c.y);
+      else ctx.lineTo(c.x, c.y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // Animate Ballistic Laser Arcs
+  for (let i = activeArcs.length - 1; i >= 0; i--) {
+    const arc = activeArcs[i];
+    arc.progress += arc.speed;
+
+    const t = Math.min(arc.progress, 1);
+    const currX = (1 - t) * (1 - t) * arc.start.x + 2 * (1 - t) * t * arc.ctrl.x + t * t * arc.end.x;
+    const currY = (1 - t) * (1 - t) * arc.start.y + 2 * (1 - t) * t * arc.ctrl.y + t * t * arc.end.y;
+
+    // Trajectory curve
+    ctx.strokeStyle = arc.color + '33';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(arc.start.x, arc.start.y);
+    ctx.quadraticCurveTo(arc.ctrl.x, arc.ctrl.y, arc.end.x, arc.end.y);
+    ctx.stroke();
+
+    // Laser head
+    ctx.fillStyle = arc.color;
+    ctx.shadowColor = arc.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(currX, currY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Origin dot
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.beginPath();
+    ctx.arc(arc.start.x, arc.start.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (arc.progress >= 1) {
+      impactRipples.push({
+        x: arc.end.x,
+        y: arc.end.y,
+        radius: 3,
+        alpha: 1,
+        color: arc.color
+      });
+      activeArcs.splice(i, 1);
+    }
+  }
+
+  // Impact Ripples
+  for (let i = impactRipples.length - 1; i >= 0; i--) {
+    const rip = impactRipples[i];
+    rip.radius += 0.75;
+    rip.alpha -= 0.025;
+
+    ctx.strokeStyle = rip.color;
+    ctx.globalAlpha = Math.max(0, rip.alpha);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    if (rip.alpha <= 0) {
+      impactRipples.splice(i, 1);
+    }
+  }
+
+  requestAnimationFrame(renderAttackMapFrame);
+}
+
+
+// Ensure attack map starts immediately on load
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(initAttackMap, 100);
+} else {
+  document.addEventListener('DOMContentLoaded', initAttackMap);
 }

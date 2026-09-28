@@ -180,7 +180,7 @@ def test_schema_migration_120(client):
 
 
 def test_schema_migration_130(client):
-    """Test database schema contains 1.5.0 migration record."""
+    """Test database schema contains 1.5.1 migration record."""
     import asyncio
     async def check():
         migrations = await get_schema_migrations()
@@ -215,7 +215,7 @@ def test_api_attacks_live(client):
 
 
 def test_schema_migration_150(client):
-    """Test database schema contains 1.5.0 migration record."""
+    """Test database schema contains 1.5.1 migration record."""
     import asyncio
     async def check():
         migrations = await get_schema_migrations()
