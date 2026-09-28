@@ -180,7 +180,7 @@ def test_schema_migration_120(client):
 
 
 def test_schema_migration_130(client):
-    """Test database schema contains 1.4.0 migration record."""
+    """Test database schema contains 1.4.1 migration record."""
     import asyncio
     async def check():
         migrations = await get_schema_migrations()
