@@ -1191,3 +1191,41 @@ table.data-table tr:last-child td {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ==================== VERSIONING & FOOTER ==================== */
+.version-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-green);
+  background: rgba(63, 185, 80, 0.12);
+  border: 1px solid rgba(63, 185, 80, 0.35);
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.app-footer {
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  padding: 14px 20px;
+  margin-top: 24px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+.footer-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footer-link:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+

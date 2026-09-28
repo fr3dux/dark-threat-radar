@@ -17,6 +17,30 @@ async def get_db():
     finally:
         await conn.close()
 
+SCHEMA_MIGRATIONS = [
+    ("1.0.0", "Initial CTI engine schema (cve, malware, dshield, news, ingestion_status)"),
+    ("1.1.0", "Centralized semantic versioning and schema migrations control table"),
+]
+
+async def apply_migrations(conn: aiosqlite.Connection):
+    """Ensure database schema migration tracking table exists and current migrations are registered."""
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL,
+            description TEXT
+        );
+    """)
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    for version, description in SCHEMA_MIGRATIONS:
+        cur = await conn.execute("SELECT version FROM schema_migrations WHERE version = ?;", (version,))
+        row = await cur.fetchone()
+        if not row:
+            await conn.execute("""
+                INSERT INTO schema_migrations (version, applied_at, description)
+                VALUES (?, ?, ?);
+            """, (version, now_str, description))
+
 # For backwards compatibility if imported
 get_db_connection = get_db
 
@@ -133,7 +157,17 @@ async def init_db():
                 VALUES (?, NULL, 'never_run', 0, 'Awaiting initial ingestion');
             """, (feed,))
 
+        # Apply schema migrations tracking
+        await apply_migrations(conn)
+
         await conn.commit()
+
+async def get_schema_migrations() -> List[Dict[str, Any]]:
+    """Return all applied schema migrations ordered by applied_at."""
+    async with get_db() as conn:
+        cursor = await conn.execute("SELECT version, applied_at, description FROM schema_migrations ORDER BY applied_at ASC;")
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
 
 async def update_feed_status(feed_name: str, status: str, items_count: int = 0, message: str = ""):
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
