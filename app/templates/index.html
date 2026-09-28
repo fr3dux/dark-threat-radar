@@ -188,7 +188,37 @@
       <!-- Executive Threat Posture & Top Distributions Grid -->
       <div class="dashboard-grid">
         
-        <!-- Widget 1: CVSS Severity Breakdown & Threat Posture -->
+<!-- Featured Top Widget: CTI News Spotlight (Top 5 Breaking Intelligence Advisories) -->
+        <div class="dash-card dash-card-featured">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet cyan">●</span> CTI INTEL SPOTLIGHT: LATEST ADVISORIES</span>
+              <span class="badge badge-source">LIVE STREAM</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VER TODAS AS NOTÍCIAS &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 12px;">
+            <div class="spotlight-news-grid" id="dash-news-list">
+              {% for news in stats.recent_news %}
+              <div class="spotlight-news-card" onclick="openArtifact('news', '{{ news.id }}')">
+                <div class="spotlight-news-header">
+                  <span class="badge badge-source mono">{{ news.source }}</span>
+                  <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(24) }}</span>
+                </div>
+                <div class="spotlight-news-title">{{ news.title }}</div>
+                {% if news.snippet %}
+                <div class="spotlight-news-snippet">{{ news.snippet | truncate(120) }}</div>
+                {% endif %}
+                <div class="spotlight-news-action">
+                  <span>INSPECIONAR &rarr;</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+                <!-- Widget 1: CVSS Severity Breakdown & Threat Posture -->
         <div class="dash-card">
           <div class="dash-card-header">
             <span class="dash-card-title"><span class="widget-bullet crit">●</span> CVSS SEVERITY DISTRIBUTION</span>
@@ -405,33 +435,7 @@
           </div>
         </div>
 
-        <!-- Spotlight 2: CTI News Spotlight (Top 5 Recent Intelligence Advisories) -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet cyan">●</span> CTI INTEL SPOTLIGHT: LATEST ADVISORIES</span>
-              <span class="badge badge-nvd">LIVE FEEDS</span>
-            </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VER TODAS AS NOTÍCIAS &rarr;</button>
-          </div>
-          <div class="dash-card-body" style="padding: 8px 12px;">
-            <div class="spotlight-news-list" id="dash-news-list">
-              {% for news in stats.recent_news %}
-              <div class="spotlight-news-item" onclick="openArtifact('news', '{{ news.id }}')">
-                <div class="spotlight-news-header">
-                  <span class="badge badge-filetype mono">{{ news.source }}</span>
-                  <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(26) }}</span>
-                </div>
-                <div class="spotlight-news-title">{{ news.title }}</div>
-                {% if news.snippet %}
-                <div class="spotlight-news-snippet">{{ news.snippet | truncate(110) }}</div>
-                {% endif %}
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
+        
       </div>
 
     </div>
