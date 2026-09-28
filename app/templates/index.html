@@ -8,57 +8,66 @@
 </head>
 <body>
 
-  <!-- ==================== UNIFIED ENTERPRISE TOP NAVBAR (v1.4.0) ==================== -->
+  <!-- ==================== APP HEADER WITH RESTORED FEEDS RIBBON ==================== -->
   <header class="app-header">
-    <div class="header-inner">
-      <!-- Left: Brand & Semantic Version -->
+    <div class="header-top">
+      <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">THREAT-RADAR</span>
-        <span class="version-badge">v1.4.0</span>
+        <span class="brand-title">THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.4.1</span></span>
+        
+        <!-- SANS INFOCON Badge -->
+        {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
+        <div id="infocon-badge" class="infocon-badge infocon-{{ infocon_status }}" title="SANS Internet Storm Center INFOCON Status">
+          <span class="pulse-indicator"></span>
+          INFOCON: <span id="infocon-val">{{ infocon_status | upper }}</span>
+        </div>
       </div>
 
-      <!-- Center: Streamlined Navigation Tabs -->
-      <nav class="nav-menu">
-        <button class="tab-btn nav-tab active" id="tab-dashboard" data-target="panel-dashboard" onclick="switchTab('panel-dashboard', this)">
-          DASHBOARD
-        </button>
-        <button class="tab-btn nav-tab" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
-          CVE EXPLORER <span class="tab-count nav-tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
-        </button>
-        <button class="tab-btn nav-tab" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
-          MALWARE FEED <span class="tab-count nav-tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
-        </button>
-        <button class="tab-btn nav-tab" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
-          TELEMETRY <span class="tab-count nav-tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
-        </button>
-        <button class="tab-btn nav-tab" id="tab-ransomware" data-target="panel-ransomware" onclick="switchTab('panel-ransomware', this)">
-          RANSOMWARE <span class="tab-count nav-tab-count mono" id="tab-count-ransomware">{{ stats.total_ransomware_victims or 0 }}</span>
-        </button>
-        <button class="tab-btn nav-tab" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
-          ADVISORIES <span class="tab-count nav-tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
-        </button>
-      </nav>
-
-      <!-- Right: Live System & SANS Threat Posture -->
-      <div class="header-status-group">
-        <!-- SANS INFOCON Beacon -->
-        {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
-        <div id="infocon-badge" class="infocon-pill infocon-{{ infocon_status }}" title="SANS ISC Global Threat Level">
-          <span class="status-indicator-dot"></span>
-          <span>INFOCON: <span id="infocon-val">{{ infocon_status | upper }}</span></span>
+      <!-- Center: Synchronized CTI Feeds Ribbon (RESTORED) -->
+      <div class="feeds-status-bar" id="feeds-status-container">
+        {% for feed in feed_statuses %}
+        <div class="feed-chip" title="{{ feed.message or '' }}" data-feed="{{ feed.feed_name }}">
+          <span class="status-dot {{ feed.status }}"></span>
+          <span>{{ feed.feed_name | upper }}</span>
+          <span class="mono" style="color: var(--text-muted);">({{ feed.items_count }})</span>
         </div>
+        {% endfor %}
+      </div>
 
-        <!-- 5-Minute Continuous Auto-Sync Indicator -->
-        <div class="auto-sync-pill" id="auto-sync-indicator" title="Ingestão contínua automática a cada 5 minutos">
-          <span class="status-indicator-dot pulse-sync" id="sync-dot"></span>
-          <span class="mono" id="sync-status-text">AUTO-SYNC (5M)</span>
+      <!-- Right: Automated 5-Minute Sync Status & Interactive API Documentation -->
+      <div class="header-actions">
+        <div class="auto-sync-badge" title="Sincronização autônoma contínua a cada 5 minutos">
+          <span class="status-indicator-dot pulse-sync"></span>
+          <span class="mono font-bold" style="color: var(--accent-green); font-size: 11px;">AUTO-SYNC (5M)</span>
         </div>
-
-        <!-- Direct API Link -->
-        <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation">API</a>
+        <a href="/docs" target="_blank" class="nav-link-docs mono" title="Documentação Interativa da API REST (Swagger/OpenAPI)">API DOCS</a>
       </div>
     </div>
   </header>
+
+  <!-- ==================== NAVIGATION TABS ==================== -->
+  <nav class="nav-bar">
+    <div class="tab-group">
+      <button class="tab-btn active" id="tab-dashboard" data-target="panel-dashboard" onclick="switchTab('panel-dashboard', this)">
+        <span class="tab-icon">◈</span> DASHBOARD PRINCIPAL
+      </button>
+      <button class="tab-btn" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
+        <span class="tab-icon">⛨</span> CVE EXPLORER <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
+      </button>
+      <button class="tab-btn" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
+        <span class="tab-icon">☣</span> MALWARE FEED <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
+      </button>
+      <button class="tab-btn" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
+        <span class="tab-icon">☵</span> NETWORK TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
+      </button>
+      <button class="tab-btn" id="tab-ransomware" data-target="panel-ransomware" onclick="switchTab('panel-ransomware', this)">
+        <span class="tab-icon">☠</span> RANSOMWARE TRACKER <span class="tab-count mono" id="tab-count-ransomware">{{ stats.total_ransomware_victims or 0 }}</span>
+      </button>
+      <button class="tab-btn" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
+        <span class="tab-icon">✦</span> CTI NEWS & INTEL <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
+      </button>
+    </div>
+  </nav>
 
   <section class="metrics-strip">
     <div class="metric-card">
@@ -641,7 +650,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.4.0)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.4.1)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -714,7 +723,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>ThreatRadar v1.4.0 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>ThreatRadar v1.4.1 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
