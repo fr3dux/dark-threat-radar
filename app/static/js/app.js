@@ -842,7 +842,7 @@ async function loadRansomware() {
     if (countTab) countTab.textContent = data.total;
 
     if (!data.items || data.items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Nenhuma vítima de ransomware encontrada para os filtros atuais.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No ransomware victims found for current filters.</td></tr>';
       return;
     }
 
@@ -866,7 +866,7 @@ async function loadRansomware() {
 
   } catch (err) {
     console.error('Failed to load ransomware data:', err);
-    tbody.innerHTML = `<tr><td colspan="6" class="error-row">Erro ao carregar feed de ransomware: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="error-row">Error loading ransomware feed: ${err.message}</td></tr>`;
   }
 }
 
@@ -875,14 +875,14 @@ function updateRansomwarePagination() {
   const start = ransomwareState.total === 0 ? 0 : (ransomwareState.page - 1) * ransomwareState.limit + 1;
   const end = Math.min(ransomwareState.page * ransomwareState.limit, ransomwareState.total);
 
-  const text = `Exibindo ${start} - ${end} de ${ransomwareState.total} vítimas`;
+  const text = `Showing ${start} - ${end} of ${ransomwareState.total} victims`;
   const infoTop = document.getElementById('ransomware-page-info');
   const infoBottom = document.getElementById('ransomware-page-info-bottom');
   if (infoTop) infoTop.textContent = text;
   if (infoBottom) infoBottom.textContent = text;
 
   const pageNum = document.getElementById('ransomware-page-num');
-  if (pageNum) pageNum.textContent = `PÁGINA ${ransomwareState.page} / ${totalPages}`;
+  if (pageNum) pageNum.textContent = `PAGE ${ransomwareState.page} / ${totalPages}`;
 
   const prevBtn = document.getElementById('ransomware-btn-prev');
   const prevBtnB = document.getElementById('ransomware-btn-prev-b');
@@ -1205,14 +1205,14 @@ async function runEmailLeakCheck() {
 
   const email = input.value.trim();
   if (!email || !email.includes('@')) {
-    alert('Por favor, digite um endereço de e-mail válido.');
+    alert('Please enter a valid email address.');
     return;
   }
 
   btn.disabled = true;
-  btn.innerText = 'CONSULTANDO...';
+  btn.innerText = 'QUERYING...';
   resultsBox.style.display = 'block';
-  resultsBox.innerHTML = '<div class="loading-row">Consultando base global do XposedOrNot...</div>';
+  resultsBox.innerHTML = '<div class="loading-row">Querying XposedOrNot global breach database...</div>';
 
   try {
     const res = await fetch('/api/leak-check/email', {
@@ -1230,25 +1230,25 @@ async function runEmailLeakCheck() {
 
       resultsBox.innerHTML = `
         <div class="leak-status-banner compromised">
-          <div class="leak-status-title">⚠️ E-MAIL COMPROMETIDO EM VAZAMENTOS</div>
-          <div class="leak-status-desc">O e-mail <strong>${data.email}</strong> foi encontrado em <strong>${data.count} vazamento(s)</strong> públicos na Dark Web.</div>
+          <div class="leak-status-title">⚠️ EMAIL COMPROMISED IN DATA BREACHES</div>
+          <div class="leak-status-desc">Email <strong>${data.email}</strong> was identified in <strong>${data.count} public data breach dump(s)</strong> on the Dark Web.</div>
         </div>
-        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">SERVIÇOS / BASES COMPROMETIDAS:</div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">COMPROMISED SERVICES & BREACHES:</div>
         <div class="breaches-grid">${breachPills}</div>
       `;
     } else {
       resultsBox.innerHTML = `
         <div class="leak-status-banner clean">
-          <div class="leak-status-title">✅ NENHUM VAZAMENTO ENCONTRADO</div>
-          <div class="leak-status-desc">O e-mail <strong>${data.email}</strong> não consta nas bases públicas monitoradas pelo XposedOrNot.</div>
+          <div class="leak-status-title">✅ NO BREACHES DETECTED</div>
+          <div class="leak-status-desc">Email <strong>${data.email}</strong> was not found in public databases monitored by XposedOrNot.</div>
         </div>
       `;
     }
   } catch (err) {
-    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ ERRO NA CONSULTA</div><div class="leak-status-desc">${err.message || 'Falha na comunicação com o servidor'}</div></div>`;
+    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ QUERY ERROR</div><div class="leak-status-desc">${err.message || 'Failed to communicate with server'}</div></div>`;
   } finally {
     btn.disabled = false;
-    btn.innerText = 'VERIFICAR';
+    btn.innerText = 'VERIFY';
   }
 }
 
@@ -1260,14 +1260,14 @@ async function runPasswordLeakCheck() {
 
   const password = input.value;
   if (!password) {
-    alert('Por favor, digite uma senha para verificação.');
+    alert('Please enter a password to verify.');
     return;
   }
 
   btn.disabled = true;
-  btn.innerText = 'VERIFICANDO...';
+  btn.innerText = 'VERIFYING...';
   resultsBox.style.display = 'block';
-  resultsBox.innerHTML = '<div class="loading-row">Calculando SHA-1 e consultando K-Anonymity Range API...</div>';
+  resultsBox.innerHTML = '<div class="loading-row">Calculating SHA-1 and querying K-Anonymity Range API...</div>';
 
   try {
     const res = await fetch('/api/leak-check/password', {
@@ -1280,11 +1280,11 @@ async function runPasswordLeakCheck() {
     if (data.exposed) {
       resultsBox.innerHTML = `
         <div class="leak-status-banner compromised">
-          <div class="leak-status-title">☠️ SENHA VAZADA E COMPROMETIDA!</div>
+          <div class="leak-status-title">☠️ PASSWORD COMPROMISED IN LEAKS!</div>
           <div class="leak-status-desc">
-            Esta senha apareceu exatamente <strong>${data.count.toLocaleString('pt-BR')} vezes</strong> em dumps e vazamentos globais (Have I Been Pwned).
+            This password appeared exactly <strong>${data.count.toLocaleString('en-US')} times</strong> in global data breach dumps (Have I Been Pwned).
             <div style="margin-top: 6px; color: #ff7b72; font-weight: bold;">
-              ⛔ NUNCA utilize esta senha em ambientes de produção ou contas pessoais.
+              ⛔ NEVER use this password in production or personal accounts.
             </div>
           </div>
         </div>
@@ -1292,17 +1292,17 @@ async function runPasswordLeakCheck() {
     } else {
       resultsBox.innerHTML = `
         <div class="leak-status-banner clean">
-          <div class="leak-status-title">✅ NENHUM VAZAMENTO DETECTADO</div>
+          <div class="leak-status-title">✅ NO LEAKS DETECTED</div>
           <div class="leak-status-desc">
-            Esta senha não foi encontrada na base global de mais de 850 milhões de senhas vazadas do Have I Been Pwned.
+            This password was not found in the global dataset of 850M+ compromised passwords (Have I Been Pwned).
           </div>
         </div>
       `;
     }
   } catch (err) {
-    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ ERRO NA CONSULTA</div><div class="leak-status-desc">${err.message || 'Falha na comunicação com o servidor'}</div></div>`;
+    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ QUERY ERROR</div><div class="leak-status-desc">${err.message || 'Failed to communicate with server'}</div></div>`;
   } finally {
     btn.disabled = false;
-    btn.innerText = 'VERIFICAR';
+    btn.innerText = 'VERIFY';
   }
 }

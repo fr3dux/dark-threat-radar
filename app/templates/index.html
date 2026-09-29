@@ -13,7 +13,7 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.6.1</span></span>
+        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.6.2</span></span>
         
         <!-- SANS INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -36,11 +36,11 @@
 
       <!-- Right: Automated 5-Minute Sync Status & Interactive API Documentation -->
       <div class="header-actions">
-        <div class="auto-sync-badge" title="Sincronização autônoma contínua a cada 5 minutos">
+        <div class="auto-sync-badge" title="Autonomous continuous synchronization every 5 minutes">
           <span class="status-indicator-dot pulse-sync"></span>
           <span class="mono font-bold" style="color: var(--accent-green); font-size: 11px;">AUTO-SYNC (5M)</span>
         </div>
-        <a href="/docs" target="_blank" class="nav-link-docs mono" title="Documentação Interativa da API REST (Swagger/OpenAPI)">API DOCS</a>
+        <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation (Swagger/OpenAPI)">API DOCS</a>
       </div>
     </div>
   </header>
@@ -49,7 +49,7 @@
   <nav class="nav-bar">
     <div class="tab-group">
       <button class="tab-btn active" id="tab-dashboard" data-target="panel-dashboard" onclick="switchTab('panel-dashboard', this)">
-        <span class="tab-icon">◈</span> DASHBOARD PRINCIPAL
+        <span class="tab-icon">◈</span> MAIN DASHBOARD
       </button>
       <button class="tab-btn" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
         <span class="tab-icon">⛨</span> CVE EXPLORER <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
@@ -187,22 +187,22 @@
   <main class="main-content">
     
     <!-- ========================================== -->
-    <!-- TAB 1: DASHBOARD PRINCIPAL (DEFAULT VIEW)  -->
+    <!-- TAB 1: MAIN DASHBOARD (DEFAULT VIEW)  -->
     <!-- Executive high-level overview, no raw table -->
     <!-- ========================================== -->
     <div id="panel-dashboard" class="view-panel active">
       
       <!-- Executive Threat Posture & Top Distributions Grid -->
-      <!-- ==================== HERO RADAR: GLOBAL LIVE CYBERATTACK MAP ==================== -->
+      <!-- ==================== HERO RADAR: GLOBAL INTERNET ACTIVITY ==================== -->
       <div class="dash-card dash-card-attackmap" style="margin-bottom: 16px;">
         <div class="dash-card-header">
           <div class="header-with-badge">
-            <span class="dash-card-title"><span class="widget-bullet crit">●</span> GLOBAL LIVE CYBERATTACK MAP</span>
+            <span class="dash-card-title"><span class="widget-bullet crit">●</span> GLOBAL INTERNET ACTIVITY</span>
             <span class="badge badge-crit">LIVE TELEMETRY</span>
             <span class="badge badge-filetype mono">SANS ISC DSHIELD</span>
           </div>
           <div class="header-actions-inline">
-            <span class="mono text-muted" style="font-size: 11px;">PROBES EM TEMPO REAL // 60 FPS VECTOR</span>
+            <span class="mono text-muted" style="font-size: 11px;">REAL-TIME PROBES // 60 FPS VECTOR</span>
           </div>
         </div>
         <div class="dash-card-body" style="padding: 10px;">
@@ -230,7 +230,7 @@
             <div class="attack-stream-sidebar">
               <div class="sidebar-block">
                 <div class="sidebar-block-header">
-                  <span class="widget-bullet crit">●</span> LIVE ATTACK STREAM
+                  <span class="widget-bullet crit">●</span> LIVE TRAFFIC TELEMETRY
                 </div>
                 <div class="live-stream-list" id="map-live-stream">
                   <div class="stream-item-placeholder">Connecting to attack stream...</div>
@@ -263,14 +263,14 @@
 
       <div class="dashboard-grid">
         
-        <!-- Widget: Fabricantes com CVEs Críticos Recentes (Últimas Semanas) -->
+        <!-- Widget: Vendors with Critical CVEs (Recent Weeks) -->
         <div class="dash-card">
           <div class="dash-card-header">
             <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet crit">●</span> FABRICANTES C/ CVES CRÍTICOS (ÚLTIMAS SEMANAS)</span>
+              <span class="dash-card-title"><span class="widget-bullet crit">●</span> VENDORS W/ CRITICAL CVES (RECENT WEEKS)</span>
               <span class="badge badge-crit">ZERO-DAYS / KEV</span>
             </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VER TODOS &rarr;</button>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VIEW ALL &rarr;</button>
           </div>
           <div class="dash-card-body" style="padding: 8px 12px;">
             <div class="critical-vendor-list">
@@ -283,7 +283,7 @@
                 <div class="crit-vendor-desc">{{ item.vulnerability_name or '' }}</div>
                 <div class="crit-vendor-meta">
                   <span class="badge badge-kev mono">CISA KEV EXPLOITED</span>
-                  <span class="mono text-muted" style="font-size: 11px;">Incluso em: {{ item.date_added }}</span>
+                  <span class="mono text-muted" style="font-size: 11px;">Added on: {{ item.date_added }}</span>
                 </div>
               </div>
               {% endfor %}
@@ -291,11 +291,11 @@
           </div>
         </div>
 
-        <!-- Widget: Vítimas Recentes de Ransomware -->
+        <!-- Widget: Recent Ransomware Extortions -->
         <div class="dash-card">
           <div class="dash-card-header">
             <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet purple">●</span> EXTORSÕES DE RANSOMWARE RECENTES</span>
+              <span class="dash-card-title"><span class="widget-bullet purple">●</span> RECENT RANSOMWARE EXTORTIONS</span>
               <span class="badge badge-ransomware">RANSOMWARE.LIVE</span>
             </div>
             <button class="dash-action-btn" onclick="goToTabWithFilter('panel-ransomware', {})">RANSOMWARE TRACKER &rarr;</button>
@@ -308,16 +308,16 @@
                   <span class="crit-vendor-name font-bold">{{ victim.victim_name }}</span>
                   <span class="badge badge-ransomware mono font-bold">{{ victim.group_name | upper }}</span>
                 </div>
-                <div class="crit-vendor-desc text-muted mono" style="font-size: 11.5px;">{{ victim.domain or victim.activity or 'Alvo Corporativo' }}</div>
+                <div class="crit-vendor-desc text-muted mono" style="font-size: 11.5px;">{{ victim.domain or victim.activity or 'Corporate Target' }}</div>
                 <div class="crit-vendor-meta">
                   {% if victim.country and (victim.country.upper() == 'BR' or victim.country.upper() == 'BRAZIL') %}
-                  <span class="badge badge-crit font-bold">🇧🇷 BRASIL</span>
+                  <span class="badge badge-crit font-bold">🇧🇷 BRAZIL</span>
                   {% elif victim.country %}
                   <span class="badge badge-filetype mono">{{ victim.country }}</span>
                   {% else %}
                   <span class="mono text-muted">-</span>
                   {% endif %}
-                  <span class="mono text-muted" style="font-size: 11px;">Divulgado: {{ (victim.discovered or victim.attackdate or '')[:16] }}</span>
+                  <span class="mono text-muted" style="font-size: 11px;">Disclosed: {{ (victim.discovered or victim.attackdate or '')[:16] }}</span>
                 </div>
               </div>
               {% endfor %}
@@ -436,7 +436,7 @@
               {% endfor %}
             </div>
             <div class="widget-footer-action">
-              <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-cves', {})">EXPLORAR TODOS OS VENDORES NO CVE EXPLORER &rarr;</button>
+              <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-cves', {})">EXPLORE ALL VENDORS IN CVE EXPLORER &rarr;</button>
             </div>
           </div>
         </div>
@@ -467,7 +467,7 @@
               {% endfor %}
             </div>
             <div class="widget-footer-action">
-              <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-malware', {})">ACESSAR AMOSTRAS NO MALWARE FEED &rarr;</button>
+              <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="goToTabWithFilter('panel-malware', {})">ACCESS SAMPLES IN MALWARE FEED &rarr;</button>
             </div>
           </div>
         </div>
@@ -508,7 +508,7 @@
               <span class="dash-card-title"><span class="widget-bullet crit">●</span> KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD</span>
               <span class="badge badge-kev">CISA KEV</span>
             </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VER TODOS OS KEVS &rarr;</button>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VIEW ALL OS KEVS &rarr;</button>
           </div>
           <div class="dash-card-body" style="padding: 0;">
             <table class="spotlight-table">
@@ -549,7 +549,7 @@
               <span class="dash-card-title"><span class="widget-bullet cyan">●</span> CTI INTEL SPOTLIGHT: LATEST ADVISORIES</span>
               <span class="badge badge-nvd">LIVE FEEDS</span>
             </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VER TODAS AS NOTÍCIAS &rarr;</button>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VIEW ALL ADVISORIES &rarr;</button>
           </div>
           <div class="dash-card-body" style="padding: 8px 12px;">
             <div class="spotlight-news-list" id="dash-news-list">
@@ -721,7 +721,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.6.1)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.6.2)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -747,7 +747,7 @@
             </tr>
           </thead>
           <tbody id="ransomware-tbody">
-            <tr><td colspan="6" class="loading-row">Carregando telemetria de ransomware...</td></tr>
+            <tr><td colspan="6" class="loading-row">Loading ransomware telemetry...</td></tr>
           </tbody>
         </table>
       </div>
@@ -790,7 +790,7 @@
     </div>
 
   <!-- ========================================== -->
-    <!-- TAB: LEAK CHECK (v1.6.1)                   -->
+    <!-- TAB: LEAK CHECK (v1.6.2)                   -->
     <!-- Credential & Data Breach Validation Engine -->
     <!-- ========================================== -->
     <div id="panel-leakcheck" class="view-panel">
@@ -803,20 +803,20 @@
               <span class="dash-card-title"><span class="widget-bullet crit">●</span> EMAIL BREACH LOOKUP</span>
               <span class="badge badge-crit">DATA BREACHES</span>
             </div>
-            <span class="badge badge-filetype mono">FONTE: XPOSEDORNOT API</span>
+            <span class="badge badge-filetype mono">SOURCE: XPOSEDORNOT API</span>
           </div>
           <div class="dash-card-body">
             <p class="text-muted" style="font-size: 12px; margin-bottom: 12px;">
-              Verifique se um endereço de e-mail corporativo ou pessoal foi exposto em vazamentos públicos de bancos de dados conhecidos na Dark Web.
+              Verify whether a corporate or personal email address has been exposed in known public Dark Web database breaches.
             </p>
 
             <div class="leak-input-group">
-              <input type="email" id="leak-email-input" class="search-input" placeholder="Digite o e-mail (ex: usuario@empresa.com.br)" onkeydown="if(event.key==='Enter') runEmailLeakCheck()">
-              <button class="btn btn-primary font-bold" id="btn-check-email" onclick="runEmailLeakCheck()">VERIFICAR</button>
+              <input type="email" id="leak-email-input" class="search-input" placeholder="Enter email address (e.g. user@company.com)" onkeydown="if(event.key==='Enter') runEmailLeakCheck()">
+              <button class="btn btn-primary font-bold" id="btn-check-email" onclick="runEmailLeakCheck()">VERIFY</button>
             </div>
 
             <div class="source-transparency-note" style="margin-top: 10px; margin-bottom: 14px;">
-              <span class="mono text-muted" style="font-size: 11px;">🔍 <strong>Fonte de Dados:</strong> XposedOrNot Community Breach Intelligence (Open Data).</span>
+              <span class="mono text-muted" style="font-size: 11px;">🔍 <strong>Data Source:</strong> XposedOrNot Community Breach Intelligence (Open Data).</span>
             </div>
 
             <!-- Results Container -->
@@ -831,21 +831,21 @@
               <span class="dash-card-title"><span class="widget-bullet orange">●</span> PASSWORD EXPOSURE LOOKUP</span>
               <span class="badge badge-warn">K-ANONYMITY</span>
             </div>
-            <span class="badge badge-filetype mono">FONTE: HIBP / CLOUDFLARE</span>
+            <span class="badge badge-filetype mono">SOURCE: HIBP / CLOUDFLARE</span>
           </div>
           <div class="dash-card-body">
             <p class="text-muted" style="font-size: 12px; margin-bottom: 12px;">
-              Valide se uma senha já foi exposta em dumps globais. Em conformidade com o <strong>NIST SP 800-63B</strong>, sua senha <strong>nunca é transmitida em texto claro</strong> (apenas os 5 primeiros caracteres do hash SHA-1 são consultados).
+              Validate whether a password has been compromised in global dumps. In compliance with <strong>NIST SP 800-63B</strong>, your password is <strong>never transmitted in cleartext</strong> (only the first 5 characters of the SHA-1 hash are queried).
             </p>
 
             <div class="leak-input-group">
-              <input type="password" id="leak-password-input" class="search-input" placeholder="Digite a senha para verificação" onkeydown="if(event.key==='Enter') runPasswordLeakCheck()">
-              <button class="btn btn-sm" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar Senha" style="border: 1px solid var(--border-color);">👁</button>
-              <button class="btn btn-primary font-bold" id="btn-check-password" onclick="runPasswordLeakCheck()">VERIFICAR</button>
+              <input type="password" id="leak-password-input" class="search-input" placeholder="Enter password to verify" onkeydown="if(event.key==='Enter') runPasswordLeakCheck()">
+              <button class="btn btn-sm" onclick="togglePasswordVisibility()" title="Show/Hide Password" style="border: 1px solid var(--border-color);">👁</button>
+              <button class="btn btn-primary font-bold" id="btn-check-password" onclick="runPasswordLeakCheck()">VERIFY</button>
             </div>
 
             <div class="source-transparency-note" style="margin-top: 10px; margin-bottom: 14px;">
-              <span class="mono text-muted" style="font-size: 11px;">🔒 <strong>Garantia de Privacidade:</strong> Modelo K-Anonymity (Cloudflare / Troy Hunt Pwned Passwords API).</span>
+              <span class="mono text-muted" style="font-size: 11px;">🔒 <strong>Privacy Assurance:</strong> K-Anonymity Model (Cloudflare / Troy Hunt Pwned Passwords API).</span>
             </div>
 
             <!-- Results Container -->
@@ -861,7 +861,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v1.6.1 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v1.6.2 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
