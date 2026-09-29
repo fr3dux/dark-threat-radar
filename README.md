@@ -1,14 +1,14 @@
-# 🛡️ ThreatRadar
+# 🛡️ Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.5.5-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.6.1-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-18%2F18%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-21%2F21%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
-**ThreatRadar** is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, and security advisories into a single pane of glass and high-speed REST API.
+**Dark Threat Radar** is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and security advisories into a single pane of glass and high-speed REST API.
 
 ---
 
@@ -18,6 +18,7 @@
 - [Architecture and Data Pipeline](#-architecture-and-data-pipeline)
 - [Integrated Threat Intelligence Sources](#-integrated-threat-intelligence-sources)
 - [Global Live Cyberattack Map](#-global-live-cyberattack-map)
+- [Leak Check Credential Scanner](#-leak-check-credential-scanner)
 - [Quickstart with Docker Compose](#-quickstart-with-docker-compose)
 - [Native Linux Installation](#-native-linux-installation)
 - [Configuration and Environment Variables](#-configuration-and-environment-variables)
@@ -35,6 +36,7 @@
 - **Global Live Cyberattack Map:** 60 FPS HTML5 Canvas vector radar featuring real cartographic coastlines (287 country polygons) with ballistic laser trajectories connecting real SANS ISC DShield scanner IPs to targeted global ports.
 - **Critical Vendor Threat Spotlight:** Real-time visibility into high-impact zero-days and active KEV exploits published in recent weeks (e.g., Citrix NetScaler `CVE-2026-88771`/`CVE-2026-88772`, Microsoft SharePoint `CVE-2026-65660`, MikroTik RouterOS `CVE-2026-67279`).
 - **Ransomware Extortion Tracker:** Dedicated monitoring of active ransomware gang victim disclosures (LockBit, Akira, Qilin, MedusaLocker) with specialized country filtering and immediate highlighting for Brazilian targets.
+- **Leak Check Credential Scanner:** Interactive validation of compromised email addresses (XposedOrNot Community DB) and passwords via the NIST SP 800-63B compliant K-Anonymity SHA-1 protocol (Have I Been Pwned / Cloudflare).
 - **EPSS Scoring Correlation:** Enriches all vulnerability records with FIRST.org Exploit Prediction Scoring System (EPSS) probabilities and percentiles alongside CVSS scores.
 - **Industrial SOC Aesthetic:** Sober, dense, high-contrast analyst-grade interface with side-by-side symmetrical card pairs, lateral drawer inspection, and dark theme.
 - **Enterprise-Grade Versioning:** Strict Semantic Versioning (SemVer), schema migration tracking (`schema_migrations`), and automated `pytest` validation suite.
@@ -80,6 +82,7 @@
 │  - 60 FPS Live Attack Map   - Critical Vendor Zero-Day Spotlight       │
 │  - CVE Explorer & EPSS      - Ransomware Tracker (BR Filter)           │
 │  - Malware Hash Feed        - SANS DShield Network Telemetry           │
+│  - Leak Check Scanner       - CTI Advisories & News Feed               │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -87,7 +90,7 @@
 
 ## 🌐 Integrated Threat Intelligence Sources
 
-ThreatRadar ingests and cross-references data from **7 primary intelligence feeds**:
+Dark Threat Radar ingests and cross-references data from **7 primary intelligence feeds**:
 
 | Feed | Source / API | Description | Ingestion Frequency |
 | :--- | :--- | :--- | :--- |
@@ -103,11 +106,19 @@ ThreatRadar ingests and cross-references data from **7 primary intelligence feed
 
 ## 🗺️ Global Live Cyberattack Map
 
-ThreatRadar includes a hardware-accelerated **60 FPS HTML5 Canvas Cyberattack Map**:
+Dark Threat Radar includes a hardware-accelerated **60 FPS HTML5 Canvas Cyberattack Map**:
 - **Authentic Cartography:** Driven by `app/static/data/world_polygons.json` containing **287 real-world geographic features**, accurately rendering all global coastlines and borders (Brazil, South America, North America, Europe, Asia, Africa, and Oceania).
 - **Proportional Aspect Ratio:** Enforces a locked 2:1 equirectangular projection centered within the viewport, preventing distortion or stretching across any screen resolution.
 - **Ballistic Laser Trajectories:** Renders quadratic bezier attack arcs with glowing particle heads and expanding ripple rings upon target impact.
 - **Real-Time Attack Stream:** Dedicated scrolling telemetry feed displaying source country, attacker IP, target country, destination port, and service identification.
+
+---
+
+## 🔍 Leak Check Credential Scanner
+
+Dark Threat Radar incorporates an interactive verification module (`/api/leak-check/*`):
+- **Email Breach Scanner:** Checks target emails against the **XposedOrNot Community Breach Intelligence** database, returning compromised services, breach years, and compromised data classes.
+- **K-Anonymity Password Scanner:** Implements the **Troy Hunt / Cloudflare K-Anonymity protocol**. Only the first 5 characters of the password's SHA-1 hash are queried against the 850M+ compromised passwords dataset. The password itself never leaves local memory.
 
 ---
 
@@ -158,7 +169,7 @@ The repository includes a production unit configured at `/etc/systemd/system/thr
 
 ```ini
 [Unit]
-Description=ThreatRadar CTI Engine & Analyst Dashboard
+Description=Dark Threat Radar CTI Engine & Analyst Dashboard
 After=network.target
 
 [Service]
@@ -213,6 +224,8 @@ Interactive documentation with live OpenAPI testing is available at **`/docs`** 
 | `GET` | `/api/dshield` | SANS DShield telemetry (INFOCON, top attacking IPs, top scanned ports). |
 | `GET` | `/api/ransomware` | Ransomware victim disclosures (`q`, `group`, `country`, `limit`, `offset`). |
 | `GET` | `/api/attacks/live` | Real-time cyberattack trajectories with geographic coordinates for map rendering. |
+| `POST`| `/api/leak-check/email` | Validate email exposure in known global data breaches (XposedOrNot). |
+| `POST`| `/api/leak-check/password` | Validate password exposure via K-Anonymity SHA-1 range (Have I Been Pwned). |
 | `GET` | `/api/news` | Security bulletins and news feeds with search and pagination. |
 | `GET` | `/api/artifact/{type}/{id}` | Deep inspection details for CVE, malware hash, port, IP, or ransomware claim. |
 | `POST`| `/api/sync` | Manually triggers immediate synchronization of all background feeds. |
@@ -221,7 +234,7 @@ Interactive documentation with live OpenAPI testing is available at **`/docs`** 
 
 ## 🧪 Automated Testing Suite
 
-ThreatRadar enforces 100% test coverage over critical API endpoints, schema migrations, and rendering contracts using `pytest`:
+Dark Threat Radar enforces 100% test coverage over critical API endpoints, schema migrations, and rendering contracts using `pytest`:
 
 ```bash
 # Execute test suite
@@ -231,8 +244,9 @@ ThreatRadar enforces 100% test coverage over critical API endpoints, schema migr
 Test coverage includes:
 - Semantic version injection verification (`test_api_version`, `test_index_page_version_injection`)
 - All primary API query endpoints (`/api/stats`, `/api/cves`, `/api/malware`, `/api/dshield`, `/api/ransomware`, `/api/attacks/live`)
+- Leak check endpoints (`test_leak_check_password`, `test_leak_check_email`)
 - Input validation and 404/400 exception boundaries (`test_artifact_cve_not_found`, `test_artifact_invalid_type`)
-- Schema migration idempotency across versions 1.0.0 through 1.5.0 (`test_database_schema_migrations`)
+- Schema migration idempotency across versions 1.0.0 through 1.6.0 (`test_database_schema_migrations`)
 
 ---
 
@@ -247,7 +261,7 @@ Test coverage includes:
 
 ## 🇧🇷 Resumo em Portugues
 
-O **ThreatRadar** e uma plataforma autonoma e leve de inteligencia contra ameacas ciberneticas (CTI) e radar para SOC. Desenvolvido em Python (FastAPI) com banco de dados embutido SQLite assincrono, ele agrega e correlaciona continuamente:
+O **Dark Threat Radar** e uma plataforma autonoma e leve de inteligencia contra ameacas ciberneticas (CTI) e radar para SOC. Desenvolvido em Python (FastAPI) com banco de dados embutido SQLite assincrono, ele agrega e correlaciona continuamente:
 1. **CISA KEV:** Vulnerabilidades exploradas ativamente no mundo real e campanhas de ransomware.
 2. **NIST NVD 2.0:** Ultimas CVEs dos ultimos 7 dias e todas as falhas com severidade Critica.
 3. **EPSS (FIRST.org):** Probabilidade matematica de exploracao ativa em 30 dias para cada CVE.
@@ -255,6 +269,7 @@ O **ThreatRadar** e uma plataforma autonoma e leve de inteligencia contra ameaca
 5. **MalwareBazaar:** Amostras de malware recentes, familias ativas e hashes SHA256/MD5.
 6. **Ransomware.live:** Vitimas recentes de extorsao por ransomware com filtro e destaque especial para alvos no Brasil.
 7. **Mapa de Ataques 60 FPS:** Mapa-mundi cartografico real com feixes luminosos balisticos e stream ao vivo de conexoes maliciosas.
+8. **Leak Check:** Verificacao de credenciais vazadas (e-mails via XposedOrNot e senhas via Have I Been Pwned com modelo seguro K-Anonymity).
 
 ---
 

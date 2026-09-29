@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-09-29
+
+### Changed
+- **Project Rebranding**: Renamed project and system to **Dark Threat Radar** across UI headers, footer, metadata, API service descriptions, and documentation, ensuring brand uniqueness while retaining GitHub repository path `fr3dux/threat-radar`.
+- **Documentation Alignment**: Updated `README.md` to reflect Dark Threat Radar branding, architecture headers, and telemetry specifications.
+
 ## [1.6.0] - 2026-09-28
 
 ### Added

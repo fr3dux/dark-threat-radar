@@ -144,7 +144,7 @@ def test_index_page_version_injection(client):
     assert f"v{__version__}" in html
     assert 'class="version-badge"' in html
     # Footer
-    assert f"ThreatRadar v{__version__} // SOC Engine //" in html
+    assert f"Dark Threat Radar v{__version__} // SOC Engine //" in html
     assert 'class="app-footer"' in html
     assert '<a href="/docs"' in html
 
@@ -246,7 +246,7 @@ def test_leak_check_email(client):
 
 
 def test_schema_migration_160(client):
-    """Test database schema contains 1.6.0 migration record."""
+    """Test database schema contains 1.6.1 migration record."""
     import asyncio
     async def check():
         migrations = await get_schema_migrations()
