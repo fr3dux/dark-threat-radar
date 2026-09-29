@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-09-29
+
+### Changed
+- **Localization Standardization**: Standardized 100% of UI labels, buttons, notes, and messages to English across all dashboard views, leak check forms, and API responses, eliminating mixed language discrepancies.
+- **Widget Renaming**: Renamed hero radar card from `GLOBAL LIVE CYBERATTACK MAP` to **`GLOBAL INTERNET ACTIVITY`**.
+- **Stream Sidebar Renaming**: Renamed live telemetry sidebar from `LIVE ATTACK STREAM` to **`LIVE TRAFFIC TELEMETRY`**.
+
 ## [1.6.1] - 2026-09-29
 
 ### Changed
