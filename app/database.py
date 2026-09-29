@@ -23,6 +23,7 @@ SCHEMA_MIGRATIONS = [
     ("1.2.0", "Add ransomware_victims table, Brazil telemetry, and EPSS scoring columns"),
     ("1.3.0", "Add critical vendor threats query and recent ransomware spotlight"),
     ("1.5.0", "Add Live Attack Map real-time telemetry streaming and geo coordinates"),
+    ("1.6.0", "Add credential leak check validation and breach lookup endpoints"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):

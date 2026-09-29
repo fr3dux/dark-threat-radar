@@ -1618,3 +1618,81 @@ table.data-table tr:last-child td {
   color: var(--text-muted);
 }
 
+
+/* ==================== LEAK CHECK MODULE (v1.6.0) ==================== */
+.leak-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.leak-input-group .search-input {
+  flex: 1;
+}
+
+.source-transparency-note {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+  border-radius: 3px;
+}
+
+.leak-results-box {
+  margin-top: 14px;
+  border-radius: 4px;
+  animation: fadeIn 0.25s ease;
+}
+
+.leak-status-banner {
+  padding: 12px 14px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.leak-status-banner.compromised {
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ff7b72;
+}
+
+.leak-status-banner.clean {
+  background: rgba(63, 185, 80, 0.12);
+  border: 1px solid rgba(63, 185, 80, 0.4);
+  color: #7ee787;
+}
+
+.leak-status-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leak-status-desc {
+  font-size: 11.5px;
+  color: var(--text-primary);
+}
+
+.breaches-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.breach-pill {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+}

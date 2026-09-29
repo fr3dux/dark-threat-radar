@@ -222,3 +222,34 @@ def test_schema_migration_150(client):
         versions = [m["version"] for m in migrations]
         assert "1.5.0" in versions
     asyncio.run(check())
+
+
+def test_leak_check_password(client):
+    """Test /api/leak-check/password with known leaked password."""
+    response = client.post("/api/leak-check/password", json={"password": "password123"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["exposed"] is True
+    assert data["count"] > 1000
+    assert "Have I Been Pwned" in data["source"]
+
+
+def test_leak_check_email(client):
+    """Test /api/leak-check/email endpoint."""
+    response = client.post("/api/leak-check/email", json={"email": "test@example.com"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "exposed" in data
+    assert "source" in data
+
+
+def test_schema_migration_160(client):
+    """Test database schema contains 1.6.0 migration record."""
+    import asyncio
+    async def check():
+        migrations = await get_schema_migrations()
+        versions = [m["version"] for m in migrations]
+        assert "1.6.0" in versions
+    asyncio.run(check())
