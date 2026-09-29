@@ -49,7 +49,7 @@ function switchTab(panelId, btnElement) {
   const newsFilters = document.getElementById('news-filters');
   const ransomwareFilters = document.getElementById('ransomware-filters');
 
-  if (panelId === 'panel-dashboard' || panelId === 'panel-attackmap') {
+  if (panelId === 'panel-dashboard' || panelId === 'panel-leakcheck') {
     toolbar.style.display = 'none';
   } else {
     toolbar.style.display = 'flex';
@@ -1186,4 +1186,123 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
   setTimeout(initAttackMap, 100);
 } else {
   document.addEventListener('DOMContentLoaded', initAttackMap);
+}
+
+
+// ==================== LEAK CHECK MODULE (v1.6.0) ====================
+
+function togglePasswordVisibility() {
+  const input = document.getElementById('leak-password-input');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function runEmailLeakCheck() {
+  const input = document.getElementById('leak-email-input');
+  const btn = document.getElementById('btn-check-email');
+  const resultsBox = document.getElementById('leak-email-results');
+  if (!input || !btn || !resultsBox) return;
+
+  const email = input.value.trim();
+  if (!email || !email.includes('@')) {
+    alert('Por favor, digite um endereço de e-mail válido.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = 'CONSULTANDO...';
+  resultsBox.style.display = 'block';
+  resultsBox.innerHTML = '<div class="loading-row">Consultando base global do XposedOrNot...</div>';
+
+  try {
+    const res = await fetch('/api/leak-check/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+
+    if (data.exposed) {
+      let breachPills = '';
+      if (data.breaches && data.breaches.length > 0) {
+        breachPills = data.breaches.map(b => `<span class="breach-pill">⚠️ ${b}</span>`).join('');
+      }
+
+      resultsBox.innerHTML = `
+        <div class="leak-status-banner compromised">
+          <div class="leak-status-title">⚠️ E-MAIL COMPROMETIDO EM VAZAMENTOS</div>
+          <div class="leak-status-desc">O e-mail <strong>${data.email}</strong> foi encontrado em <strong>${data.count} vazamento(s)</strong> públicos na Dark Web.</div>
+        </div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">SERVIÇOS / BASES COMPROMETIDAS:</div>
+        <div class="breaches-grid">${breachPills}</div>
+      `;
+    } else {
+      resultsBox.innerHTML = `
+        <div class="leak-status-banner clean">
+          <div class="leak-status-title">✅ NENHUM VAZAMENTO ENCONTRADO</div>
+          <div class="leak-status-desc">O e-mail <strong>${data.email}</strong> não consta nas bases públicas monitoradas pelo XposedOrNot.</div>
+        </div>
+      `;
+    }
+  } catch (err) {
+    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ ERRO NA CONSULTA</div><div class="leak-status-desc">${err.message || 'Falha na comunicação com o servidor'}</div></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'VERIFICAR';
+  }
+}
+
+async function runPasswordLeakCheck() {
+  const input = document.getElementById('leak-password-input');
+  const btn = document.getElementById('btn-check-password');
+  const resultsBox = document.getElementById('leak-password-results');
+  if (!input || !btn || !resultsBox) return;
+
+  const password = input.value;
+  if (!password) {
+    alert('Por favor, digite uma senha para verificação.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = 'VERIFICANDO...';
+  resultsBox.style.display = 'block';
+  resultsBox.innerHTML = '<div class="loading-row">Calculando SHA-1 e consultando K-Anonymity Range API...</div>';
+
+  try {
+    const res = await fetch('/api/leak-check/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+
+    if (data.exposed) {
+      resultsBox.innerHTML = `
+        <div class="leak-status-banner compromised">
+          <div class="leak-status-title">☠️ SENHA VAZADA E COMPROMETIDA!</div>
+          <div class="leak-status-desc">
+            Esta senha apareceu exatamente <strong>${data.count.toLocaleString('pt-BR')} vezes</strong> em dumps e vazamentos globais (Have I Been Pwned).
+            <div style="margin-top: 6px; color: #ff7b72; font-weight: bold;">
+              ⛔ NUNCA utilize esta senha em ambientes de produção ou contas pessoais.
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      resultsBox.innerHTML = `
+        <div class="leak-status-banner clean">
+          <div class="leak-status-title">✅ NENHUM VAZAMENTO DETECTADO</div>
+          <div class="leak-status-desc">
+            Esta senha não foi encontrada na base global de mais de 850 milhões de senhas vazadas do Have I Been Pwned.
+          </div>
+        </div>
+      `;
+    }
+  } catch (err) {
+    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ ERRO NA CONSULTA</div><div class="leak-status-desc">${err.message || 'Falha na comunicação com o servidor'}</div></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'VERIFICAR';
+  }
 }

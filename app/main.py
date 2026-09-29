@@ -1,10 +1,11 @@
+import httpx
 import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException
+from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Body
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -434,6 +435,105 @@ async def api_live_attacks():
         "attacks": attacks,
         "active_scanners_count": len(sources),
         "targeted_ports_count": len(ports)
+    }
+
+
+
+
+# ==================== LEAK CHECK CREDENTIAL SCANNER (v1.6.0) ====================
+
+@app.post("/api/leak-check/password", tags=["Leak Check"])
+async def api_leak_check_password(req: dict = Body(...)):
+    """Check password exposure using Troy Hunt / Cloudflare K-Anonymity protocol."""
+    import hashlib
+    password = req.get("password", "")
+    prefix = req.get("sha1_prefix", "")
+    suffix = req.get("sha1_suffix", "")
+
+    if password:
+        sha1_hash = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+        prefix, suffix = sha1_hash[:5], sha1_hash[5:]
+    elif not (prefix and suffix):
+        raise HTTPException(status_code=400, detail="Missing password or SHA1 hash components")
+
+    prefix = prefix.upper()
+    suffix = suffix.upper()
+
+    url = f"https://api.pwnedpasswords.com/range/{prefix}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            res = await client.get(url, headers={"User-Agent": "ThreatRadar-CTI/1.6"})
+            if res.status_code == 200:
+                count = 0
+                for line in res.text.splitlines():
+                    parts = line.strip().split(":")
+                    if len(parts) == 2 and parts[0] == suffix:
+                        count = int(parts[1])
+                        break
+                return {
+                    "status": "success",
+                    "exposed": count > 0,
+                    "count": count,
+                    "sha1_prefix": prefix,
+                    "source": "Have I Been Pwned / Cloudflare K-Anonymity Engine"
+                }
+        except Exception as e:
+            logger.error(f"Error checking password leak: {e}")
+            raise HTTPException(status_code=502, detail="Error querying K-Anonymity service")
+
+    return {
+        "status": "success",
+        "exposed": False,
+        "count": 0,
+        "sha1_prefix": prefix,
+        "source": "Have I Been Pwned / Cloudflare K-Anonymity Engine"
+    }
+
+
+@app.post("/api/leak-check/email", tags=["Leak Check"])
+async def api_leak_check_email(req: dict = Body(...)):
+    """Check email exposure against global breach intelligence (XposedOrNot)."""
+    email = req.get("email", "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email address is required")
+
+    url = f"https://api.xposedornot.com/v1/check-email/{email}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            res = await client.get(url, headers={"User-Agent": "ThreatRadar-CTI/1.6"})
+            if res.status_code == 200:
+                data = res.json()
+                breaches = []
+                if "breaches" in data and isinstance(data["breaches"], list) and len(data["breaches"]) > 0:
+                    breaches = data["breaches"][0] if isinstance(data["breaches"][0], list) else data["breaches"]
+                return {
+                    "status": "success",
+                    "exposed": True,
+                    "count": len(breaches),
+                    "breaches": breaches,
+                    "email": email,
+                    "source": "XposedOrNot Community Breach Intelligence"
+                }
+            elif res.status_code == 404:
+                return {
+                    "status": "success",
+                    "exposed": False,
+                    "count": 0,
+                    "breaches": [],
+                    "email": email,
+                    "source": "XposedOrNot Community Breach Intelligence"
+                }
+        except Exception as e:
+            logger.error(f"Error checking email leak: {e}")
+            raise HTTPException(status_code=502, detail="Error querying breach database")
+
+    return {
+        "status": "success",
+        "exposed": False,
+        "count": 0,
+        "breaches": [],
+        "email": email,
+        "source": "XposedOrNot Community Breach Intelligence"
     }
 
 

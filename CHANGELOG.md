@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-28
+
+### Added
+- **Credential & Data Breach Leak Check**: Added dedicated `🔍 LEAK CHECK` module allowing security teams to validate exposed emails and passwords against global threat databases.
+- **K-Anonymity Password Exposure Scanner**: Integrated Cloudflare / Have I Been Pwned K-Anonymity SHA-1 range query protocol (`POST /api/leak-check/password`), ensuring passwords never leave client/server memory in cleartext while checking against 850M+ leaked passwords.
+- **Email Breach Exposure Scanner**: Integrated XposedOrNot Community Breach Intelligence API (`POST /api/leak-check/email`) detecting compromised services, breach years, and exposed data types.
+- **Source Transparency**: Added explicit attribution badges and explanations identifying data sources and privacy models for each check.
+- **Database Schema Migration 1.6.0**: Registered migration `('1.6.0', 'Add credential leak check validation and breach lookup endpoints')`.
+
 ## [1.5.5] - 2026-09-28
 
 ### Security & Hygiene
