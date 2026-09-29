@@ -462,7 +462,7 @@ async def api_leak_check_password(req: dict = Body(...)):
     url = f"https://api.pwnedpasswords.com/range/{prefix}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            res = await client.get(url, headers={"User-Agent": "ThreatRadar-CTI/1.6"})
+            res = await client.get(url, headers={"User-Agent": "DarkThreatRadar-CTI/1.6"})
             if res.status_code == 200:
                 count = 0
                 for line in res.text.splitlines():
@@ -500,7 +500,7 @@ async def api_leak_check_email(req: dict = Body(...)):
     url = f"https://api.xposedornot.com/v1/check-email/{email}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            res = await client.get(url, headers={"User-Agent": "ThreatRadar-CTI/1.6"})
+            res = await client.get(url, headers={"User-Agent": "DarkThreatRadar-CTI/1.6"})
             if res.status_code == 200:
                 data = res.json()
                 breaches = []

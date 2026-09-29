@@ -1,12 +1,12 @@
-"""ThreatRadar Version and Metadata
+"""Dark Threat Radar Version and Metadata
 Centralized Semantic Versioning (SemVer)
 """
 
-__version__ = "1.6.0"
-__app_name__ = "ThreatRadar"
+__version__ = "1.6.1"
+__app_name__ = "Dark Threat Radar"
 __description__ = "Autonomous Standalone Cyber Threat Intelligence Hub & SOC Radar"
-__release_date__ = "2026-09-28"
-__author__ = "ThreatRadar Team"
+__release_date__ = "2026-09-29"
+__author__ = "Dark Threat Radar Team"
 __license__ = "MIT"
 
 
