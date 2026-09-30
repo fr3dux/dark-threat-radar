@@ -16,7 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Close drawer on ESC
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key === 'Escape') {
+      closeDrawer();
+      const menu = document.getElementById('feeds-dropdown-menu');
+      const button = document.getElementById('feed-summary-btn');
+      if (menu) menu.style.display = 'none';
+      if (button) button.setAttribute('aria-expanded', 'false');
+    }
   });
 
   // Start periodic status check (every 15s)
@@ -48,6 +54,11 @@ function switchTab(panelId, btnElement) {
   const malwareFilters = document.getElementById('malware-filters');
   const newsFilters = document.getElementById('news-filters');
   const ransomwareFilters = document.getElementById('ransomware-filters');
+  const metricsStrip = document.querySelector('.metrics-strip');
+
+  // The executive KPI strip belongs to the dashboard. Hiding it in explorer
+  // views gives tables and filters the visual priority they need.
+  if (metricsStrip) metricsStrip.style.display = panelId === 'panel-dashboard' ? 'grid' : 'none';
 
   if (panelId === 'panel-dashboard' || panelId === 'panel-leakcheck' || panelId === 'panel-watchlist') {
     toolbar.style.display = 'none';
@@ -784,16 +795,37 @@ async function pollStatus() {
     // Update connector health without adding another dashboard widget.
     if (data.connectors) {
       const healthy = data.connectors.filter(c => c.state === 'healthy').length;
+      const needsKeys = data.connectors.filter(c => c.state === 'auth_required').length;
+      const disabled = data.connectors.filter(c => c.state === 'disabled').length;
+      const failed = data.connectors.filter(c => ['failed', 'degraded', 'rate_limited'].includes(c.state)).length;
       const summary = document.getElementById('feed-summary-text');
       if (summary) summary.textContent = `${healthy}/${data.connectors.length} SOURCES HEALTHY`;
+      const summaryButton = document.getElementById('feed-summary-btn');
+      if (summaryButton) summaryButton.dataset.health = failed > 0 ? 'failed' : (healthy === data.connectors.length ? 'healthy' : 'attention');
+      const meta = document.getElementById('connector-health-meta');
+      if (meta) {
+        meta.innerHTML = `
+          <span class="health-count healthy">${healthy} healthy</span>
+          ${needsKeys ? `<span class="health-count attention">${needsKeys} need keys</span>` : ''}
+          ${failed ? `<span class="health-count failed">${failed} attention</span>` : ''}
+          ${disabled ? `<span class="health-count muted">${disabled} disabled</span>` : ''}
+        `;
+      }
       const container = document.querySelector('.dropdown-feed-grid');
       if (container) {
-        container.innerHTML = data.connectors.map(c => `
-          <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || c.category)}">
-            <span class="status-dot ${escapeHtml(c.state)}"></span>
-            <span class="feed-name mono">${escapeHtml(c.source_name.replaceAll('_', ' ').toUpperCase())}</span>
-            <span class="feed-count mono">${escapeHtml(c.state.replaceAll('_', ' '))}</span>
-          </div>
+        const groups = data.connectors.reduce((result, connector) => {
+          (result[connector.category] ||= []).push(connector);
+          return result;
+        }, {});
+        container.innerHTML = Object.entries(groups).map(([category, connectors]) => `
+          <div class="connector-category mono">${escapeHtml(category.toUpperCase())}</div>
+          ${connectors.map(c => `
+            <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || `Last success: ${c.last_success || 'never'}`)}">
+              <span class="status-dot ${escapeHtml(c.state)}"></span>
+              <span class="feed-name mono">${escapeHtml(c.source_name.replaceAll('_', ' ').toUpperCase())}</span>
+              <span class="connector-state ${escapeHtml(c.state)} mono">${escapeHtml(c.state.replaceAll('_', ' '))}</span>
+            </div>
+          `).join('')}
         `).join('');
       }
     }
@@ -1435,8 +1467,11 @@ async function deleteWatchlistItem(itemId) {
 
 function toggleFeedDropdown() {
   const menu = document.getElementById('feeds-dropdown-menu');
+  const button = document.getElementById('feed-summary-btn');
   if (!menu) return;
-  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  const willOpen = menu.style.display === 'none';
+  menu.style.display = willOpen ? 'block' : 'none';
+  if (button) button.setAttribute('aria-expanded', String(willOpen));
 }
 
 document.addEventListener('click', (e) => {
@@ -1444,5 +1479,7 @@ document.addEventListener('click', (e) => {
   const menu = document.getElementById('feeds-dropdown-menu');
   if (wrapper && menu && !wrapper.contains(e.target)) {
     menu.style.display = 'none';
+    const button = document.getElementById('feed-summary-btn');
+    if (button) button.setAttribute('aria-expanded', 'false');
   }
 });

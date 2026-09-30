@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dark Threat Radar // Cyber Threat Intelligence Platform</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v={{ version }}">
 </head>
 <body>
 
@@ -28,29 +28,42 @@
         <!-- Consolidated Expandable Feeds Indicator -->
         <div class="feeds-dropdown-wrapper">
           {% set healthy_connectors = connectors | selectattr('state', 'equalto', 'healthy') | list | length %}
-          <button type="button" class="feed-summary-pill" id="feed-summary-btn" onclick="toggleFeedDropdown()">
+          {% set auth_connectors = connectors | selectattr('state', 'equalto', 'auth_required') | list | length %}
+          {% set disabled_connectors = connectors | selectattr('state', 'equalto', 'disabled') | list | length %}
+          <button type="button" class="feed-summary-pill" id="feed-summary-btn" data-health="{{ 'healthy' if healthy_connectors == (connectors | length) else 'attention' }}" aria-expanded="false" aria-controls="feeds-dropdown-menu" onclick="toggleFeedDropdown()">
             <span class="status-indicator-dot pulse-sync"></span>
             <span class="mono font-bold" id="feed-summary-text">{{ healthy_connectors }}/{{ connectors | length }} SOURCES HEALTHY</span>
             <span class="dropdown-arrow">▾</span>
           </button>
-          <div class="feeds-dropdown-menu" id="feeds-dropdown-menu" style="display: none;">
-            <div class="dropdown-header mono">SYNCHRONIZED THREAT FEEDS</div>
-            <div class="dropdown-feed-grid">
-              {% for connector in connectors %}
-              <div class="dropdown-feed-item" title="{{ connector.last_error or connector.category }}">
-                <span class="status-dot {{ connector.state }}"></span>
-                <span class="feed-name mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
-                <span class="feed-count mono">{{ connector.state | replace('_', ' ') }}</span>
+          <div class="feeds-dropdown-menu" id="feeds-dropdown-menu" role="region" aria-label="Threat feed health" style="display: none;">
+            <div class="dropdown-header">
+              <div class="mono dropdown-title">SOURCE HEALTH</div>
+              <div class="connector-health-meta mono" id="connector-health-meta">
+                <span class="health-count healthy">{{ healthy_connectors }} healthy</span>
+                {% if auth_connectors %}<span class="health-count attention">{{ auth_connectors }} need keys</span>{% endif %}
+                {% if disabled_connectors %}<span class="health-count muted">{{ disabled_connectors }} disabled</span>{% endif %}
               </div>
+            </div>
+            <div class="dropdown-feed-grid">
+              {% for category, category_connectors in connectors | groupby('category') %}
+              <div class="connector-category mono">{{ category | upper }}</div>
+                {% for connector in category_connectors %}
+                <div class="dropdown-feed-item" title="{{ connector.last_error or ('Last success: ' ~ (connector.last_success or 'never')) }}">
+                  <span class="status-dot {{ connector.state }}"></span>
+                  <span class="feed-name mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
+                  <span class="connector-state {{ connector.state }} mono">{{ connector.state | replace('_', ' ') }}</span>
+                </div>
+                {% endfor %}
               {% endfor %}
             </div>
+            <div class="dropdown-footer mono">LIVE HEALTH · UPDATED EVERY 15S</div>
           </div>
         </div>
 
-        <!-- Automated 5-Minute Sync Status -->
-        <div class="auto-sync-badge" title="Autonomous continuous synchronization every 5 minutes">
+        <!-- Provider-aware synchronization status -->
+        <div class="auto-sync-badge" title="Provider-aware schedules: core 5m, IOC 15m, hourly and slow enrichment">
           <span class="status-indicator-dot pulse-sync"></span>
-          <span class="mono font-bold" style="color: var(--accent-green); font-size: 11px;">AUTO-SYNC (5M)</span>
+          <span class="mono font-bold">SCHEDULED SYNC</span>
         </div>
 
         <!-- Interactive API Documentation -->
@@ -93,7 +106,7 @@
     <div class="metric-card">
       <div class="metric-label">TOTAL MONITORED CVES</div>
       <div class="metric-val mono" id="stat-total-cves">{{ stats.total_cves }}</div>
-      <div class="metric-sub mono"><span class="crit font-bold">{{ stats.total_kev }}</span> in CISA KEV</div>
+      <div class="metric-sub mono">Unified vulnerability catalog</div>
     </div>
     <div class="metric-card">
       <div class="metric-label">CISA KEV EXPLOITED</div>
