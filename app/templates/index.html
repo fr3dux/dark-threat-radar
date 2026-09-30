@@ -13,7 +13,7 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.6.2</span></span>
+        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.0</span></span>
         
         <!-- SANS INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -66,8 +66,11 @@
       <button class="tab-btn" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
         <span class="tab-icon">✦</span> CTI NEWS & INTEL <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
       </button>
-    <button class="tab-btn" id="tab-leakcheck" data-target="panel-leakcheck" onclick="switchTab('panel-leakcheck', this)">
-        <span class="tab-icon">🔍</span> LEAK CHECK
+    <button class="tab-btn" id="tab-watchlist" data-target="panel-watchlist" onclick="switchTab('panel-watchlist', this)">
+        <span class="tab-icon">⊞</span> WATCHLIST & REMEDIATION <span class="tab-count mono" id="tab-count-watchlist">0</span>
+      </button>
+      <button class="tab-btn" id="tab-leakcheck" data-target="panel-leakcheck" onclick="switchTab('panel-leakcheck', this)">
+        <span class="tab-icon">⚿</span> LEAK CHECK
       </button>
     </div>
   </nav>
@@ -721,7 +724,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.6.2)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.7.0)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -790,7 +793,7 @@
     </div>
 
   <!-- ========================================== -->
-    <!-- TAB: LEAK CHECK (v1.6.2)                   -->
+    <!-- TAB: LEAK CHECK (v1.7.0)                   -->
     <!-- Credential & Data Breach Validation Engine -->
     <!-- ========================================== -->
     <div id="panel-leakcheck" class="view-panel">
@@ -856,12 +859,84 @@
       </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.0)      -->
+    <!-- Custom Asset Tracking & Remediation Directives -->
+    <!-- ========================================== -->
+    <div id="panel-watchlist" class="view-panel">
+      <div class="dash-two-col-grid" style="grid-template-columns: 360px 1fr;">
+        
+        <!-- Left: Watchlist Target Management -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet blue">●</span> MONITORED ASSETS</span>
+              <span class="badge badge-filetype mono" id="wl-badge-count">0 TARGETS</span>
+            </div>
+          </div>
+          <div class="dash-card-body">
+            <p class="text-muted" style="font-size: 11.5px; margin-bottom: 12px;">
+              Register vendors, operating systems, software products, or specific CVEs to track in your environment.
+            </p>
+
+            <!-- Add Target Form -->
+            <div class="wl-form-box">
+              <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                <select id="wl-type-select" class="filter-select" style="width: 110px;">
+                  <option value="vendor">Vendor</option>
+                  <option value="product">Product / OS</option>
+                  <option value="cve">Specific CVE</option>
+                </select>
+                <input type="text" id="wl-val-input" class="search-input" placeholder="e.g. Citrix, PAN-OS, CVE-2026-88772" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+              </div>
+              <input type="text" id="wl-notes-input" class="search-input" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+              <button class="btn btn-primary font-bold" style="width: 100%;" onclick="addWatchlistItem()">+ ADD TO WATCHLIST</button>
+            </div>
+
+            <!-- List of Monitored Items -->
+            <div class="wl-items-list" id="wl-items-container" style="margin-top: 14px;">
+              <div class="stream-item-placeholder">Loading monitored targets...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Active Threat & Remediation Directives -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet crit">●</span> ACTIVE THREATS & REMEDIATION DIRECTIVES</span>
+              <span class="badge badge-crit" id="wl-alerts-badge">0 MATCHES</span>
+            </div>
+          </div>
+          <div class="dash-card-body">
+            <div class="table-container" style="max-height: calc(100vh - 220px); overflow-y: auto;">
+              <table class="data-table" id="wl-alerts-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">CVE / ASSET</th>
+                    <th style="width: 90px;">SEVERITY</th>
+                    <th>VULNERABILITY & OFFICIAL REMEDIATION ACTION</th>
+                    <th style="width: 110px;">DUE DATE</th>
+                    <th style="width: 80px;">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="wl-alerts-tbody">
+                  <tr><td colspan="5" class="loading-row">No active alerts. Add items to your watchlist to monitor vulnerabilities.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     </main>
 
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v1.6.2 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v1.7.0 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 

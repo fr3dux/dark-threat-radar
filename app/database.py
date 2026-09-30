@@ -24,6 +24,7 @@ SCHEMA_MIGRATIONS = [
     ("1.3.0", "Add critical vendor threats query and recent ransomware spotlight"),
     ("1.5.0", "Add Live Attack Map real-time telemetry streaming and geo coordinates"),
     ("1.6.0", "Add credential leak check validation and breach lookup endpoints"),
+    ("1.7.0", "Add asset watchlist table and remediation tracking"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -201,6 +202,17 @@ async def init_db():
         # Apply schema migrations tracking
         await apply_migrations(conn)
 
+        await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS watchlist (
+            id TEXT PRIMARY KEY,
+            item_type TEXT NOT NULL, -- vendor, product, cve
+            value TEXT NOT NULL,
+            notes TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_watchlist_type ON watchlist(item_type);
+        CREATE INDEX IF NOT EXISTS idx_watchlist_val ON watchlist(value);
+""")
         await conn.commit()
 
 async def get_schema_migrations() -> List[Dict[str, Any]]:

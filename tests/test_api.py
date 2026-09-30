@@ -253,3 +253,32 @@ def test_schema_migration_160(client):
         versions = [m["version"] for m in migrations]
         assert "1.6.0" in versions
     asyncio.run(check())
+
+
+def test_api_watchlist_crud(client):
+    """Test watchlist CRUD endpoints."""
+    # 1. Add item
+    add_res = client.post("/api/watchlist", json={"item_type": "vendor", "value": "Citrix", "notes": "Edge Gateway"})
+    assert add_res.status_code == 200
+    item_id = add_res.json()["id"]
+
+    # 2. Get list and verify matching
+    get_res = client.get("/api/watchlist")
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert data["total_items"] >= 1
+    assert any(w["value"] == "Citrix" for w in data["watchlist"])
+
+    # 3. Delete item
+    del_res = client.delete(f"/api/watchlist/{item_id}")
+    assert del_res.status_code == 200
+
+
+def test_schema_migration_170(client):
+    """Test database schema contains 1.7.0 migration record."""
+    import asyncio
+    async def check():
+        migrations = await get_schema_migrations()
+        versions = [m["version"] for m in migrations]
+        assert "1.7.0" in versions
+    asyncio.run(check())

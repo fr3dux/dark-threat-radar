@@ -1696,3 +1696,76 @@ table.data-table tr:last-child td {
   font-size: 11px;
   color: var(--text-primary);
 }
+
+/* ==================== WATCHLIST & REMEDIATION (v1.7.0) ==================== */
+.wl-form-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.wl-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.wl-item-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.15s ease;
+}
+
+.wl-item-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.wl-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wl-item-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.wl-item-meta {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.wl-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 12px;
+  border-radius: 2px;
+}
+
+.wl-delete-btn:hover {
+  color: var(--accent-red);
+  background: rgba(248, 81, 73, 0.1);
+}
+
+.remediation-directive-box {
+  background: rgba(56, 189, 248, 0.05);
+  border-left: 2px solid var(--accent-blue);
+  padding: 4px 8px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
