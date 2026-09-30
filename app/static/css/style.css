@@ -2278,3 +2278,110 @@ main.main-content {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==================== COMPACT KPI RAIL (v1.8.3) ==================== */
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 1px;
+  padding: 6px max(16px, calc((100% - var(--content-max)) / 2 + 16px));
+  background: #080c12;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.metric-card {
+  position: relative;
+  min-height: 54px;
+  padding: 6px 10px 6px 12px;
+  border: 0;
+  border-left: 2px solid var(--border-hover);
+  border-radius: 0;
+  background: linear-gradient(90deg, rgba(88, 166, 255, 0.045), transparent 72%);
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(transparent, var(--border-color), transparent);
+}
+
+.metric-card:nth-child(2),
+.metric-card:nth-child(3) {
+  border-left-color: rgba(248, 81, 73, 0.72);
+  background: linear-gradient(90deg, rgba(248, 81, 73, 0.065), transparent 72%);
+}
+
+.metric-card:nth-child(4) {
+  border-left-color: rgba(210, 153, 34, 0.72);
+  background: linear-gradient(90deg, rgba(210, 153, 34, 0.06), transparent 72%);
+}
+
+.metric-card:nth-child(5),
+.metric-card:nth-child(6) {
+  border-left-color: rgba(57, 197, 207, 0.68);
+  background: linear-gradient(90deg, rgba(57, 197, 207, 0.055), transparent 72%);
+}
+
+.metric-card:nth-child(7) {
+  border-left-color: rgba(219, 109, 40, 0.72);
+  background: linear-gradient(90deg, rgba(219, 109, 40, 0.06), transparent 72%);
+}
+
+.metric-card:hover {
+  background-color: rgba(255, 255, 255, 0.025);
+  border-left-color: var(--accent-blue);
+}
+
+.metric-label {
+  font-size: 9px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-val {
+  font-size: 17px;
+  line-height: 1.05;
+  margin: 2px 0 1px;
+}
+
+.metric-sub {
+  font-size: 9px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 981px) and (max-width: 1200px) {
+  .header-top {
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+
+  .header-actions {
+    width: auto;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
+  .metrics-strip {
+    grid-template-columns: repeat(8, 142px);
+    gap: 1px;
+    padding: 5px 10px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+
+  .metric-card {
+    min-height: 52px;
+    scroll-snap-align: start;
+  }
+}

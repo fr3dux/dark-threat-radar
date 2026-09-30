@@ -104,22 +104,22 @@
 
   <section class="metrics-strip">
     <div class="metric-card">
-      <div class="metric-label">TOTAL MONITORED CVES</div>
+      <div class="metric-label">MONITORED CVES</div>
       <div class="metric-val mono" id="stat-total-cves">{{ stats.total_cves }}</div>
       <div class="metric-sub mono">Unified vulnerability catalog</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">CISA KEV EXPLOITED</div>
+      <div class="metric-label">CISA KEV</div>
       <div class="metric-val mono crit" id="stat-total-kev">{{ stats.total_kev }}</div>
       <div class="metric-sub mono">Active in the wild</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">CRITICAL CVSS (>= 9.0)</div>
+      <div class="metric-label">CRITICAL CVES</div>
       <div class="metric-val mono crit" id="stat-total-critical">{{ stats.total_critical_cves }}</div>
       <div class="metric-sub mono">Immediate patch priority</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">RANSOMWARE WEAPONIZED</div>
+      <div class="metric-label">RANSOMWARE CVES</div>
       <div class="metric-val mono warn" id="stat-total-ransomware">{{ stats.total_ransomware }}</div>
       <div class="metric-sub mono">Confirmed extortion use</div>
     </div>
@@ -129,7 +129,7 @@
       <div class="metric-sub mono">MalwareBazaar indicators</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">DSHIELD ATTACKERS</div>
+      <div class="metric-label">ATTACKER IPS</div>
       <div class="metric-val mono cyan" id="stat-total-ips">{{ stats.total_dshield_ips }}</div>
       <div class="metric-sub mono">Top active scanner IPs</div>
     </div>
@@ -139,7 +139,7 @@
       <div class="metric-sub mono">SANS ISC port telemetry</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">CTI NEWS & ALERTS</div>
+      <div class="metric-label">CTI ALERTS</div>
       <div class="metric-val mono" id="stat-total-news">{{ stats.total_news }}</div>
       <div class="metric-sub mono">Aggregated intel feeds</div>
     </div>
