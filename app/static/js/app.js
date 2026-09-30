@@ -390,6 +390,30 @@ function changeMalwarePageSize(val) {
 
 // ==================== DSHIELD TELEMETRY ====================
 
+function renderMapTopTargetedPorts(ports) {
+  const container = document.getElementById('map-top-targeted-ports');
+  if (!container) return;
+
+  const topPorts = (ports || []).slice(0, 5);
+  if (topPorts.length === 0) {
+    container.innerHTML = '<div class="stream-item-placeholder">No DShield port telemetry available.</div>';
+    return;
+  }
+
+  container.innerHTML = topPorts.map(item => `
+    <div class="port-item" onclick="openArtifact('port', '${Number(item.port)}')">
+      <div class="port-col-main">
+        <span class="port-number mono font-bold" style="font-size: 11px;">${Number(item.port)}</span>
+        <span class="badge badge-port-service mono" style="font-size: 9px;">${escapeHtml(item.service || `PORT/${item.port}`)}</span>
+      </div>
+      <div class="map-port-stats mono">
+        <div class="map-port-records">${Number(item.records || 0).toLocaleString()} records</div>
+        <div class="map-port-meta">${Number(item.count || 0).toLocaleString()} attacker IPs • ${Number(item.targets || 0).toLocaleString()} targets</div>
+      </div>
+    </div>
+  `).join('');
+}
+
 async function loadDshield() {
   const sourcesTbody = document.getElementById('dshield-sources-tbody');
   const portsTbody = document.getElementById('dshield-ports-tbody');
@@ -417,6 +441,7 @@ async function loadDshield() {
 
     // Ports
     const ports = data.ports || [];
+    renderMapTopTargetedPorts(ports);
     document.getElementById('dshield-ports-count').textContent = `${ports.length} Monitored`;
     if (ports.length === 0) {
       portsTbody.innerHTML = '<tr><td colspan="5" class="empty-row">No port telemetry recorded.</td></tr>';
@@ -798,6 +823,9 @@ async function pollStatus() {
 
       const elNews = document.getElementById('stat-total-news');
       if (elNews) elNews.textContent = s.total_news;
+
+      // Mirror the dashboard's public DShield Top Targeted Ports widget.
+      renderMapTopTargetedPorts(s.top_ports);
 
       // Update Nav tab badges
       const tcCves = document.getElementById('tab-count-cves');

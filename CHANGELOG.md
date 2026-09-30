@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-09-30
+
+### Fixed
+- **Synchronized Targeted Ports**: Replaced the hardcoded sidebar values with a compact mirror of the public DShield `Top Targeted Ports Under Attack` widget, including records, attacker IPs, and targets.
+- **Public CTI Attribution**: Both map-side streams now clearly identify their public telemetry context instead of implying monitoring of the hosting environment.
+- **DShield-Weighted Stream**: Live service selection now follows the current SANS ISC DShield record distribution instead of choosing targeted ports uniformly.
+
 ## [1.7.1] - 2026-09-29
 
 ### Changed

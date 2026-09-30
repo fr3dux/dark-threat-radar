@@ -261,29 +261,20 @@
               <div class="sidebar-block">
                 <div class="sidebar-block-header">
                   <span class="widget-bullet crit">●</span> LIVE TRAFFIC TELEMETRY
+                  <span class="sidebar-block-meta mono">PUBLIC CTI</span>
                 </div>
                 <div class="live-stream-list" id="map-live-stream">
                   <div class="stream-item-placeholder">Connecting to attack stream...</div>
                 </div>
               </div>
 
-              <div class="sidebar-block" style="margin-top: 10px;">
+              <div class="sidebar-block">
                 <div class="sidebar-block-header">
-                  <span class="widget-bullet orange">●</span> TOP TARGETED SERVICES
+                  <span class="widget-bullet orange">●</span> TOP TARGETED PORTS
+                  <span class="sidebar-block-meta mono">SANS ISC</span>
                 </div>
-                <div class="port-rank-list" style="margin-top: 6px;">
-                  <div class="port-item" style="padding: 5px 8px;">
-                    <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 11px;">443</span><span class="badge badge-port-service mono" style="font-size: 9px;">HTTPS</span></div>
-                    <div class="mono font-bold orange" style="font-size: 10.5px;">561k probes</div>
-                  </div>
-                  <div class="port-item" style="padding: 5px 8px;">
-                    <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 11px;">80</span><span class="badge badge-port-service mono" style="font-size: 9px;">HTTP</span></div>
-                    <div class="mono font-bold orange" style="font-size: 10.5px;">472k probes</div>
-                  </div>
-                  <div class="port-item" style="padding: 5px 8px;">
-                    <div class="port-col-main"><span class="port-number mono font-bold" style="font-size: 11px;">22</span><span class="badge badge-port-service mono" style="font-size: 9px;">SSH</span></div>
-                    <div class="mono font-bold orange" style="font-size: 10.5px;">374k probes</div>
-                  </div>
+                <div class="port-rank-list" id="map-top-targeted-ports">
+                  <div class="stream-item-placeholder">Loading DShield port telemetry...</div>
                 </div>
               </div>
             </div>

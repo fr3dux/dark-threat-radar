@@ -149,6 +149,19 @@ def test_index_page_version_injection(client):
     assert '<a href="/docs"' in html
 
 
+def test_index_uses_dynamic_public_cti_port_ranking(client):
+    """Map port ranking must mirror public DShield data, not fixed demo totals."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+    assert 'id="map-top-targeted-ports"' in html
+    assert "TOP TARGETED PORTS" in html
+    assert "PUBLIC CTI" in html
+    assert "561k probes" not in html
+    assert "472k probes" not in html
+    assert "374k probes" not in html
+
+
 def test_database_schema_migrations():
     """Verify schema migrations table exists and tracks migrations."""
     migrations = asyncio.run(get_schema_migrations())

@@ -452,6 +452,7 @@ async def api_live_attacks():
 
     attacks = []
     now = datetime.now(timezone.utc).strftime("%H:%M:%S")
+    port_weights = [max(int(port.get("records", 0)), 1) for port in ports]
 
     for i in range(15):
         src_cc = random.choice(attack_countries)
@@ -462,7 +463,9 @@ async def api_live_attacks():
         src_geo = GEO_COORDINATES.get(src_cc, GEO_COORDINATES["US"])
         dst_geo = GEO_COORDINATES.get(dst_cc, GEO_COORDINATES["BR"])
 
-        p_info = random.choice(ports)
+        # Preserve live variation while keeping the simulated stream proportional
+        # to the current DShield record volumes instead of choosing ports uniformly.
+        p_info = random.choices(ports, weights=port_weights, k=1)[0]
         src_node = random.choice(sources)
 
         attacks.append({

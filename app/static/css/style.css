@@ -1556,15 +1556,12 @@ table.data-table tr:last-child td {
   box-sizing: border-box;
 }
 
-.sidebar-block:first-child {
-  flex: 1;
-  max-height: 340px;
-  min-height: 320px;
-}
-
+.sidebar-block:first-child,
 .sidebar-block:last-child {
-  height: 180px;
-  max-height: 180px;
+  flex: 1 1 0;
+  height: auto;
+  max-height: none;
+  min-height: 0;
 }
 
 .sidebar-block-header {
@@ -1580,6 +1577,43 @@ table.data-table tr:last-child td {
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 6px;
   flex-shrink: 0;
+}
+
+.sidebar-block-meta {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+#map-top-targeted-ports {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+#map-top-targeted-ports .port-item {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+}
+
+.map-port-stats {
+  min-width: 0;
+  text-align: right;
+}
+
+.map-port-records {
+  color: var(--accent-orange);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.map-port-meta {
+  color: var(--text-muted);
+  font-size: 8.5px;
+  white-space: nowrap;
 }
 
 .live-stream-list {
