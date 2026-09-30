@@ -1429,3 +1429,17 @@ async function deleteWatchlistItem(itemId) {
     alert('Error removing target: ' + e);
   }
 }
+
+function toggleFeedDropdown() {
+  const menu = document.getElementById('feeds-dropdown-menu');
+  if (!menu) return;
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', (e) => {
+  const wrapper = document.querySelector('.feeds-dropdown-wrapper');
+  const menu = document.getElementById('feeds-dropdown-menu');
+  if (wrapper && menu && !wrapper.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
