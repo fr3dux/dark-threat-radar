@@ -1803,7 +1803,8 @@ table.data-table tr:last-child td {
 .feeds-dropdown-menu {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;
+  left: auto;
   margin-top: 6px;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);

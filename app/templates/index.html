@@ -13,42 +13,46 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.9</span></span>
-        
+        <span class="brand-title">DARK THREAT RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.10</span></span>
+      </div>
+
+      <!-- Right: Aligned Status Indicators & Documentation -->
+      <div class="header-actions">
         <!-- SANS INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
         <div id="infocon-badge" class="infocon-badge infocon-{{ infocon_status }}" title="SANS Internet Storm Center INFOCON Status">
           <span class="pulse-indicator"></span>
           INFOCON: <span id="infocon-val">{{ infocon_status | upper }}</span>
         </div>
-      </div>
 
-      <!-- Center: Consolidated Expandable Feeds Indicator (v1.7.9) -->
-      <div class="feeds-dropdown-wrapper">
-        <button type="button" class="feed-summary-pill" id="feed-summary-btn" onclick="toggleFeedDropdown()">
-          <span class="status-indicator-dot pulse-sync"></span>
-          <span class="mono font-bold">{{ feed_statuses | length }}/{{ feed_statuses | length }} SOURCES OPERATIONAL</span>
-          <span class="dropdown-arrow">▾</span>
-        </button>
-        <div class="feeds-dropdown-menu" id="feeds-dropdown-menu" style="display: none;">
-          <div class="dropdown-header mono">SYNCHRONIZED THREAT FEEDS</div>
-          <div class="dropdown-feed-grid">
-            {% for feed in feed_statuses %}
-            <div class="dropdown-feed-item">
-              <span class="status-dot {{ feed.status }}"></span>
-              <span class="feed-name mono">{{ feed.feed_name | upper }}</span>
-              <span class="feed-count mono">{{ feed.items_count }} items</span>
+        <!-- Consolidated Expandable Feeds Indicator -->
+        <div class="feeds-dropdown-wrapper">
+          <button type="button" class="feed-summary-pill" id="feed-summary-btn" onclick="toggleFeedDropdown()">
+            <span class="status-indicator-dot pulse-sync"></span>
+            <span class="mono font-bold">{{ feed_statuses | length }}/{{ feed_statuses | length }} SOURCES OPERATIONAL</span>
+            <span class="dropdown-arrow">▾</span>
+          </button>
+          <div class="feeds-dropdown-menu" id="feeds-dropdown-menu" style="display: none;">
+            <div class="dropdown-header mono">SYNCHRONIZED THREAT FEEDS</div>
+            <div class="dropdown-feed-grid">
+              {% for feed in feed_statuses %}
+              <div class="dropdown-feed-item">
+                <span class="status-dot {{ feed.status }}"></span>
+                <span class="feed-name mono">{{ feed.feed_name | upper }}</span>
+                <span class="feed-count mono">{{ feed.items_count }} items</span>
+              </div>
+              {% endfor %}
             </div>
-            {% endfor %}
           </div>
         </div>
-      </div>
-      <!-- Right: Automated 5-Minute Sync Status & Interactive API Documentation -->
-      <div class="header-actions">
+
+        <!-- Automated 5-Minute Sync Status -->
         <div class="auto-sync-badge" title="Autonomous continuous synchronization every 5 minutes">
           <span class="status-indicator-dot pulse-sync"></span>
           <span class="mono font-bold" style="color: var(--accent-green); font-size: 11px;">AUTO-SYNC (5M)</span>
         </div>
+
+        <!-- Interactive API Documentation -->
         <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation (Swagger/OpenAPI)">API DOCS</a>
       </div>
     </div>
@@ -733,7 +737,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.7.9)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.7.10)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -802,7 +806,7 @@
     </div>
 
   <!-- ========================================== -->
-    <!-- TAB: LEAK CHECK (v1.7.9)                   -->
+    <!-- TAB: LEAK CHECK (v1.7.10)                   -->
     <!-- Credential & Data Breach Validation Engine -->
     <!-- ========================================== -->
     <div id="panel-leakcheck" class="view-panel">
@@ -869,7 +873,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.9)      -->
+    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.10)      -->
     <!-- Custom Asset Tracking & Remediation Directives -->
     <!-- ========================================== -->
     <div id="panel-watchlist" class="view-panel">
@@ -945,7 +949,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v1.7.9 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v1.7.10 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
