@@ -13,7 +13,7 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">DARK THREAT RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.10</span></span>
+        <span class="brand-title">DARK THREAT RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v{{ version }}</span></span>
       </div>
 
       <!-- Right: Aligned Status Indicators & Documentation -->
@@ -27,19 +27,20 @@
 
         <!-- Consolidated Expandable Feeds Indicator -->
         <div class="feeds-dropdown-wrapper">
+          {% set healthy_connectors = connectors | selectattr('state', 'equalto', 'healthy') | list | length %}
           <button type="button" class="feed-summary-pill" id="feed-summary-btn" onclick="toggleFeedDropdown()">
             <span class="status-indicator-dot pulse-sync"></span>
-            <span class="mono font-bold">{{ feed_statuses | length }}/{{ feed_statuses | length }} SOURCES OPERATIONAL</span>
+            <span class="mono font-bold" id="feed-summary-text">{{ healthy_connectors }}/{{ connectors | length }} SOURCES HEALTHY</span>
             <span class="dropdown-arrow">▾</span>
           </button>
           <div class="feeds-dropdown-menu" id="feeds-dropdown-menu" style="display: none;">
             <div class="dropdown-header mono">SYNCHRONIZED THREAT FEEDS</div>
             <div class="dropdown-feed-grid">
-              {% for feed in feed_statuses %}
-              <div class="dropdown-feed-item">
-                <span class="status-dot {{ feed.status }}"></span>
-                <span class="feed-name mono">{{ feed.feed_name | upper }}</span>
-                <span class="feed-count mono">{{ feed.items_count }} items</span>
+              {% for connector in connectors %}
+              <div class="dropdown-feed-item" title="{{ connector.last_error or connector.category }}">
+                <span class="status-dot {{ connector.state }}"></span>
+                <span class="feed-name mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
+                <span class="feed-count mono">{{ connector.state | replace('_', ' ') }}</span>
               </div>
               {% endfor %}
             </div>
@@ -949,7 +950,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v1.7.10 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v{{ version }} // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 

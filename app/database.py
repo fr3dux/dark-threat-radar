@@ -3,14 +3,15 @@ import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from app.config import DB_PATH
+from app.config import DB_PATH, ENABLE_OPENPHISH
 
 @asynccontextmanager
 async def get_db():
     conn = await aiosqlite.connect(DB_PATH)
     conn.row_factory = aiosqlite.Row
+    await conn.execute("PRAGMA foreign_keys = ON;")
     await conn.execute("PRAGMA journal_mode = WAL;")
-    await conn.execute("PRAGMA busy_timeout = 5000;")
+    await conn.execute("PRAGMA busy_timeout = 30000;")
     await conn.execute("PRAGMA synchronous = NORMAL;")
     try:
         yield conn
@@ -25,6 +26,7 @@ SCHEMA_MIGRATIONS = [
     ("1.5.0", "Add Live Attack Map real-time telemetry streaming and geo coordinates"),
     ("1.6.0", "Add credential leak check validation and breach lookup endpoints"),
     ("1.7.0", "Add asset watchlist table and remediation tracking"),
+    ("1.8.1", "Add normalized IOC correlation and connector health without changing the v1.7 dashboard"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -199,9 +201,6 @@ async def init_db():
                 VALUES (?, NULL, 'never_run', 0, 'Awaiting initial ingestion');
             """, (feed,))
 
-        # Apply schema migrations tracking
-        await apply_migrations(conn)
-
         await conn.executescript("""
         CREATE TABLE IF NOT EXISTS watchlist (
             id TEXT PRIMARY KEY,
@@ -213,6 +212,140 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS idx_watchlist_type ON watchlist(item_type);
         CREATE INDEX IF NOT EXISTS idx_watchlist_val ON watchlist(value);
 """)
+
+        # Normalized threat indicators. The deterministic id is derived from
+        # indicator type + normalized value, allowing several providers to
+        # correlate observations without duplicating the IOC itself.
+        await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS normalized_iocs (
+            id TEXT PRIMARY KEY,
+            indicator_type TEXT NOT NULL,
+            indicator_value TEXT NOT NULL,
+            normalized_value TEXT NOT NULL,
+            threat_type TEXT,
+            malware_family TEXT,
+            confidence INTEGER NOT NULL DEFAULT 50 CHECK(confidence BETWEEN 0 AND 100),
+            severity TEXT NOT NULL DEFAULT 'MEDIUM',
+            source_name TEXT NOT NULL,
+            source_id TEXT,
+            source_url TEXT,
+            reference_url TEXT,
+            first_seen TEXT,
+            last_seen TEXT,
+            ingested_at TEXT,
+            updated_at TEXT,
+            expires_at TEXT,
+            active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+            revoked INTEGER NOT NULL DEFAULT 0 CHECK(revoked IN (0, 1)),
+            tags TEXT,
+            country TEXT,
+            asn INTEGER,
+            port INTEGER,
+            protocol TEXT,
+            tlp TEXT NOT NULL DEFAULT 'CLEAR',
+            raw_metadata TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_ioc_type_value
+            ON normalized_iocs(indicator_type, normalized_value);
+        CREATE INDEX IF NOT EXISTS idx_ioc_active_confidence
+            ON normalized_iocs(active, confidence DESC);
+        CREATE INDEX IF NOT EXISTS idx_ioc_threat ON normalized_iocs(threat_type);
+        CREATE INDEX IF NOT EXISTS idx_ioc_malware ON normalized_iocs(malware_family);
+
+        CREATE TABLE IF NOT EXISTS ioc_sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ioc_id TEXT NOT NULL,
+            source_name TEXT NOT NULL,
+            source_id TEXT,
+            first_seen TEXT,
+            last_seen TEXT,
+            confidence INTEGER,
+            raw_metadata TEXT,
+            UNIQUE(ioc_id, source_name),
+            FOREIGN KEY(ioc_id) REFERENCES normalized_iocs(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_ioc_sources_ioc ON ioc_sources(ioc_id);
+
+        CREATE TABLE IF NOT EXISTS connector_health (
+            source_name TEXT PRIMARY KEY,
+            category TEXT NOT NULL,
+            state TEXT NOT NULL,
+            last_attempt TEXT,
+            last_success TEXT,
+            duration_seconds REAL NOT NULL DEFAULT 0,
+            items_received INTEGER NOT NULL DEFAULT 0,
+            items_created INTEGER NOT NULL DEFAULT 0,
+            items_updated INTEGER NOT NULL DEFAULT 0,
+            items_dropped INTEGER NOT NULL DEFAULT 0,
+            items_duplicated INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            http_code INTEGER,
+            rate_limit_info TEXT,
+            next_run TEXT,
+            latency_ms REAL NOT NULL DEFAULT 0,
+            newest_data_age TEXT,
+            updated_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS vendor_advisories (
+            id TEXT PRIMARY KEY,
+            vendor TEXT NOT NULL,
+            product TEXT,
+            advisory_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            severity TEXT,
+            cve_ids TEXT,
+            ghsa_ids TEXT,
+            affected_versions TEXT,
+            fixed_versions TEXT,
+            workaround TEXT,
+            reference_url TEXT,
+            published_date TEXT,
+            updated_at TEXT,
+            raw_json TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_vendor_advisories_vendor
+            ON vendor_advisories(vendor);
+        CREATE INDEX IF NOT EXISTS idx_vendor_advisories_product
+            ON vendor_advisories(product);
+        """)
+
+        connector_sources = [
+            ("cisa_kev", "Vulnerabilities"),
+            ("nvd_cve", "Vulnerabilities"),
+            ("epss", "Vulnerabilities"),
+            ("github_advisories", "Vulnerabilities"),
+            ("osv_dev", "Vulnerabilities"),
+            ("malware_bazaar", "Malware & IOCs"),
+            ("threatfox", "Malware & IOCs"),
+            ("urlhaus", "Malware & IOCs"),
+            ("dshield", "Network Intelligence"),
+            ("feodo_tracker", "Network Intelligence"),
+            ("sslbl", "Network Intelligence"),
+            ("spamhaus_drop", "Network Intelligence"),
+            ("openphish", "Phishing"),
+            ("ransomware_live", "Ransomware"),
+            ("news_feed", "News"),
+        ]
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        for source_name, category in connector_sources:
+            await conn.execute("""
+                INSERT OR IGNORE INTO connector_health (
+                    source_name, category, state, updated_at
+                ) VALUES (?, ?, 'never_run', ?)
+            """, (source_name, category, now_str))
+
+        if not ENABLE_OPENPHISH:
+            await conn.execute(
+                """UPDATE connector_health SET state='disabled',
+                    last_error='Disabled by configuration', updated_at=?
+                    WHERE source_name='openphish'""",
+                (now_str,),
+            )
+
+        # Register migrations only after every schema change above succeeded.
+        await apply_migrations(conn)
+
         await conn.commit()
 
 async def get_schema_migrations() -> List[Dict[str, Any]]:
@@ -221,6 +354,109 @@ async def get_schema_migrations() -> List[Dict[str, Any]]:
         cursor = await conn.execute("SELECT version, applied_at, description FROM schema_migrations ORDER BY applied_at ASC;")
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
+
+async def update_connector_health(
+    source_name: str,
+    category: str,
+    state: str,
+    duration_seconds: float = 0.0,
+    items_received: int = 0,
+    items_created: int = 0,
+    items_updated: int = 0,
+    items_dropped: int = 0,
+    items_duplicated: int = 0,
+    last_error: Optional[str] = None,
+    http_code: Optional[int] = None,
+    rate_limit_info: Optional[str] = None,
+    latency_ms: float = 0.0,
+    newest_data_age: Optional[str] = None,
+):
+    """Persist connector health without exposing credentials or response bodies."""
+    valid_states = {
+        "healthy", "degraded", "failed", "disabled", "rate_limited",
+        "auth_required", "never_run",
+    }
+    if state not in valid_states:
+        raise ValueError(f"Unsupported connector state: {state}")
+
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    safe_error = last_error[:500] if last_error else None
+    async with get_db() as conn:
+        cursor = await conn.execute(
+            "SELECT last_success FROM connector_health WHERE source_name = ?",
+            (source_name,),
+        )
+        existing = await cursor.fetchone()
+        last_success = existing["last_success"] if existing else None
+        if state == "healthy":
+            last_success = now_str
+
+        await conn.execute("""
+            INSERT INTO connector_health (
+                source_name, category, state, last_attempt, last_success,
+                duration_seconds, items_received, items_created, items_updated,
+                items_dropped, items_duplicated, last_error, http_code,
+                rate_limit_info, latency_ms, newest_data_age, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(source_name) DO UPDATE SET
+                category = excluded.category,
+                state = excluded.state,
+                last_attempt = excluded.last_attempt,
+                last_success = COALESCE(excluded.last_success, connector_health.last_success),
+                duration_seconds = excluded.duration_seconds,
+                items_received = excluded.items_received,
+                items_created = excluded.items_created,
+                items_updated = excluded.items_updated,
+                items_dropped = excluded.items_dropped,
+                items_duplicated = excluded.items_duplicated,
+                last_error = excluded.last_error,
+                http_code = excluded.http_code,
+                rate_limit_info = excluded.rate_limit_info,
+                latency_ms = excluded.latency_ms,
+                newest_data_age = excluded.newest_data_age,
+                updated_at = excluded.updated_at
+        """, (
+            source_name, category, state, now_str, last_success,
+            duration_seconds, items_received, items_created, items_updated,
+            items_dropped, items_duplicated, safe_error, http_code,
+            rate_limit_info, latency_ms, newest_data_age, now_str,
+        ))
+        await conn.commit()
+
+async def get_all_connector_health() -> List[Dict[str, Any]]:
+    configured_sources = {
+        "cisa_kev", "nvd_cve", "epss", "github_advisories", "osv_dev",
+        "malware_bazaar", "threatfox", "urlhaus", "dshield", "feodo_tracker",
+        "sslbl", "spamhaus_drop", "openphish", "ransomware_live", "news_feed",
+    }
+    async with get_db() as conn:
+        cursor = await conn.execute("""
+            SELECT * FROM connector_health
+            ORDER BY category, source_name
+        """)
+        connectors = [
+            dict(row) for row in await cursor.fetchall()
+            if row["source_name"] in configured_sources
+        ]
+        cursor = await conn.execute(
+            "SELECT feed_name, last_sync, status, items_count, message FROM ingestion_status"
+        )
+        legacy = {row["feed_name"]: dict(row) for row in await cursor.fetchall()}
+
+    state_map = {"success": "healthy", "running": "degraded", "error": "failed"}
+    legacy_sources = {
+        "cisa_kev", "nvd_cve", "epss", "malware_bazaar", "dshield",
+        "ransomware_live", "news_feed",
+    }
+    for connector in connectors:
+        old = legacy.get(connector["source_name"]) if connector["source_name"] in legacy_sources else None
+        if old:
+            connector["state"] = state_map.get(old["status"], old["status"])
+            connector["last_attempt"] = old["last_sync"]
+            connector["last_success"] = old["last_sync"] if connector["state"] == "healthy" else connector["last_success"]
+            connector["items_received"] = old["items_count"]
+            connector["last_error"] = old["message"] if connector["state"] == "failed" else None
+    return connectors
 
 async def update_feed_status(feed_name: str, status: str, items_count: int = 0, message: str = ""):
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")

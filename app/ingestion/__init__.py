@@ -1,38 +1,100 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
+
+from app.config import ENABLE_OPENPHISH
 from app.ingestion.cisa_kev import ingest_cisa_kev
-from app.ingestion.nvd_cve import ingest_nvd_cve
 from app.ingestion.dshield import ingest_dshield
+from app.ingestion.epss import ingest_epss
+from app.ingestion.feodo_tracker import ingest_feodo_tracker
+from app.ingestion.github_advisories import ingest_github_advisories
 from app.ingestion.malware_bazaar import ingest_malware_bazaar
 from app.ingestion.news_feed import ingest_news_feed
+from app.ingestion.nvd_cve import ingest_nvd_cve
+from app.ingestion.openphish import ingest_openphish
+from app.ingestion.osv import ingest_osv
 from app.ingestion.ransomware_live import ingest_ransomware_live
-from app.ingestion.epss import ingest_epss
+from app.ingestion.spamhaus_drop import ingest_spamhaus_drop
+from app.ingestion.sslbl import ingest_sslbl
+from app.ingestion.threatfox import ingest_threatfox
+from app.ingestion.urlhaus import ingest_urlhaus
 
 logger = logging.getLogger("ingestion")
+Connector = Callable[[], Awaitable[int]]
 
-async def run_all_ingestions():
-    logger.info("Triggering comprehensive ingestion pipeline (v1.2.0)...")
-    # Run core feeds in parallel
+
+async def _run_group(name: str, connectors: list[Connector]) -> list[object]:
+    """Run independent connectors without allowing one failure to stop others."""
+    logger.info("Starting CTI connector group %s (%d connectors)", name, len(connectors))
     results = await asyncio.gather(
-        ingest_cisa_kev(),
-        ingest_nvd_cve(),
-        ingest_dshield(),
-        ingest_malware_bazaar(),
-        ingest_news_feed(),
-        ingest_ransomware_live(),
-        return_exceptions=True
+        *(connector() for connector in connectors),
+        return_exceptions=True,
     )
-    for i, res in enumerate(results):
-        if isinstance(res, Exception):
-            logger.error(f"Core ingestion task {i} failed: {res}")
+    for connector, result in zip(connectors, results):
+        if isinstance(result, Exception):
+            logger.error(
+                "Connector %s failed outside its error boundary: %s",
+                connector.__name__,
+                result,
+            )
         else:
-            logger.info(f"Core ingestion task {i} returned {res} items")
-
-    # Run EPSS enrichment after CVEs are updated
-    try:
-        epss_res = await ingest_epss()
-        logger.info(f"EPSS enrichment updated {epss_res} records")
-    except Exception as e:
-        logger.error(f"EPSS enrichment failed: {e}")
-
+            logger.info("Connector %s processed %s records", connector.__name__, result)
     return results
+
+
+async def run_core_ingestions() -> list[object]:
+    results = await _run_group("core", [
+        ingest_cisa_kev,
+        ingest_nvd_cve,
+        ingest_dshield,
+        ingest_malware_bazaar,
+        ingest_news_feed,
+        ingest_ransomware_live,
+    ])
+    try:
+        await ingest_epss()
+    except Exception:
+        logger.exception("EPSS enrichment failed")
+    return results
+
+
+async def run_fast_ioc_ingestions() -> list[object]:
+    results = await _run_group("fast-authenticated", [
+        ingest_threatfox,
+        ingest_urlhaus,
+    ])
+    # These feeds can update thousands of rows. Keep their write transactions
+    # sequential so SQLite does not report a provider failure due to lock time.
+    results.extend(await _run_group("fast-feodo", [ingest_feodo_tracker]))
+    results.extend(await _run_group("fast-sslbl", [ingest_sslbl]))
+    return results
+
+
+async def run_hourly_ingestions() -> list[object]:
+    results = await _run_group("hourly-github", [ingest_github_advisories])
+    results.extend(await _run_group("hourly-spamhaus", [ingest_spamhaus_drop]))
+    return results
+
+
+async def run_slow_ingestions() -> list[object]:
+    connectors: list[Connector] = [ingest_osv]
+    if ENABLE_OPENPHISH:
+        connectors.append(ingest_openphish)
+    return await _run_group("slow", connectors)
+
+
+async def run_all_ingestions() -> list[object]:
+    """Manual full synchronization, grouped to preserve failure isolation."""
+    groups = []
+    for runner in (
+        run_core_ingestions,
+        run_fast_ioc_ingestions,
+        run_hourly_ingestions,
+        run_slow_ingestions,
+    ):
+        try:
+            groups.append(await runner())
+        except Exception as exc:
+            logger.exception("Connector group failed outside its error boundary")
+            groups.append(exc)
+    return groups

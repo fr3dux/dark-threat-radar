@@ -16,3 +16,19 @@ MB_API_KEY = os.getenv("MB_API_KEY", "")
 
 # NIST NVD API key if available
 NVD_API_KEY = os.getenv("NVD_API_KEY", "")
+
+# Optional CTI provider credentials. Secrets are server-side only.
+THREATFOX_AUTH_KEY = os.getenv("THREATFOX_AUTH_KEY", "")
+URLHAUS_AUTH_KEY = os.getenv("URLHAUS_AUTH_KEY", "")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+OPENPHISH_API_KEY = os.getenv("OPENPHISH_API_KEY", "")
+
+# The OpenPhish community feed may not be suitable for every public/commercial
+# deployment. It stays disabled until the operator explicitly accepts its terms.
+ENABLE_OPENPHISH = os.getenv("ENABLE_OPENPHISH", "false").lower() in {"1", "true", "yes"}
+
+# New connectors have provider-specific schedules. Values are deliberately
+# conservative and must never be configured below the provider's limits.
+CTI_FAST_INTERVAL_SECONDS = max(900, int(os.getenv("CTI_FAST_INTERVAL_SECONDS", "900")))
+CTI_HOURLY_INTERVAL_SECONDS = max(3600, int(os.getenv("CTI_HOURLY_INTERVAL_SECONDS", "3600")))
+CTI_SLOW_INTERVAL_SECONDS = max(21600, int(os.getenv("CTI_SLOW_INTERVAL_SECONDS", "21600")))

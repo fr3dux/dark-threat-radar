@@ -31,10 +31,26 @@ class SyncState(BaseModel):
     elapsed_seconds: Optional[float] = None
 
 
+class ConnectorHealth(BaseModel):
+    source_name: str
+    category: str
+    state: str
+    last_attempt: Optional[str] = None
+    last_success: Optional[str] = None
+    duration_seconds: float = 0
+    items_received: int = 0
+    items_created: int = 0
+    items_updated: int = 0
+    items_dropped: int = 0
+    last_error: Optional[str] = None
+    http_code: Optional[int] = None
+
+
 class StatusResponse(BaseModel):
     version: str
     feeds: List[FeedStatus]
     sync: SyncState
+    connectors: List[ConnectorHealth] = []
 
 
 # ==================== STATS & METRICS SCHEMAS ====================
@@ -120,6 +136,7 @@ class StatsResponse(BaseModel):
     stats: DashboardStats
     feeds: List[FeedStatus]
     sync: SyncState
+    connectors: List[ConnectorHealth] = []
 
 
 # ==================== CVE SCHEMAS ====================

@@ -185,6 +185,10 @@ header.app-header {
 .status-dot.running { background-color: var(--accent-yellow); animation: pulse 1s infinite alternate; }
 .status-dot.error { background-color: var(--accent-red); }
 .status-dot.never_run { background-color: var(--text-muted); }
+.status-dot.healthy { background-color: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.status-dot.degraded, .status-dot.rate_limited, .status-dot.auth_required { background-color: var(--accent-yellow); }
+.status-dot.failed { background-color: var(--accent-red); }
+.status-dot.disabled { background-color: var(--text-muted); }
 
 @keyframes pulse {
   from { opacity: 0.35; }

@@ -30,7 +30,8 @@ from app.database import (
     init_db,
     get_db,
     get_dashboard_stats,
-    get_all_feed_statuses
+    get_all_feed_statuses,
+    get_all_connector_health,
 )
 from app.scheduler import (
     start_scheduler,
@@ -93,6 +94,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 async def index_page(request: Request):
     stats = await get_dashboard_stats()
     feed_statuses = await get_all_feed_statuses()
+    connectors = await get_all_connector_health()
     sync_state = get_sync_state()
     return templates.TemplateResponse(
         request=request,
@@ -102,6 +104,7 @@ async def index_page(request: Request):
             "app_name": __app_name__,
             "stats": stats,
             "feed_statuses": feed_statuses,
+            "connectors": connectors,
             "sync_state": sync_state
         }
     )
@@ -120,11 +123,13 @@ async def api_stats():
     """Return full dashboard metrics, feed statuses, sync state, and engine version."""
     stats = await get_dashboard_stats()
     feed_statuses = await get_all_feed_statuses()
+    connectors = await get_all_connector_health()
     sync_state = get_sync_state()
     return {
         "version": __version__,
         "stats": stats,
         "feeds": feed_statuses,
+        "connectors": connectors,
         "sync": sync_state
     }
 
@@ -140,12 +145,60 @@ async def api_trigger_sync(background_tasks: BackgroundTasks):
 async def api_status():
     """Return live ingestion status for all feeds, sync lock state, and engine version."""
     feed_statuses = await get_all_feed_statuses()
+    connectors = await get_all_connector_health()
     sync_state = get_sync_state()
     return {
         "version": __version__,
         "feeds": feed_statuses,
+        "connectors": connectors,
         "sync": sync_state
     }
+
+
+@app.get("/api/connectors", tags=["Ingestion"])
+async def api_connectors():
+    """Return operational state and counters for every configured source."""
+    connectors = await get_all_connector_health()
+    counts = {}
+    for connector in connectors:
+        counts[connector["state"]] = counts.get(connector["state"], 0) + 1
+    return {"total": len(connectors), "states": counts, "items": connectors}
+
+
+@app.get("/api/iocs", tags=["Intel"])
+async def api_iocs(
+    q: Optional[str] = Query(None),
+    indicator_type: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
+    active: Optional[bool] = Query(True),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Search normalized and correlated indicators without changing the dashboard."""
+    query = "SELECT * FROM normalized_iocs WHERE 1=1"
+    params = []
+    if q:
+        query += " AND (normalized_value LIKE ? OR malware_family LIKE ? OR threat_type LIKE ?)"
+        term = f"%{q}%"
+        params.extend([term, term, term])
+    if indicator_type:
+        query += " AND indicator_type = ?"
+        params.append(indicator_type)
+    if source:
+        query += " AND EXISTS (SELECT 1 FROM ioc_sources s WHERE s.ioc_id=normalized_iocs.id AND s.source_name=?)"
+        params.append(source)
+    if active is not None:
+        query += " AND active = ?"
+        params.append(int(active))
+    async with get_db() as conn:
+        cursor = await conn.execute(query.replace("SELECT *", "SELECT COUNT(*) AS count"), params)
+        total = (await cursor.fetchone())["count"]
+        cursor = await conn.execute(
+            query + " ORDER BY confidence DESC, last_seen DESC LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        )
+        items = [dict(row) for row in await cursor.fetchall()]
+    return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
 @app.get("/api/cves", response_model=CVEListResponse, tags=["Vulnerabilities"])

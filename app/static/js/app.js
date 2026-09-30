@@ -781,15 +781,18 @@ async function pollStatus() {
       if (tcNews) tcNews.textContent = s.total_news;
     }
 
-    // Update Feed Chips
-    if (data.feeds) {
-      const container = document.getElementById('feeds-status-container');
+    // Update connector health without adding another dashboard widget.
+    if (data.connectors) {
+      const healthy = data.connectors.filter(c => c.state === 'healthy').length;
+      const summary = document.getElementById('feed-summary-text');
+      if (summary) summary.textContent = `${healthy}/${data.connectors.length} SOURCES HEALTHY`;
+      const container = document.querySelector('.dropdown-feed-grid');
       if (container) {
-        container.innerHTML = data.feeds.map(f => `
-          <div class="feed-chip" title="${escapeHtml(f.message || '')}">
-            <span class="status-dot ${f.status}"></span>
-            <span>${escapeHtml(f.feed_name.toUpperCase())}</span>
-            <span class="mono" style="color: var(--text-muted);">(${f.items_count})</span>
+        container.innerHTML = data.connectors.map(c => `
+          <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || c.category)}">
+            <span class="status-dot ${escapeHtml(c.state)}"></span>
+            <span class="feed-name mono">${escapeHtml(c.source_name.replaceAll('_', ' ').toUpperCase())}</span>
+            <span class="feed-count mono">${escapeHtml(c.state.replaceAll('_', ' '))}</span>
           </div>
         `).join('');
       }
