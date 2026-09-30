@@ -275,7 +275,7 @@ def test_api_watchlist_crud(client):
 
 
 def test_schema_migration_170(client):
-    """Test database schema contains 1.7.3 migration record."""
+    """Test database schema contains 1.7.4 migration record."""
     import asyncio
     async def check():
         migrations = await get_schema_migrations()
