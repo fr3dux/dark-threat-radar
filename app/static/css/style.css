@@ -1769,3 +1769,82 @@ table.data-table tr:last-child td {
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+/* ==================== CONSOLIDATED FEEDS DROPDOWN (v1.7.9) ==================== */
+.feeds-dropdown-wrapper {
+  position: relative;
+}
+
+.feed-summary-pill {
+  background: rgba(63, 185, 80, 0.1);
+  border: 1px solid rgba(63, 185, 80, 0.35);
+  color: var(--text-primary);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feed-summary-pill:hover {
+  background: rgba(63, 185, 80, 0.18);
+  border-color: var(--accent-green);
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.feeds-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 10px 12px;
+  min-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  animation: fadeIn 0.15s ease;
+}
+
+.dropdown-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.dropdown-feed-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dropdown-feed-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.dropdown-feed-item .feed-name {
+  flex: 1;
+  margin-left: 7px;
+  color: var(--text-primary);
+}
+
+.dropdown-feed-item .feed-count {
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
