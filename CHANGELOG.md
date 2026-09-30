@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-29
+
+### Added
+- **Infrastructure Watchlist & Remediation Radar**: Added dedicated  module allowing security teams to monitor specific vendors, operating systems, products, or CVEs.
+- **Automated Mitigation Directives**: Cross-references monitored assets against active CISA KEV and NIST NVD feeds to deliver official required remediation actions, mitigation deadlines (due dates), and severity ratings.
+- **Standardized Navigation Icons**: Unified all menu tab icons to consistent monochrome SOC symbols, including  and .
+- **Database Schema Migration 1.7.0**: Registered migration .
+
 ## [1.6.2] - 2026-09-29
 
 ### Changed

@@ -538,6 +538,117 @@ async def api_leak_check_email(req: dict = Body(...)):
 
 
 
+
+# ==================== WATCHLIST & REMEDIATION (v1.7.0) ====================
+
+@app.get("/api/watchlist", tags=["Watchlist"])
+async def api_get_watchlist():
+    """Get monitored watchlist items and cross-reference with active KEV / NVD CVEs."""
+    import aiosqlite
+    from app.database import get_db
+
+    async with get_db() as conn:
+        conn.row_factory = aiosqlite.Row
+        cur = await conn.execute("SELECT * FROM watchlist ORDER BY created_at DESC;")
+        items = [dict(r) for r in await cur.fetchall()]
+
+        # For each item, find matching CVEs and remediation data
+        matched_cves = []
+        for item in items:
+            val = item["value"].strip()
+            itype = item["item_type"].strip().lower()
+
+            if itype == "cve":
+                c_cur = await conn.execute(
+                    """SELECT cve_id, vendor_project, product, vulnerability_name, 
+                              cvss_score, cvss_severity, source, required_action, 
+                              due_date, known_ransomware_campaign_use, short_description, date_added, epss_score
+                       FROM cve_records WHERE cve_id = ?;""", (val,)
+                )
+            elif itype == "vendor":
+                c_cur = await conn.execute(
+                    """SELECT cve_id, vendor_project, product, vulnerability_name, 
+                              cvss_score, cvss_severity, source, required_action, 
+                              due_date, known_ransomware_campaign_use, short_description, date_added, epss_score
+                       FROM cve_records 
+                       WHERE vendor_project LIKE ? OR vulnerability_name LIKE ?
+                       ORDER BY cvss_score DESC, date_added DESC LIMIT 15;""", (f"%{val}%", f"%{val}%")
+                )
+            else: # product / OS
+                c_cur = await conn.execute(
+                    """SELECT cve_id, vendor_project, product, vulnerability_name, 
+                              cvss_score, cvss_severity, source, required_action, 
+                              due_date, known_ransomware_campaign_use, short_description, date_added, epss_score
+                       FROM cve_records 
+                       WHERE product LIKE ? OR vulnerability_name LIKE ?
+                       ORDER BY cvss_score DESC, date_added DESC LIMIT 15;""", (f"%{val}%", f"%{val}%")
+                )
+
+            rows = [dict(r) for r in await c_cur.fetchall()]
+            for r in rows:
+                r["matched_watchlist_item"] = item
+                # Add default remediation note if empty
+                if not r.get("required_action") or r["required_action"] == "None":
+                    r["required_action"] = f"Apply latest vendor security patch or upgrade {r.get('product') or val} to non-vulnerable release."
+                matched_cves.append(r)
+
+    # Deduplicate matched CVEs by cve_id
+    seen = set()
+    unique_cves = []
+    for c in matched_cves:
+        if c["cve_id"] not in seen:
+            seen.add(c["cve_id"])
+            unique_cves.append(c)
+
+    return {
+        "watchlist": items,
+        "total_items": len(items),
+        "active_alerts": unique_cves,
+        "total_alerts": len(unique_cves)
+    }
+
+
+@app.post("/api/watchlist", tags=["Watchlist"])
+async def api_add_watchlist(payload: dict = Body(...)):
+    """Add new item to infrastructure watchlist."""
+    import uuid
+    from datetime import datetime, timezone
+    from app.database import get_db
+
+    itype = payload.get("item_type", "vendor").strip().lower()
+    value = payload.get("value", "").strip()
+    notes = payload.get("notes", "").strip()
+
+    if not value:
+        raise HTTPException(status_code=400, detail="Value cannot be empty")
+
+    item_id = f"wl-{uuid.uuid4().hex[:10]}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with get_db() as conn:
+        await conn.execute(
+            "INSERT INTO watchlist (id, item_type, value, notes, created_at) VALUES (?, ?, ?, ?, ?);",
+            (item_id, itype, value, notes, now)
+        )
+        await conn.commit()
+
+    return {"status": "created", "id": item_id, "value": value, "item_type": itype}
+
+
+@app.delete("/api/watchlist/{item_id}", tags=["Watchlist"])
+async def api_delete_watchlist(item_id: str):
+    """Remove item from infrastructure watchlist."""
+    from app.database import get_db
+
+    async with get_db() as conn:
+        cur = await conn.execute("DELETE FROM watchlist WHERE id = ?;", (item_id,))
+        await conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Watchlist item not found")
+
+    return {"status": "deleted", "id": item_id}
+
+
 @app.get(
     "/api/artifact/{artifact_type}/{identifier:path}",
     response_model=ArtifactResponse,
