@@ -2,6 +2,15 @@
 let currentTab = 'panel-dashboard';
 let searchDebounceTimeout = null;
 let syncPollingInterval = null;
+let headerResizeObserver = null;
+
+function updateStickyNavigationOffset() {
+  const header = document.querySelector('header.app-header');
+  if (!header) return;
+
+  const headerHeight = Math.ceil(header.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--app-header-height', `${headerHeight}px`);
+}
 
 // Pagination states
 const cveState = { page: 1, limit: 50, total: 0 };
@@ -11,6 +20,18 @@ const newsState = { page: 1, limit: 20, total: 0 };
 
 // Initial bootstrap
 document.addEventListener('DOMContentLoaded', () => {
+  // Keep the navigation fixed immediately below the responsive app header.
+  // ResizeObserver also covers header wrapping caused by viewport or font changes.
+  updateStickyNavigationOffset();
+  requestAnimationFrame(updateStickyNavigationOffset);
+  window.addEventListener('resize', updateStickyNavigationOffset, { passive: true });
+
+  const appHeader = document.querySelector('header.app-header');
+  if (appHeader && 'ResizeObserver' in window) {
+    headerResizeObserver = new ResizeObserver(updateStickyNavigationOffset);
+    headerResizeObserver.observe(appHeader);
+  }
+
   // Initial background load of telemetry
   loadDshield();
 
