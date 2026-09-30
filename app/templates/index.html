@@ -13,7 +13,7 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.0</span></span>
+        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.1</span></span>
         
         <!-- SANS INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -49,25 +49,25 @@
   <nav class="nav-bar">
     <div class="tab-group">
       <button class="tab-btn active" id="tab-dashboard" data-target="panel-dashboard" onclick="switchTab('panel-dashboard', this)">
-        <span class="tab-icon">◈</span> MAIN DASHBOARD
+        <span class="tab-icon">◈</span> DASHBOARD
       </button>
       <button class="tab-btn" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
-        <span class="tab-icon">⛨</span> CVE EXPLORER <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
+        <span class="tab-icon">⛨</span> CVES <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
       </button>
       <button class="tab-btn" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
-        <span class="tab-icon">☣</span> MALWARE FEED <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
+        <span class="tab-icon">☣</span> MALWARE <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
       </button>
       <button class="tab-btn" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
-        <span class="tab-icon">☵</span> NETWORK TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
+        <span class="tab-icon">☵</span> TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
       </button>
       <button class="tab-btn" id="tab-ransomware" data-target="panel-ransomware" onclick="switchTab('panel-ransomware', this)">
-        <span class="tab-icon">☠</span> RANSOMWARE TRACKER <span class="tab-count mono" id="tab-count-ransomware">{{ stats.total_ransomware_victims or 0 }}</span>
+        <span class="tab-icon">☠</span> RANSOMWARE <span class="tab-count mono" id="tab-count-ransomware">{{ stats.total_ransomware_victims or 0 }}</span>
       </button>
       <button class="tab-btn" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
-        <span class="tab-icon">✦</span> CTI NEWS & INTEL <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
+        <span class="tab-icon">✦</span> ADVISORIES <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
       </button>
     <button class="tab-btn" id="tab-watchlist" data-target="panel-watchlist" onclick="switchTab('panel-watchlist', this)">
-        <span class="tab-icon">⊞</span> WATCHLIST & REMEDIATION <span class="tab-count mono" id="tab-count-watchlist">0</span>
+        <span class="tab-icon">⊞</span> WATCHLIST <span class="tab-count mono" id="tab-count-watchlist">0</span>
       </button>
       <button class="tab-btn" id="tab-leakcheck" data-target="panel-leakcheck" onclick="switchTab('panel-leakcheck', this)">
         <span class="tab-icon">⚿</span> LEAK CHECK
@@ -190,7 +190,7 @@
   <main class="main-content">
     
     <!-- ========================================== -->
-    <!-- TAB 1: MAIN DASHBOARD (DEFAULT VIEW)  -->
+    <!-- TAB 1: DASHBOARD (DEFAULT VIEW)  -->
     <!-- Executive high-level overview, no raw table -->
     <!-- ========================================== -->
     <div id="panel-dashboard" class="view-panel active">
@@ -724,7 +724,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.7.0)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.7.1)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -793,7 +793,7 @@
     </div>
 
   <!-- ========================================== -->
-    <!-- TAB: LEAK CHECK (v1.7.0)                   -->
+    <!-- TAB: LEAK CHECK (v1.7.1)                   -->
     <!-- Credential & Data Breach Validation Engine -->
     <!-- ========================================== -->
     <div id="panel-leakcheck" class="view-panel">
@@ -860,7 +860,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.0)      -->
+    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.1)      -->
     <!-- Custom Asset Tracking & Remediation Directives -->
     <!-- ========================================== -->
     <div id="panel-watchlist" class="view-panel">
@@ -936,7 +936,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v1.7.0 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v1.7.1 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
