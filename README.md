@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.7.5-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.7.6-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -162,8 +162,8 @@ Open your browser at `http://localhost:9220` (or your server's IP).
 ```bash
 sudo apt update && sudo apt install -y python3 python3-venv git
 
-git clone https://github.com/fr3dux/dark-threat-radar.git /root/threat-radar
-cd /root/threat-radar
+git clone https://github.com/fr3dux/dark-threat-radar.git
+cd dark-threat-radar
 
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
@@ -185,9 +185,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/root/threat-radar
-ExecStart=/root/threat-radar/run.sh
+User=ubuntu
+WorkingDirectory=/opt/dark-threat-radar
+ExecStart=/opt/dark-threat-radar/run.sh
 Restart=always
 RestartSec=5
 Environment=PORT=9220
@@ -213,9 +213,9 @@ sudo systemctl status threat-radar.service
 | `HOST` | `0.0.0.0` | Network binding interface. |
 | `PORT` | `9220` | Listening HTTP port. |
 | `SYNC_INTERVAL_SECONDS` | `300` | Background ingestion interval in seconds (default: 5 minutes). |
-| `BASE_DIR` | `/root/threat-radar` | Absolute root directory of the application. |
-| `DB_PATH` | `/root/threat-radar/threat_radar.db` | Path to the SQLite database file. |
-| `LOCAL_NEWS_FILE` | `/root/news_history.json` | Path to optional local OSINT/news JSON cache. |
+| `BASE_DIR` | `/opt/dark-threat-radar` (or repo root) | Absolute root directory of the application. |
+| `DB_PATH` | `./threat_radar.db` | Path to the SQLite database file. |
+| `LOCAL_NEWS_FILE` | `./news_history.json` | Path to optional local OSINT/news JSON cache. |
 | `MB_API_KEY` | `""` | Optional Abuse.ch MalwareBazaar Auth Key. |
 | `NVD_API_KEY` | `""` | Optional NIST NVD 2.0 API Key for higher rate limits. |
 
