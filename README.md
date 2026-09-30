@@ -1,10 +1,10 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.7.3-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.7.4-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/threat-radar)
+[![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
 [![Tests Passing](https://img.shields.io/badge/tests-23%2F23%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
@@ -139,8 +139,8 @@ Ensure Docker and Docker Compose are installed:
 
 ```bash
 # Clone the repository
-git clone https://github.com/fr3dux/threat-radar.git
-cd threat-radar
+git clone https://github.com/fr3dux/dark-dark-threat-radar.git
+cd dark-threat-radar
 
 # Copy environment variables template
 cp .env.example .env
@@ -162,7 +162,7 @@ Open your browser at `http://localhost:9220` (or your server's IP).
 ```bash
 sudo apt update && sudo apt install -y python3 python3-venv git
 
-git clone https://github.com/fr3dux/threat-radar.git /root/threat-radar
+git clone https://github.com/fr3dux/dark-dark-threat-radar.git /root/threat-radar
 cd /root/threat-radar
 
 python3 -m venv venv
