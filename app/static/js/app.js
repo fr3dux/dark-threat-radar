@@ -1310,3 +1310,122 @@ async function runPasswordLeakCheck() {
     btn.innerText = 'VERIFY';
   }
 }
+
+
+// ==================== WATCHLIST & REMEDIATION (v1.7.7) ====================
+
+async function loadWatchlist() {
+  const container = document.getElementById('wl-items-container');
+  const tbody = document.getElementById('wl-alerts-tbody');
+  const badgeCount = document.getElementById('wl-badge-count');
+  const alertsBadge = document.getElementById('wl-alerts-badge');
+  const tabCount = document.getElementById('tab-count-watchlist');
+  if (!container || !tbody) return;
+
+  try {
+    const res = await fetch('/api/watchlist');
+    const data = await res.json();
+
+    if (badgeCount) badgeCount.textContent = (data.total_items || 0) + ' TARGETS';
+    if (alertsBadge) alertsBadge.textContent = (data.total_alerts || 0) + ' MATCHES';
+    if (tabCount) tabCount.textContent = data.total_alerts || 0;
+
+    // Render Monitored Targets
+    if (!data.watchlist || data.watchlist.length === 0) {
+      container.innerHTML = '<div class="stream-item-placeholder">No monitored targets registered yet. Add vendors or products above.</div>';
+    } else {
+      container.innerHTML = data.watchlist.map(function(item) {
+        return '<div class="wl-item-card">' +
+          '<div class="wl-item-info">' +
+            '<div class="wl-item-title">' +
+              '<span class="badge badge-filetype mono" style="font-size: 9.5px; padding: 1px 4px;">' + item.item_type.toUpperCase() + '</span> ' +
+              item.value +
+            '</div>' +
+            '<div class="wl-item-meta mono">' + (item.notes || 'No notes') + ' • Added: ' + (item.created_at || '').substring(0, 10) + '</div>' +
+          '</div>' +
+          '<button class="wl-delete-btn mono font-bold" onclick="deleteWatchlistItem(\'' + item.id + '\')" title="Delete Target">✕</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Render Matched Alerts & Official Remediation
+    if (!data.active_alerts || data.active_alerts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="loading-row">No active KEV or Critical vulnerabilities matching your watchlist.</td></tr>';
+    } else {
+      tbody.innerHTML = data.active_alerts.map(function(cve) {
+        const cvssBadge = (cve.cvss_score >= 9.0)
+          ? '<span class="badge badge-crit font-bold">' + cve.cvss_score + ' CRITICAL</span>'
+          : '<span class="badge badge-warn font-bold">' + (cve.cvss_score || 'N/A') + ' HIGH</span>';
+        const kevBadge = (cve.source === 'cisa_kev') ? '<span class="badge badge-kev font-bold" style="margin-left: 4px;">KEV</span>' : '';
+        const notesHtml = cve.notes ? '<br><span class="text-muted">' + cve.notes + '</span>' : '';
+        const dueBadge = cve.due_date ? '<span class="badge badge-warn">' + cve.due_date + '</span>' : '<span class="text-muted">N/A</span>';
+
+        return '<tr class="clickable-row">' +
+          '<td>' +
+            '<div class="mono font-bold" style="color: var(--accent-blue);">' + cve.cve_id + '</div>' +
+            '<div class="mono text-muted" style="font-size: 11px;">' + (cve.vendor_project || '') + ' ' + (cve.product || '') + '</div>' +
+          '</td>' +
+          '<td>' + cvssBadge + ' ' + kevBadge + '</td>' +
+          '<td>' +
+            '<div class="font-bold" style="color: var(--text-primary); font-size: 12px;">' + (cve.vulnerability_name || 'Vulnerability Impact') + '</div>' +
+            '<div class="remediation-directive-box mono">' +
+              '<strong>ACTION REQUIRED:</strong> ' + cve.required_action + notesHtml +
+            '</div>' +
+          '</td>' +
+          '<td class="mono">' + dueBadge + '</td>' +
+          '<td>' +
+            '<button class="btn btn-sm" onclick="openArtifact(\'' + 'cve' + '\', \'' + cve.cve_id + '\')">INSPECT</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+  } catch (err) {
+    console.error('Error loading watchlist:', err);
+  }
+}
+
+async function addWatchlistItem() {
+  const typeSelect = document.getElementById('wl-type-select');
+  const valInput = document.getElementById('wl-val-input');
+  const notesInput = document.getElementById('wl-notes-input');
+  if (!typeSelect || !valInput) return;
+
+  const value = valInput.value.trim();
+  const item_type = typeSelect.value;
+  const notes = notesInput ? notesInput.value.trim() : '';
+
+  if (!value) {
+    alert('Please enter a vendor, product, or CVE to monitor.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/watchlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_type: item_type, value: value, notes: notes })
+    });
+    if (res.ok) {
+      valInput.value = '';
+      if (notesInput) notesInput.value = '';
+      loadWatchlist();
+    } else {
+      const err = await res.json();
+      alert('Failed to add target: ' + (err.detail || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('Error adding watchlist target: ' + e);
+  }
+}
+
+async function deleteWatchlistItem(itemId) {
+  if (!confirm('Remove this target from your watchlist?')) return;
+  try {
+    const res = await fetch('/api/watchlist/' + itemId, { method: 'DELETE' });
+    if (res.ok) {
+      loadWatchlist();
+    }
+  } catch (e) {
+    alert('Error removing target: ' + e);
+  }
+}

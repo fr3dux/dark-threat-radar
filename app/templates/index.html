@@ -13,7 +13,7 @@
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
       <div class="brand-section">
-        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.6</span></span>
+        <span class="brand-title">DARK THREAT-RADAR <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v1.7.8</span></span>
         
         <!-- SANS INFOCON Badge -->
         {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
@@ -724,7 +724,7 @@
 
     <!-- ========================================== -->
     <!-- ========================================== -->
-    <!-- TAB: RANSOMWARE TRACKER (v1.7.6)           -->
+    <!-- TAB: RANSOMWARE TRACKER (v1.7.8)           -->
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
@@ -793,7 +793,7 @@
     </div>
 
   <!-- ========================================== -->
-    <!-- TAB: LEAK CHECK (v1.7.6)                   -->
+    <!-- TAB: LEAK CHECK (v1.7.8)                   -->
     <!-- Credential & Data Breach Validation Engine -->
     <!-- ========================================== -->
     <div id="panel-leakcheck" class="view-panel">
@@ -860,7 +860,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.6)      -->
+    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.8)      -->
     <!-- Custom Asset Tracking & Remediation Directives -->
     <!-- ========================================== -->
     <div id="panel-watchlist" class="view-panel">
@@ -890,7 +890,7 @@
                 <input type="text" id="wl-val-input" class="search-input" placeholder="e.g. Citrix, PAN-OS, CVE-2026-88772" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
               </div>
               <input type="text" id="wl-notes-input" class="search-input" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
-              <button class="btn btn-primary font-bold" style="width: 100%;" onclick="addWatchlistItem()">+ ADD TO WATCHLIST</button>
+              <button type="button" id="btn-add-wl" class="btn btn-primary font-bold" style="width: 100%;" onclick="addWatchlistItem()">+ ADD TO WATCHLIST</button>
             </div>
 
             <!-- List of Monitored Items -->
@@ -936,7 +936,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v1.7.6 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v1.7.8 // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
 
@@ -957,6 +957,6 @@
   </aside>
 
   <!-- Client Application Script -->
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v={{ version }}"></script>
 </body>
 </html>
