@@ -1,6 +1,6 @@
-# 🛡️ Dark Threat Radar
+# Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.7.2-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.7.3-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -8,35 +8,35 @@
 [![Tests Passing](https://img.shields.io/badge/tests-23%2F23%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
-**Dark Threat Radar** is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
+Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
-- [Key Features](#-key-features)
-- [Architecture and Data Pipeline](#-architecture-and-data-pipeline)
-- [Integrated Threat Intelligence Sources](#-integrated-threat-intelligence-sources)
-- [Global Internet Activity (Live Map)](#-global-internet-activity-live-map)
-- [Watchlist and Remediation Radar](#-watchlist-and-remediation-radar)
-- [Leak Check Credential Scanner](#-leak-check-credential-scanner)
-- [Quickstart with Docker Compose](#-quickstart-with-docker-compose)
-- [Native Linux Installation](#-native-linux-installation)
-- [Configuration and Environment Variables](#-configuration-and-environment-variables)
-- [REST API Reference](#-rest-api-reference)
-- [Automated Testing Suite](#-automated-testing-suite)
-- [Security and Hygiene Architecture](#-security-and-hygiene-architecture)
-- [Resumo em Portugues](#-resumo-em-portugues)
-- [License](#-license)
+- [Key Features](#key-features)
+- [Architecture and Data Pipeline](#architecture-and-data-pipeline)
+- [Integrated Threat Intelligence Sources](#integrated-threat-intelligence-sources)
+- [Global Internet Activity (Live Map)](#global-internet-activity-live-map)
+- [Watchlist and Remediation Radar](#watchlist-and-remediation-radar)
+- [Leak Check Credential Scanner](#leak-check-credential-scanner)
+- [Quickstart with Docker Compose](#quickstart-with-docker-compose)
+- [Native Linux Installation](#native-linux-installation)
+- [Configuration and Environment Variables](#configuration-and-environment-variables)
+- [REST API Reference](#rest-api-reference)
+- [Automated Testing Suite](#automated-testing-suite)
+- [Security and Hygiene Architecture](#security-and-hygiene-architecture)
+- [Resumo em Portugues](#resumo-em-portugues)
+- [License](#license)
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 - **Autonomous 5-Minute Ingestion:** Background scheduler (`APScheduler`) continuously synchronizes feeds every 5 minutes (`SYNC_INTERVAL_SECONDS = 300`) without blocking the main event loop or requiring manual user interaction.
 - **Global Internet Activity Map:** 60 FPS HTML5 Canvas vector radar featuring real cartographic coastlines (287 country polygons) with ballistic laser trajectories connecting real SANS ISC DShield scanner IPs to targeted global ports.
 - **Critical Vendor Threat Spotlight:** Real-time visibility into high-impact zero-days and active KEV exploits published in recent weeks (e.g., Citrix NetScaler `CVE-2026-88771`/`CVE-2026-88772`, Microsoft SharePoint `CVE-2026-65660`, MikroTik RouterOS `CVE-2026-67279`, Apple Multiple Products `CVE-2026-86950`).
-- **Asset Watchlist & Official Remediation:** Register internal vendors, operating systems, or specific CVEs to cross-reference against CISA KEV and NVD feeds, automatically delivering required mitigation directives and official patch due dates.
+- **Asset Watchlist and Official Remediation:** Register internal vendors, operating systems, or specific CVEs to cross-reference against CISA KEV and NVD feeds, automatically delivering required mitigation directives and official patch due dates.
 - **Ransomware Extortion Tracker:** Dedicated monitoring of active ransomware gang victim disclosures (LockBit, Akira, Qilin, MedusaLocker) with specialized country filtering and immediate highlighting for Brazilian targets.
 - **Leak Check Credential Scanner:** Interactive validation of compromised email addresses (XposedOrNot Community DB) and passwords via the NIST SP 800-63B compliant K-Anonymity SHA-1 protocol (Have I Been Pwned / Cloudflare).
 - **EPSS Scoring Correlation:** Enriches all vulnerability records with FIRST.org Exploit Prediction Scoring System (EPSS) probabilities and percentiles alongside CVSS scores.
@@ -45,7 +45,7 @@
 
 ---
 
-## 🏛️ Architecture and Data Pipeline
+## Architecture and Data Pipeline
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -90,9 +90,9 @@
 
 ---
 
-## 🌐 Integrated Threat Intelligence Sources
+## Integrated Threat Intelligence Sources
 
-Dark Threat Radar ingests and cross-references data from **7 primary intelligence feeds**:
+Dark Threat Radar ingests and cross-references data from 7 primary intelligence feeds:
 
 | Feed | Source / API | Description | Ingestion Frequency |
 | :--- | :--- | :--- | :--- |
@@ -106,34 +106,34 @@ Dark Threat Radar ingests and cross-references data from **7 primary intelligenc
 
 ---
 
-## 🗺️ Global Internet Activity (Live Map)
+## Global Internet Activity (Live Map)
 
-Dark Threat Radar includes a hardware-accelerated **60 FPS HTML5 Canvas Cyberattack Map**:
-- **Authentic Cartography:** Driven by `app/static/data/world_polygons.json` containing **287 real-world geographic features**, accurately rendering all global coastlines and borders (Brazil, South America, North America, Europe, Asia, Africa, and Oceania).
+Dark Threat Radar includes a hardware-accelerated 60 FPS HTML5 Canvas Cyberattack Map:
+- **Authentic Cartography:** Driven by `app/static/data/world_polygons.json` containing 287 real-world geographic features, accurately rendering all global coastlines and borders (Brazil, South America, North America, Europe, Asia, Africa, and Oceania).
 - **Proportional Aspect Ratio:** Enforces a locked 2:1 equirectangular projection centered within the viewport, preventing distortion or stretching across any screen resolution.
 - **Ballistic Laser Trajectories:** Renders quadratic bezier attack arcs with glowing particle heads and expanding ripple rings upon target impact.
 - **Live Traffic Telemetry Feed:** Dedicated scrolling telemetry feed displaying source country, attacker IP, target country, destination port, and service identification.
 
 ---
 
-## 📋 Watchlist and Remediation Radar
+## Watchlist and Remediation Radar
 
 The Watchlist module allows SOC analysts and engineers to monitor internal technologies and appliances:
-- **Target Types:** Register targets by **Vendor** (e.g., *Citrix*, *Palo Alto*), **Product/OS** (e.g., *PAN-OS*, *NetScaler*, *Linux Kernel*), or **Specific CVE** (e.g., *CVE-2026-88772*).
+- **Target Types:** Register targets by Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler, Linux Kernel), or Specific CVE (e.g., CVE-2026-88772).
 - **Automated Correlation:** Real-time cross-referencing against ingested CISA KEV and NVD records.
-- **Remediation Directives:** Surfaces official required actions (`ACTION REQUIRED`), mitigation deadlines (`DUE DATE`), severity classifications, and direct links to patch advisories.
+- **Remediation Directives:** Surfaces official required actions (ACTION REQUIRED), mitigation deadlines (DUE DATE), severity classifications, and direct links to patch advisories.
 
 ---
 
-## 🔍 Leak Check Credential Scanner
+## Leak Check Credential Scanner
 
 Dark Threat Radar incorporates an interactive verification module (`/api/leak-check/*`):
-- **Email Breach Scanner:** Checks target emails against the **XposedOrNot Community Breach Intelligence** database, returning compromised services, breach years, and compromised data classes.
-- **K-Anonymity Password Scanner:** Implements the **Troy Hunt / Cloudflare K-Anonymity protocol**. Only the first 5 characters of the password's SHA-1 hash are queried against the 850M+ compromised passwords dataset. The password itself never leaves local memory.
+- **Email Breach Scanner:** Checks target emails against the XposedOrNot Community Breach Intelligence database, returning compromised services, breach years, and compromised data classes.
+- **K-Anonymity Password Scanner:** Implements the Troy Hunt / Cloudflare K-Anonymity protocol. Only the first 5 characters of the password's SHA-1 hash are queried against the 850M+ compromised passwords dataset. The password itself never leaves local memory.
 
 ---
 
-## ⚡ Quickstart with Docker Compose
+## Quickstart with Docker Compose
 
 Ensure Docker and Docker Compose are installed:
 
@@ -152,11 +152,11 @@ docker compose up -d
 docker compose logs -f
 ```
 
-Open your browser at **`http://localhost:9220`** (or your server's IP).
+Open your browser at `http://localhost:9220` (or your server's IP).
 
 ---
 
-## 🐧 Native Linux Installation
+## Native Linux Installation
 
 ### 1. Requirements and Setup
 ```bash
@@ -206,7 +206,7 @@ sudo systemctl status threat-radar.service
 
 ---
 
-## ⚙️ Configuration and Environment Variables
+## Configuration and Environment Variables
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
@@ -221,9 +221,9 @@ sudo systemctl status threat-radar.service
 
 ---
 
-## 🔌 REST API Reference
+## REST API Reference
 
-Interactive documentation with live OpenAPI testing is available at **`/docs`** (Swagger UI) and **`/redoc`**.
+Interactive documentation with live OpenAPI testing is available at `/docs` (Swagger UI) and `/redoc`.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -246,7 +246,7 @@ Interactive documentation with live OpenAPI testing is available at **`/docs`** 
 
 ---
 
-## 🧪 Automated Testing Suite
+## Automated Testing Suite
 
 Dark Threat Radar enforces 100% test coverage over critical API endpoints, schema migrations, and rendering contracts using `pytest`:
 
@@ -265,7 +265,7 @@ Test coverage includes:
 
 ---
 
-## 🔒 Security and Hygiene Architecture
+## Security and Hygiene Architecture
 
 - **Zero Secrets Tracked:** Git history contains no API tokens, private keys, or passwords.
 - **Database & Cache Isolation:** Database (`*.db`, `*.db-wal`), virtual environments (`venv/`), bytecode caches (`__pycache__/`), and logs are strictly ignored by `.gitignore`.
@@ -273,9 +273,9 @@ Test coverage includes:
 
 ---
 
-## 🇧🇷 Resumo em Portugues
+## Resumo em Portugues
 
-O **Dark Threat Radar** e uma plataforma autonoma e leve de inteligencia contra ameacas ciberneticas (CTI) e radar para SOC. Desenvolvido em Python (FastAPI) com banco de dados embutido SQLite assincrono, ele agrega e correlaciona continuamente:
+O Dark Threat Radar e uma plataforma autonoma e leve de inteligencia contra ameacas ciberneticas (CTI) e radar para SOC. Desenvolvido em Python (FastAPI) com banco de dados embutido SQLite assincrono, ele agrega e correlaciona continuamente:
 1. **CISA KEV:** Vulnerabilidades exploradas ativamente no mundo real e campanhas de ransomware.
 2. **NIST NVD 2.0:** Ultimas CVEs dos ultimos 7 dias e todas as falhas com severidade Critica.
 3. **EPSS (FIRST.org):** Probabilidade matematica de exploracao ativa em 30 dias para cada CVE.
@@ -288,6 +288,6 @@ O **Dark Threat Radar** e uma plataforma autonoma e leve de inteligencia contra 
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
