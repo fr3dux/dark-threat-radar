@@ -2,8 +2,8 @@
 Defines strict schemas for request queries, responses, and artifacts.
 """
 
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ==================== VERSION & HEALTH SCHEMAS ====================
@@ -53,6 +53,47 @@ class IntegrationKeyUpdate(BaseModel):
 class OpenPhishSettingsUpdate(BaseModel):
     enabled: bool
     terms_accepted: bool
+
+
+class PasswordLeakCheckRequest(BaseModel):
+    sha1_prefix: str = Field(..., pattern=r"^[A-Fa-f0-9]{5}$")
+    sha1_suffix: str = Field(..., pattern=r"^[A-Fa-f0-9]{35}$")
+
+
+class EmailLeakCheckRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_shape(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized.count("@") != 1:
+            raise ValueError("A valid email address is required")
+        local, domain = normalized.rsplit("@", 1)
+        if not local or not domain or "." not in domain or any(ch.isspace() for ch in normalized):
+            raise ValueError("A valid email address is required")
+        return normalized
+
+
+class WatchlistCreate(BaseModel):
+    item_type: Literal["vendor", "product", "cve"] = "vendor"
+    value: str = Field(..., min_length=1, max_length=200)
+    notes: str = Field(default="", max_length=500)
+
+    @field_validator("value", "notes")
+    @classmethod
+    def strip_control_characters(cls, value: str) -> str:
+        normalized = value.strip()
+        if any(ord(ch) < 32 and ch not in "\t" for ch in normalized):
+            raise ValueError("Control characters are not allowed")
+        return normalized
+
+    @field_validator("value")
+    @classmethod
+    def require_value(cls, value: str) -> str:
+        if not value:
+            raise ValueError("Value cannot be empty")
+        return value
 
 
 class StatusResponse(BaseModel):

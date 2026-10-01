@@ -5,6 +5,14 @@ services:
       dockerfile: Dockerfile
     container_name: threat-radar
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 2.0
     ports:
       - "${PORT:-9220}:9220"
     environment:
@@ -24,6 +32,8 @@ services:
       - RUNTIME_SECRETS_PATH=/app/data/.runtime-secrets.json
     volumes:
       - threat-radar-data:/app/data
+    tmpfs:
+      - /tmp:size=64m,mode=1777,noexec,nosuid,nodev
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; exit(0 if urllib.request.urlopen('http://127.0.0.1:9220/api/status', timeout=3).getcode() == 200 else 1)\""]
       interval: 30s

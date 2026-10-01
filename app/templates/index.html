@@ -304,7 +304,7 @@
           <div class="dash-card-body" style="padding: 8px 12px;">
             <div class="critical-vendor-list">
               {% for item in stats.recent_critical_vendors %}
-              <div class="critical-vendor-item" onclick="openArtifact('cve', '{{ item.cve_id }}')">
+              <div class="critical-vendor-item" data-artifact-type="cve" data-artifact-id="{{ item.cve_id }}">
                 <div class="crit-vendor-top">
                   <span class="crit-vendor-name font-bold">{{ item.vendor_project }} <span class="text-muted" style="font-weight: normal;">{{ item.product or '' }}</span></span>
                   <span class="badge badge-crit mono font-bold">{{ item.cve_id }}</span>
@@ -332,7 +332,7 @@
           <div class="dash-card-body" style="padding: 8px 12px;">
             <div class="critical-vendor-list">
               {% for victim in stats.recent_ransomware_victims %}
-              <div class="critical-vendor-item" onclick="openArtifact('ransomware', '{{ victim.id }}')">
+              <div class="critical-vendor-item" data-artifact-type="ransomware" data-artifact-id="{{ victim.id }}">
                 <div class="crit-vendor-top">
                   <span class="crit-vendor-name font-bold">{{ victim.victim_name }}</span>
                   <span class="badge badge-ransomware mono font-bold">{{ victim.group_name | upper }}</span>
@@ -450,7 +450,7 @@
               {% for vendor in stats.top_vendors %}
               {% set max_vendor_count = stats.top_vendors[0].count if stats.top_vendors else 1 %}
               {% set vendor_bar_pct = (vendor.count / max_vendor_count * 100) | round(1) %}
-              <div class="rank-item" onclick="goToTabWithFilter('panel-cves', {query: '{{ vendor.vendor_project }}'})" title="Filter CVEs by {{ vendor.vendor_project }}">
+              <div class="rank-item" data-filter-panel="panel-cves" data-filter-query="{{ vendor.vendor_project }}" title="Filter CVEs by {{ vendor.vendor_project }}">
                 <div class="rank-badge mono">#{{ loop.index }}</div>
                 <div class="rank-info">
                   <div class="rank-header">
@@ -481,7 +481,7 @@
               {% for mal in stats.top_malware %}
               {% set max_mal_count = stats.top_malware[0].count if stats.top_malware else 1 %}
               {% set mal_bar_pct = (mal.count / max_mal_count * 100) | round(1) %}
-              <div class="rank-item" onclick="goToTabWithFilter('panel-malware', {query: '{{ mal.signature }}'})" title="Filter Malware by {{ mal.signature }}">
+              <div class="rank-item" data-filter-panel="panel-malware" data-filter-query="{{ mal.signature }}" title="Filter Malware by {{ mal.signature }}">
                 <div class="rank-badge mono purple">#{{ loop.index }}</div>
                 <div class="rank-info">
                   <div class="rank-header">
@@ -510,7 +510,7 @@
           <div class="dash-card-body">
             <div class="port-rank-list" id="dash-ports-list">
               {% for p in stats.top_ports %}
-              <div class="port-item" onclick="openArtifact('port', '{{ p.port }}')">
+              <div class="port-item" data-artifact-type="port" data-artifact-id="{{ p.port }}">
                 <div class="port-col-main">
                   <span class="port-number mono font-bold">{{ p.port }}</span>
                   <span class="badge badge-filetype mono">{{ p.service or 'Unknown' }}</span>
@@ -552,7 +552,7 @@
               </thead>
               <tbody id="dash-kevs-tbody">
                 {% for kev in stats.recent_kevs %}
-                <tr onclick="openArtifact('cve', '{{ kev.cve_id }}')">
+                <tr class="clickable-row" data-artifact-type="cve" data-artifact-id="{{ kev.cve_id }}">
                   <td class="mono font-bold" style="color: var(--accent-blue);">{{ kev.cve_id }}</td>
                   <td class="font-bold">{{ (kev.vendor_project or '') + ' ' + (kev.product or '') }}</td>
                   <td class="vuln-cell" title="{{ kev.vulnerability_name or '' }}">{{ (kev.vulnerability_name or '') | truncate(75) }}</td>
@@ -583,7 +583,7 @@
           <div class="dash-card-body" style="padding: 8px 12px;">
             <div class="spotlight-news-list" id="dash-news-list">
               {% for news in stats.recent_news %}
-              <div class="spotlight-news-item" onclick="openArtifact('news', '{{ news.id }}')">
+              <div class="spotlight-news-item" data-artifact-type="news" data-artifact-id="{{ news.id }}">
                 <div class="spotlight-news-header">
                   <span class="badge badge-filetype mono">{{ news.source }}</span>
                   <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(26) }}</span>
@@ -913,9 +913,10 @@
                   <option value="product">Product / OS</option>
                   <option value="cve">Specific CVE</option>
                 </select>
-                <input type="text" id="wl-val-input" class="search-input" placeholder="e.g. Citrix, PAN-OS, CVE-2026-88772" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+                <input type="text" id="wl-val-input" class="search-input" maxlength="200" placeholder="e.g. Citrix, PAN-OS, CVE-2026-88772" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
               </div>
-              <input type="text" id="wl-notes-input" class="search-input" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+              <input type="text" id="wl-notes-input" class="search-input" maxlength="500" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+              <input type="password" id="wl-admin-token" class="search-input" autocomplete="current-password" maxlength="256" placeholder="Administrative access code" style="width: 100%; margin-bottom: 8px;">
               <button type="button" id="btn-add-wl" class="btn btn-primary font-bold" style="width: 100%;" onclick="addWatchlistItem()">+ ADD TO WATCHLIST</button>
             </div>
 

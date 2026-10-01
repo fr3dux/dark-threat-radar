@@ -57,6 +57,27 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(pollStatus, 15000);
   checkForUpdate();
   setInterval(() => checkForUpdate(), 21600000);
+
+  // Dynamic CTI records use data attributes instead of inline JavaScript.
+  document.addEventListener('click', (event) => {
+    const artifactTarget = event.target.closest('[data-artifact-type][data-artifact-id]');
+    if (artifactTarget) {
+      event.preventDefault();
+      openArtifact(artifactTarget.dataset.artifactType, artifactTarget.dataset.artifactId);
+      return;
+    }
+    const deleteTarget = event.target.closest('[data-watchlist-delete]');
+    if (deleteTarget) {
+      event.preventDefault();
+      deleteWatchlistItem(deleteTarget.dataset.watchlistDelete);
+      return;
+    }
+    const filterTarget = event.target.closest('[data-filter-panel][data-filter-query]');
+    if (filterTarget) {
+      event.preventDefault();
+      goToTabWithFilter(filterTarget.dataset.filterPanel, { query: filterTarget.dataset.filterQuery });
+    }
+  });
 });
 
 // ==================== SAFE APPLICATION UPDATE ====================
@@ -361,7 +382,7 @@ async function loadCves() {
       const desc = escapeHtml(item.short_description || item.vulnerability_name || '');
 
       return `
-        <tr onclick="openArtifact('cve', '${escapeHtml(item.cve_id)}')">
+        <tr class="clickable-row" data-artifact-type="cve" data-artifact-id="${escapeHtml(item.cve_id)}">
           <td class="mono font-bold" style="color: var(--accent-blue);">${escapeHtml(item.cve_id)}</td>
           <td>${srcBadge}</td>
           <td title="${vendor}">${vendor.length > 28 ? vendor.slice(0, 26) + '..' : vendor}</td>
@@ -374,7 +395,7 @@ async function loadCves() {
     }).join('');
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-row" style="color: var(--accent-red);">Error loading CVEs: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-row" style="color: var(--accent-red);">Error loading CVEs: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -462,7 +483,7 @@ async function loadMalware() {
         : '<span class="mono text-muted">Unclassified</span>';
 
       return `
-        <tr onclick="openArtifact('malware', '${escapeHtml(sha256)}')">
+        <tr class="clickable-row" data-artifact-type="malware" data-artifact-id="${escapeHtml(sha256)}">
           <td class="mono text-muted">${escapeHtml(item.first_seen || '')}</td>
           <td class="mono" style="color: var(--accent-purple);" title="${escapeHtml(sha256)}">${sha256Short}</td>
           <td class="mono" title="${escapeHtml(item.file_name || '')}">${escapeHtml((item.file_name || 'unknown').slice(0, 26))}</td>
@@ -474,7 +495,7 @@ async function loadMalware() {
     }).join('');
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-row" style="color: var(--accent-red);">Error loading malware: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-row" style="color: var(--accent-red);">Error loading malware: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -536,7 +557,7 @@ function renderMapTopTargetedPorts(ports) {
   }
 
   container.innerHTML = topPorts.map(item => `
-    <div class="port-item" onclick="openArtifact('port', '${Number(item.port)}')">
+    <div class="port-item" data-artifact-type="port" data-artifact-id="${Number(item.port)}">
       <div class="port-col-main">
         <span class="port-number mono font-bold" style="font-size: 11px;">${Number(item.port)}</span>
         <span class="badge badge-port-service mono" style="font-size: 9px;">${escapeHtml(item.service || `PORT/${item.port}`)}</span>
@@ -564,7 +585,7 @@ async function loadDshield() {
       sourcesTbody.innerHTML = '<tr><td colspan="5" class="empty-row">No attacking source telemetry logged.</td></tr>';
     } else {
       sourcesTbody.innerHTML = sources.map(item => `
-        <tr onclick="openArtifact('ip', '${escapeHtml(item.ip)}')">
+        <tr class="clickable-row" data-artifact-type="ip" data-artifact-id="${escapeHtml(item.ip)}">
           <td class="mono font-bold" style="color: var(--accent-cyan);">${escapeHtml(item.ip)}</td>
           <td class="mono crit font-bold">${item.attacks.toLocaleString()}</td>
           <td class="mono">${item.count.toLocaleString()}</td>
@@ -582,8 +603,8 @@ async function loadDshield() {
       portsTbody.innerHTML = '<tr><td colspan="5" class="empty-row">No port telemetry recorded.</td></tr>';
     } else {
       portsTbody.innerHTML = ports.map(item => `
-        <tr onclick="openArtifact('port', '${item.port}')">
-          <td class="mono font-bold" style="color: var(--accent-orange);">${item.port}</td>
+        <tr class="clickable-row" data-artifact-type="port" data-artifact-id="${Number(item.port)}">
+          <td class="mono font-bold" style="color: var(--accent-orange);">${Number(item.port)}</td>
           <td><span class="badge badge-filetype mono">${escapeHtml(item.service || 'Unknown')}</span></td>
           <td class="mono">${item.records.toLocaleString()}</td>
           <td class="mono">${item.targets.toLocaleString()}</td>
@@ -629,7 +650,7 @@ async function loadNews() {
     }
 
     container.innerHTML = data.items.map(item => `
-      <div class="news-card" onclick="openArtifact('news', '${escapeHtml(item.id)}')">
+      <div class="news-card" data-artifact-type="news" data-artifact-id="${escapeHtml(item.id)}">
         <div class="news-header">
           <div class="news-title font-bold">${escapeHtml(item.title)}</div>
           <span class="badge badge-nvd">${escapeHtml(item.source)}</span>
@@ -644,7 +665,7 @@ async function loadNews() {
     `).join('');
 
   } catch (err) {
-    container.innerHTML = `<div class="empty-row" style="color: var(--accent-red);">Error loading news: ${err.message}</div>`;
+    container.innerHTML = `<div class="empty-row" style="color: var(--accent-red);">Error loading news: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -727,7 +748,7 @@ async function openArtifact(type, identifier) {
             <span class="property-key">SOURCE</span><span class="property-value">${escapeHtml(d.source)}</span>
             <span class="property-key">VENDOR / PROJECT</span><span class="property-value font-bold">${escapeHtml(d.vendor_project || 'N/A')}</span>
             <span class="property-key">PRODUCT</span><span class="property-value">${escapeHtml(d.product || 'N/A')}</span>
-            <span class="property-key">CVSS BASE SCORE</span><span class="property-value mono font-bold" style="color: var(--accent-red);">${d.cvss_score ? d.cvss_score + ' (' + (d.cvss_severity || '') + ')' : 'N/A'}</span>
+            <span class="property-key">CVSS BASE SCORE</span><span class="property-value mono font-bold" style="color: var(--accent-red);">${d.cvss_score ? escapeHtml(d.cvss_score + ' (' + (d.cvss_severity || '') + ')') : 'N/A'}</span>
             <span class="property-key">RANSOMWARE USE</span><span class="property-value">${d.known_ransomware_campaign_use === 'Known' ? '<span class="badge badge-ransomware">KNOWN CAMPAIGN</span>' : 'Unknown / Not Reported'}</span>
             <span class="property-key">REQUIRED ACTION</span><span class="property-value warn">${escapeHtml(d.required_action || 'Apply vendor patches or mitigations.')}</span>
             <span class="property-key">DUE DATE</span><span class="property-value mono">${escapeHtml(d.due_date || 'N/A')}</span>
@@ -777,8 +798,8 @@ async function openArtifact(type, identifier) {
           <div class="drawer-section-title">DSHIELD ATTACKING IP INTELLIGENCE</div>
           <div class="property-list">
             <span class="property-key">IP ADDRESS</span><span class="property-value mono font-bold" style="color: var(--accent-cyan);">${escapeHtml(d.ip)}</span>
-            <span class="property-key">ATTACKS COUNT</span><span class="property-value mono crit font-bold">${d.attacks}</span>
-            <span class="property-key">PACKETS COUNT</span><span class="property-value mono">${d.count}</span>
+            <span class="property-key">ATTACKS COUNT</span><span class="property-value mono crit font-bold">${Number(d.attacks) || 0}</span>
+            <span class="property-key">PACKETS COUNT</span><span class="property-value mono">${Number(d.count) || 0}</span>
             <span class="property-key">AS / ORG NAME</span><span class="property-value font-bold">${escapeHtml(d.as_name || 'N/A')}</span>
             <span class="property-key">FIRST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.firstseen || 'N/A')}</span>
             <span class="property-key">LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.lastseen || 'N/A')}</span>
@@ -798,18 +819,18 @@ async function openArtifact(type, identifier) {
         <div class="drawer-section">
           <div class="drawer-section-title">PORT TELEMETRY</div>
           <div class="property-list">
-            <span class="property-key">PORT NUMBER</span><span class="property-value mono font-bold" style="color: var(--accent-orange);">${d.port}</span>
+            <span class="property-key">PORT NUMBER</span><span class="property-value mono font-bold" style="color: var(--accent-orange);">${Number(d.port) || 0}</span>
             <span class="property-key">KNOWN SERVICE</span><span class="property-value mono font-bold">${escapeHtml(d.service || 'Unknown')}</span>
-            <span class="property-key">ATTACK SOURCES</span><span class="property-value mono warn font-bold">${d.count}</span>
-            <span class="property-key">PACKET RECORDS</span><span class="property-value mono">${d.records}</span>
-            <span class="property-key">TARGET SYSTEMS</span><span class="property-value mono">${d.targets}</span>
+            <span class="property-key">ATTACK SOURCES</span><span class="property-value mono warn font-bold">${Number(d.count) || 0}</span>
+            <span class="property-key">PACKET RECORDS</span><span class="property-value mono">${Number(d.records) || 0}</span>
+            <span class="property-key">TARGET SYSTEMS</span><span class="property-value mono">${Number(d.targets) || 0}</span>
           </div>
         </div>
       `;
 
       actionsHtml = `
-        <a class="external-link" href="https://isc.sans.edu/port.html?port=${d.port}" target="_blank" rel="noopener">SANS DShield Port Report &rarr;</a>
-        <a class="external-link" href="https://www.speedguide.net/port.php?port=${d.port}" target="_blank" rel="noopener">SpeedGuide Port DB &rarr;</a>
+        <a class="external-link" href="https://isc.sans.edu/port.html?port=${Number(d.port) || 0}" target="_blank" rel="noopener">SANS DShield Port Report &rarr;</a>
+        <a class="external-link" href="https://www.speedguide.net/port.php?port=${Number(d.port) || 0}" target="_blank" rel="noopener">SpeedGuide Port DB &rarr;</a>
       `;
 
     } else if (type === 'ransomware') {
@@ -861,9 +882,10 @@ async function openArtifact(type, identifier) {
         ` : ''}
       `;
 
-      actionsHtml = `
-        <a class="external-link" href="${escapeHtml(d.link)}" target="_blank" rel="noopener">Open Original Article &rarr;</a>
-      `;
+      const articleUrl = safeHttpUrl(d.link);
+      actionsHtml = articleUrl
+        ? `<a class="external-link" href="${escapeHtml(articleUrl)}" target="_blank" rel="noopener">Open Original Article &rarr;</a>`
+        : '<span class="mono text-muted">No safe public article URL supplied by the source.</span>';
     }
 
     let rawRecord = d;
@@ -891,14 +913,15 @@ async function openArtifact(type, identifier) {
       <div class="drawer-section">
         <div class="drawer-section-title" style="display: flex; justify-content: space-between; align-items: center;">
           <span>RAW RECORD PAYLOAD</span>
-          <button class="btn" style="padding: 2px 6px; font-size: 10px;" onclick="copyRawJson()">COPY JSON</button>
+          <button class="btn" id="copy-raw-json-button" style="padding: 2px 6px; font-size: 10px;">COPY JSON</button>
         </div>
         <pre class="json-viewer" id="raw-json-pre">${escapeHtml(rawJsonStr)}</pre>
       </div>
     `;
+    document.getElementById('copy-raw-json-button')?.addEventListener('click', copyRawJson);
 
   } catch (err) {
-    content.innerHTML = `<div class="empty-row" style="color: var(--accent-red);">Failed retrieving artifact: ${err.message}</div>`;
+    content.innerHTML = `<div class="empty-row" style="color: var(--accent-red);">Failed retrieving artifact: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -923,12 +946,22 @@ async function triggerManualSync() {
   const spinner = document.getElementById('sync-spinner');
   const label = document.getElementById('sync-label');
 
+  const adminToken = integrationAdminToken || document.getElementById('wl-admin-token')?.value.trim() || '';
+  if (!adminToken) {
+    alert('Administrative access code is required to start a manual synchronization.');
+    return;
+  }
+
   btn.disabled = true;
   spinner.style.display = 'inline-block';
   label.textContent = 'SYNCING...';
 
   try {
-    const res = await fetch('/api/sync', { method: 'POST' });
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     await res.json();
 
     if (syncPollingInterval) clearInterval(syncPollingInterval);
@@ -1087,6 +1120,41 @@ function safeHttpUrl(value) {
   }
 }
 
+function sha1Fallback(message) {
+  const bytes = new TextEncoder().encode(message);
+  const words = [];
+  for (let i = 0; i < bytes.length; i++) words[i >> 2] = (words[i >> 2] || 0) | bytes[i] << (24 - (i % 4) * 8);
+  words[bytes.length >> 2] = (words[bytes.length >> 2] || 0) | 0x80 << (24 - (bytes.length % 4) * 8);
+  words[(((bytes.length + 8) >> 6) + 1) * 16 - 1] = bytes.length * 8;
+  let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+  const rotate = (value, bits) => (value << bits) | (value >>> (32 - bits));
+  for (let block = 0; block < words.length; block += 16) {
+    const w = new Array(80);
+    for (let i = 0; i < 16; i++) w[i] = words[block + i] || 0;
+    for (let i = 16; i < 80; i++) w[i] = rotate(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let i = 0; i < 80; i++) {
+      let f, k;
+      if (i < 20) { f = (b & c) | ((~b) & d); k = 0x5a827999; }
+      else if (i < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
+      else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
+      else { f = b ^ c ^ d; k = 0xca62c1d6; }
+      const temp = (rotate(a, 5) + f + e + k + w[i]) | 0;
+      e = d; d = c; c = rotate(b, 30); b = a; a = temp;
+    }
+    h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
+  }
+  return [h0, h1, h2, h3, h4].map(value => (value >>> 0).toString(16).padStart(8, '0')).join('').toUpperCase();
+}
+
+async function sha1Hex(message) {
+  if (window.crypto?.subtle) {
+    const digest = await window.crypto.subtle.digest('SHA-1', new TextEncoder().encode(message));
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  return sha1Fallback(message);
+}
+
 
 // ==================== RANSOMWARE TRACKER (v1.2.0) ====================
 
@@ -1129,20 +1197,20 @@ async function loadRansomware() {
         : (item.country ? `<span class="badge badge-filetype mono">${escapeHtml(item.country)}</span>` : '<span class="mono text-muted">-</span>');
 
       return `
-      <tr onclick="openArtifact('ransomware', '${item.id}')">
+      <tr class="clickable-row" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">
         <td class="mono text-muted">${escapeHtml((item.discovered || item.attackdate || '').substring(0, 16))}</td>
         <td><span class="badge badge-ransomware mono font-bold">${escapeHtml(item.group_name || 'UNKNOWN')}</span></td>
         <td class="font-bold">${escapeHtml(item.victim_name)}</td>
         <td>${countryBadge}</td>
         <td class="mono" style="color: var(--accent-blue);">${escapeHtml(item.domain || item.activity || '-')}</td>
-        <td><button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openArtifact('ransomware', '${item.id}')">DETALHES</button></td>
+        <td><button class="btn btn-sm btn-ghost" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">DETALHES</button></td>
       </tr>
       `;
     }).join('');
 
   } catch (err) {
     console.error('Failed to load ransomware data:', err);
-    tbody.innerHTML = `<tr><td colspan="6" class="error-row">Error loading ransomware feed: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="error-row">Error loading ransomware feed: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -1322,15 +1390,15 @@ function prependLiveStream(atk) {
   item.innerHTML = `
     <div class="stream-item-top">
       <div class="stream-trajectory">
-        <span class="mono font-bold" style="color: var(--accent-red);">${atk.src_country}</span>
+        <span class="mono font-bold" style="color: var(--accent-red);">${escapeHtml(atk.src_country)}</span>
         <span class="text-muted">&rarr;</span>
-        <span class="mono font-bold" style="color: var(--accent-green);">${atk.dst_country}</span>
+        <span class="mono font-bold" style="color: var(--accent-green);">${escapeHtml(atk.dst_country)}</span>
       </div>
-      <span class="badge ${atk.severity === 'CRITICAL' ? 'badge-crit' : 'badge-warn'} mono font-bold">${atk.port} / ${atk.service}</span>
+      <span class="badge ${atk.severity === 'CRITICAL' ? 'badge-crit' : 'badge-warn'} mono font-bold">${Number(atk.port) || 0} / ${escapeHtml(atk.service)}</span>
     </div>
     <div class="stream-meta">
-      <span class="mono text-muted">${atk.src_ip}</span>
-      <span class="mono text-muted">${atk.time}</span>
+      <span class="mono text-muted">${escapeHtml(atk.src_ip)}</span>
+      <span class="mono text-muted">${escapeHtml(atk.time)}</span>
     </div>
   `;
 
@@ -1501,13 +1569,13 @@ async function runEmailLeakCheck() {
     if (data.exposed) {
       let breachPills = '';
       if (data.breaches && data.breaches.length > 0) {
-        breachPills = data.breaches.map(b => `<span class="breach-pill">⚠️ ${b}</span>`).join('');
+        breachPills = data.breaches.map(b => `<span class="breach-pill">⚠️ ${escapeHtml(b)}</span>`).join('');
       }
 
       resultsBox.innerHTML = `
         <div class="leak-status-banner compromised">
           <div class="leak-status-title">⚠️ EMAIL COMPROMISED IN DATA BREACHES</div>
-          <div class="leak-status-desc">Email <strong>${data.email}</strong> was identified in <strong>${data.count} public data breach dump(s)</strong> on the Dark Web.</div>
+          <div class="leak-status-desc">Email <strong>${escapeHtml(data.email)}</strong> was identified in <strong>${Number(data.count) || 0} public data breach dump(s)</strong> on the Dark Web.</div>
         </div>
         <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">COMPROMISED SERVICES & BREACHES:</div>
         <div class="breaches-grid">${breachPills}</div>
@@ -1516,12 +1584,12 @@ async function runEmailLeakCheck() {
       resultsBox.innerHTML = `
         <div class="leak-status-banner clean">
           <div class="leak-status-title">✅ NO BREACHES DETECTED</div>
-          <div class="leak-status-desc">Email <strong>${data.email}</strong> was not found in public databases monitored by XposedOrNot.</div>
+          <div class="leak-status-desc">Email <strong>${escapeHtml(data.email)}</strong> was not found in public databases monitored by XposedOrNot.</div>
         </div>
       `;
     }
   } catch (err) {
-    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ QUERY ERROR</div><div class="leak-status-desc">${err.message || 'Failed to communicate with server'}</div></div>`;
+    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ QUERY ERROR</div><div class="leak-status-desc">${escapeHtml(err.message || 'Failed to communicate with server')}</div></div>`;
   } finally {
     btn.disabled = false;
     btn.innerText = 'VERIFY';
@@ -1546,11 +1614,14 @@ async function runPasswordLeakCheck() {
   resultsBox.innerHTML = '<div class="loading-row">Calculating SHA-1 and querying K-Anonymity Range API...</div>';
 
   try {
+    const sha1 = await sha1Hex(password);
+    input.value = '';
     const res = await fetch('/api/leak-check/password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ sha1_prefix: sha1.slice(0, 5), sha1_suffix: sha1.slice(5) })
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
     if (data.exposed) {
@@ -1576,7 +1647,7 @@ async function runPasswordLeakCheck() {
       `;
     }
   } catch (err) {
-    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ QUERY ERROR</div><div class="leak-status-desc">${err.message || 'Failed to communicate with server'}</div></div>`;
+    resultsBox.innerHTML = `<div class="leak-status-banner compromised"><div class="leak-status-title">❌ QUERY ERROR</div><div class="leak-status-desc">${escapeHtml(err.message || 'Failed to communicate with server')}</div></div>`;
   } finally {
     btn.disabled = false;
     btn.innerText = 'VERIFY';
@@ -1610,12 +1681,12 @@ async function loadWatchlist() {
         return '<div class="wl-item-card">' +
           '<div class="wl-item-info">' +
             '<div class="wl-item-title">' +
-              '<span class="badge badge-filetype mono" style="font-size: 9.5px; padding: 1px 4px;">' + item.item_type.toUpperCase() + '</span> ' +
-              item.value +
+              '<span class="badge badge-filetype mono" style="font-size: 9.5px; padding: 1px 4px;">' + escapeHtml(item.item_type.toUpperCase()) + '</span> ' +
+              escapeHtml(item.value) +
             '</div>' +
-            '<div class="wl-item-meta mono">' + (item.notes || 'No notes') + ' • Added: ' + (item.created_at || '').substring(0, 10) + '</div>' +
+            '<div class="wl-item-meta mono">' + escapeHtml(item.notes || 'No notes') + ' • Added: ' + escapeHtml((item.created_at || '').substring(0, 10)) + '</div>' +
           '</div>' +
-          '<button class="wl-delete-btn mono font-bold" onclick="deleteWatchlistItem(\'' + item.id + '\')" title="Delete Target">✕</button>' +
+          '<button class="wl-delete-btn mono font-bold" data-watchlist-delete="' + escapeHtml(item.id) + '" title="Delete Target">✕</button>' +
         '</div>';
       }).join('');
     }
@@ -1629,24 +1700,24 @@ async function loadWatchlist() {
           ? '<span class="badge badge-crit font-bold">' + cve.cvss_score + ' CRITICAL</span>'
           : '<span class="badge badge-warn font-bold">' + (cve.cvss_score || 'N/A') + ' HIGH</span>';
         const kevBadge = (cve.source === 'cisa_kev') ? '<span class="badge badge-kev font-bold" style="margin-left: 4px;">KEV</span>' : '';
-        const notesHtml = cve.notes ? '<br><span class="text-muted">' + cve.notes + '</span>' : '';
-        const dueBadge = cve.due_date ? '<span class="badge badge-warn">' + cve.due_date + '</span>' : '<span class="text-muted">N/A</span>';
+        const notesHtml = cve.notes ? '<br><span class="text-muted">' + escapeHtml(cve.notes) + '</span>' : '';
+        const dueBadge = cve.due_date ? '<span class="badge badge-warn">' + escapeHtml(cve.due_date) + '</span>' : '<span class="text-muted">N/A</span>';
 
         return '<tr class="clickable-row">' +
           '<td>' +
-            '<div class="mono font-bold" style="color: var(--accent-blue);">' + cve.cve_id + '</div>' +
-            '<div class="mono text-muted" style="font-size: 11px;">' + (cve.vendor_project || '') + ' ' + (cve.product || '') + '</div>' +
+            '<div class="mono font-bold" style="color: var(--accent-blue);">' + escapeHtml(cve.cve_id) + '</div>' +
+            '<div class="mono text-muted" style="font-size: 11px;">' + escapeHtml(cve.vendor_project || '') + ' ' + escapeHtml(cve.product || '') + '</div>' +
           '</td>' +
           '<td>' + cvssBadge + ' ' + kevBadge + '</td>' +
           '<td>' +
-            '<div class="font-bold" style="color: var(--text-primary); font-size: 12px;">' + (cve.vulnerability_name || 'Vulnerability Impact') + '</div>' +
+            '<div class="font-bold" style="color: var(--text-primary); font-size: 12px;">' + escapeHtml(cve.vulnerability_name || 'Vulnerability Impact') + '</div>' +
             '<div class="remediation-directive-box mono">' +
-              '<strong>ACTION REQUIRED:</strong> ' + cve.required_action + notesHtml +
+              '<strong>ACTION REQUIRED:</strong> ' + escapeHtml(cve.required_action || '') + notesHtml +
             '</div>' +
           '</td>' +
           '<td class="mono">' + dueBadge + '</td>' +
           '<td>' +
-            '<button class="btn btn-sm" onclick="openArtifact(\'' + 'cve' + '\', \'' + cve.cve_id + '\')">INSPECT</button>' +
+            '<button class="btn btn-sm" data-artifact-type="cve" data-artifact-id="' + escapeHtml(cve.cve_id) + '">INSPECT</button>' +
           '</td>' +
         '</tr>';
       }).join('');
@@ -1665,16 +1736,21 @@ async function addWatchlistItem() {
   const value = valInput.value.trim();
   const item_type = typeSelect.value;
   const notes = notesInput ? notesInput.value.trim() : '';
+  const adminToken = document.getElementById('wl-admin-token')?.value.trim() || integrationAdminToken;
 
   if (!value) {
     alert('Please enter a vendor, product, or CVE to monitor.');
+    return;
+  }
+  if (!adminToken) {
+    alert('Enter the administrative access code to modify the watchlist.');
     return;
   }
 
   try {
     const res = await fetch('/api/watchlist', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
       body: JSON.stringify({ item_type: item_type, value: value, notes: notes })
     });
     if (res.ok) {
@@ -1691,9 +1767,17 @@ async function addWatchlistItem() {
 }
 
 async function deleteWatchlistItem(itemId) {
+  const adminToken = document.getElementById('wl-admin-token')?.value.trim() || integrationAdminToken;
+  if (!adminToken) {
+    alert('Enter the administrative access code to modify the watchlist.');
+    return;
+  }
   if (!confirm('Remove this target from your watchlist?')) return;
   try {
-    const res = await fetch('/api/watchlist/' + itemId, { method: 'DELETE' });
+    const res = await fetch('/api/watchlist/' + encodeURIComponent(itemId), {
+      method: 'DELETE',
+      headers: { 'X-Admin-Token': adminToken }
+    });
     if (res.ok) {
       loadWatchlist();
     }

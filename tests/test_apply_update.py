@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.apply_update import relocate_virtualenv
+from scripts.apply_update import relocate_virtualenv, wait_for_health
 
 
 def test_relocate_virtualenv_repairs_launchers_and_activation_files(tmp_path: Path):
@@ -24,3 +24,9 @@ def test_relocate_virtualenv_repairs_launchers_and_activation_files(tmp_path: Pa
     assert str(staged) not in activate.read_text(encoding="utf-8")
     assert launcher.stat().st_mode & 0o111
     assert binary.read_bytes().startswith(b"\x00")
+
+
+def test_health_check_rejects_non_numeric_or_out_of_range_ports():
+    assert wait_for_health("9220@attacker.invalid", "1.9.3", attempts=0) is False
+    assert wait_for_health("0", "1.9.3", attempts=0) is False
+    assert wait_for_health("65536", "1.9.3", attempts=0) is False

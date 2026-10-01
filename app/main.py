@@ -6,8 +6,9 @@ import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Body, Header
+from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Security
 from fastapi.exceptions import RequestValidationError
+from fastapi.security import APIKeyHeader
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -36,7 +37,11 @@ from app.schemas import (
     ErrorResponse,
     IntegrationKeyUpdate,
     OpenPhishSettingsUpdate,
+    PasswordLeakCheckRequest,
+    EmailLeakCheckRequest,
+    WatchlistCreate,
 )
+from app.security import RequestBodyLimitMiddleware, security_middleware
 from app.database import (
     init_db,
     get_db,
@@ -82,6 +87,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.add_middleware(RequestBodyLimitMiddleware)
+app.middleware("http")(security_middleware)
+
 # Standardized Error Handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -99,6 +107,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+admin_token_header = APIKeyHeader(name="X-Admin-Token", auto_error=False)
+
+
+def require_settings_admin(
+    admin_token: Optional[str] = Security(admin_token_header),
+) -> None:
+    """Protect state-changing endpoints on an otherwise public CTI portal."""
+    if not SETTINGS_ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail="Administration is not enabled on this server")
+    if not admin_token or not secrets.compare_digest(admin_token, SETTINGS_ADMIN_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid administrative access code")
 
 
 # ==================== PAGE ROUTES ====================
@@ -139,10 +158,9 @@ async def api_update_status():
 
 @app.post("/api/admin/update", status_code=202, tags=["Administration"])
 async def api_install_update(
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    _admin: None = Security(require_settings_admin),
 ):
     """Queue the latest validated release for the external system updater."""
-    require_settings_admin(x_admin_token)
     try:
         return await queue_latest_update()
     except FileExistsError as exc:
@@ -170,7 +188,10 @@ async def api_stats():
 
 
 @app.post("/api/sync", tags=["Ingestion"])
-async def api_trigger_sync(background_tasks: BackgroundTasks):
+async def api_trigger_sync(
+    background_tasks: BackgroundTasks,
+    _admin: None = Security(require_settings_admin),
+):
     """Trigger manual parallel background sync across all CTI feeds."""
     result = await trigger_manual_sync(background_tasks)
     return result
@@ -209,14 +230,6 @@ MANAGED_INTEGRATIONS = {
 }
 
 
-def require_settings_admin(admin_token: Optional[str]) -> None:
-    """Protect secret-management endpoints on an otherwise public CTI portal."""
-    if not SETTINGS_ADMIN_TOKEN:
-        raise HTTPException(status_code=503, detail="API key administration is not enabled on this server")
-    if not admin_token or not secrets.compare_digest(admin_token, SETTINGS_ADMIN_TOKEN):
-        raise HTTPException(status_code=401, detail="Invalid administrative access code")
-
-
 async def sync_managed_integration(provider: str) -> None:
     if provider == "threatfox":
         from app.ingestion.threatfox import ingest_threatfox
@@ -231,10 +244,9 @@ async def sync_managed_integration(provider: str) -> None:
 
 @app.get("/api/admin/integrations", tags=["Administration"])
 async def api_admin_integrations(
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    _admin: None = Security(require_settings_admin),
 ):
     """Return credential presence and connector health without returning secrets."""
-    require_settings_admin(x_admin_token)
     health = {item["source_name"]: item for item in await get_all_connector_health()}
     items = []
     for provider, metadata in MANAGED_INTEGRATIONS.items():
@@ -256,10 +268,9 @@ async def api_admin_integrations(
 async def api_save_openphish_settings(
     payload: OpenPhishSettingsUpdate,
     background_tasks: BackgroundTasks,
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    _admin: None = Security(require_settings_admin),
 ):
     """Explicitly opt into OpenPhish and validate its Community feed."""
-    require_settings_admin(x_admin_token)
     try:
         save_openphish_settings(
             enabled=payload.enabled,
@@ -302,10 +313,9 @@ async def api_save_integration_key(
     provider: str,
     payload: IntegrationKeyUpdate,
     background_tasks: BackgroundTasks,
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    _admin: None = Security(require_settings_admin),
 ):
     """Save a connector API key server-side and validate it through ingestion."""
-    require_settings_admin(x_admin_token)
     metadata = MANAGED_INTEGRATIONS.get(provider)
     if not metadata:
         raise HTTPException(status_code=404, detail="Unsupported integration")
@@ -329,10 +339,9 @@ async def api_save_integration_key(
 @app.delete("/api/admin/integrations/{provider}", tags=["Administration"])
 async def api_delete_integration_key(
     provider: str,
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    _admin: None = Security(require_settings_admin),
 ):
     """Remove a runtime connector key and return the source to AUTH REQUIRED."""
-    require_settings_admin(x_admin_token)
     metadata = MANAGED_INTEGRATIONS.get(provider)
     if not metadata:
         raise HTTPException(status_code=404, detail="Unsupported integration")
@@ -682,21 +691,10 @@ async def api_live_attacks():
 # ==================== LEAK CHECK CREDENTIAL SCANNER (v1.6.0) ====================
 
 @app.post("/api/leak-check/password", tags=["Leak Check"])
-async def api_leak_check_password(req: dict = Body(...)):
+async def api_leak_check_password(req: PasswordLeakCheckRequest):
     """Check password exposure using Troy Hunt / Cloudflare K-Anonymity protocol."""
-    import hashlib
-    password = req.get("password", "")
-    prefix = req.get("sha1_prefix", "")
-    suffix = req.get("sha1_suffix", "")
-
-    if password:
-        sha1_hash = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
-        prefix, suffix = sha1_hash[:5], sha1_hash[5:]
-    elif not (prefix and suffix):
-        raise HTTPException(status_code=400, detail="Missing password or SHA1 hash components")
-
-    prefix = prefix.upper()
-    suffix = suffix.upper()
+    prefix = req.sha1_prefix.upper()
+    suffix = req.sha1_suffix.upper()
 
     url = f"https://api.pwnedpasswords.com/range/{prefix}"
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -730,13 +728,13 @@ async def api_leak_check_password(req: dict = Body(...)):
 
 
 @app.post("/api/leak-check/email", tags=["Leak Check"])
-async def api_leak_check_email(req: dict = Body(...)):
+async def api_leak_check_email(req: EmailLeakCheckRequest):
     """Check email exposure against global breach intelligence (XposedOrNot)."""
-    email = req.get("email", "").strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Valid email address is required")
+    from urllib.parse import quote
 
-    url = f"https://api.xposedornot.com/v1/check-email/{email}"
+    email = req.email
+
+    url = f"https://api.xposedornot.com/v1/check-email/{quote(email, safe='')}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             res = await client.get(url, headers={"User-Agent": "DarkThreatRadar-CTI/1.6"})
@@ -848,18 +846,18 @@ async def api_get_watchlist():
 
 
 @app.post("/api/watchlist", tags=["Watchlist"])
-async def api_add_watchlist(payload: dict = Body(...)):
+async def api_add_watchlist(
+    payload: WatchlistCreate,
+    _admin: None = Security(require_settings_admin),
+):
     """Add new item to infrastructure watchlist."""
     import uuid
     from datetime import datetime, timezone
     from app.database import get_db
 
-    itype = payload.get("item_type", "vendor").strip().lower()
-    value = payload.get("value", "").strip()
-    notes = payload.get("notes", "").strip()
-
-    if not value:
-        raise HTTPException(status_code=400, detail="Value cannot be empty")
+    itype = payload.item_type
+    value = payload.value
+    notes = payload.notes
 
     item_id = f"wl-{uuid.uuid4().hex[:10]}"
     now = datetime.now(timezone.utc).isoformat()
@@ -875,9 +873,15 @@ async def api_add_watchlist(payload: dict = Body(...)):
 
 
 @app.delete("/api/watchlist/{item_id}", tags=["Watchlist"])
-async def api_delete_watchlist(item_id: str):
+async def api_delete_watchlist(
+    item_id: str,
+    _admin: None = Security(require_settings_admin),
+):
     """Remove item from infrastructure watchlist."""
     from app.database import get_db
+
+    if not item_id.startswith("wl-") or len(item_id) != 13 or not item_id[3:].isalnum():
+        raise HTTPException(status_code=422, detail="Invalid watchlist item identifier")
 
     async with get_db() as conn:
         cur = await conn.execute("DELETE FROM watchlist WHERE id = ?;", (item_id,))

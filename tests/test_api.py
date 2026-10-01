@@ -14,6 +14,7 @@ from app import main as main_module
 from app import credential_store
 from app.version import __version__, __app_name__
 from app.database import init_db, get_schema_migrations
+from app.security import rate_limiter
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -393,13 +394,22 @@ def test_schema_migration_150(client):
 
 def test_leak_check_password(client):
     """Test /api/leak-check/password with known leaked password."""
-    response = client.post("/api/leak-check/password", json={"password": "password123"})
+    response = client.post(
+        "/api/leak-check/password",
+        json={
+            "sha1_prefix": "CBFDA",
+            "sha1_suffix": "C6008F9CAB4083784CBD1874F76618D2A97",
+        },
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
     assert data["exposed"] is True
     assert data["count"] > 1000
     assert "Have I Been Pwned" in data["source"]
+
+    plaintext = client.post("/api/leak-check/password", json={"password": "password123"})
+    assert plaintext.status_code == 422
 
 
 def test_leak_check_email(client):
@@ -424,8 +434,19 @@ def test_schema_migration_160(client):
 
 def test_api_watchlist_crud(client):
     """Test watchlist CRUD endpoints."""
+    main_module.SETTINGS_ADMIN_TOKEN = "watchlist-admin-code"
+    headers = {"X-Admin-Token": "watchlist-admin-code"}
+    assert client.post(
+        "/api/watchlist",
+        json={"item_type": "vendor", "value": "Citrix"},
+    ).status_code == 401
+
     # 1. Add item
-    add_res = client.post("/api/watchlist", json={"item_type": "vendor", "value": "Citrix", "notes": "Edge Gateway"})
+    add_res = client.post(
+        "/api/watchlist",
+        headers=headers,
+        json={"item_type": "vendor", "value": "Citrix", "notes": "Edge Gateway"},
+    )
     assert add_res.status_code == 200
     item_id = add_res.json()["id"]
 
@@ -437,9 +458,66 @@ def test_api_watchlist_crud(client):
     assert any(w["value"] == "Citrix" for w in data["watchlist"])
 
     # 3. Delete item
-    del_res = client.delete(f"/api/watchlist/{item_id}")
+    del_res = client.delete(f"/api/watchlist/{item_id}", headers=headers)
     assert del_res.status_code == 200
 
+
+def test_watchlist_validation_and_stored_xss_is_rendered_inert(client):
+    main_module.SETTINGS_ADMIN_TOKEN = "watchlist-xss-code"
+    headers = {"X-Admin-Token": "watchlist-xss-code"}
+    payload = '<img src=x onerror="document.title=\'XSS\'">'
+    added = client.post(
+        "/api/watchlist",
+        headers=headers,
+        json={"item_type": "vendor", "value": payload, "notes": payload},
+    )
+    assert added.status_code == 200
+    item_id = added.json()["id"]
+
+    page = client.get("/")
+    assert page.status_code == 200
+    assert payload not in page.text
+    assert "X-Content-Type-Options" in page.headers
+    assert page.headers["X-Frame-Options"] == "DENY"
+
+    invalid = client.post(
+        "/api/watchlist",
+        headers=headers,
+        json={"item_type": "invalid", "value": "test"},
+    )
+    assert invalid.status_code == 422
+    assert client.delete(f"/api/watchlist/{item_id}", headers=headers).status_code == 200
+
+
+def test_manual_sync_requires_admin(client, monkeypatch):
+    main_module.SETTINGS_ADMIN_TOKEN = "sync-admin-code"
+
+    async def fake_sync(_background_tasks):
+        return {"status": "started"}
+
+    monkeypatch.setattr(main_module, "trigger_manual_sync", fake_sync)
+    assert client.post("/api/sync").status_code == 401
+    allowed = client.post("/api/sync", headers={"X-Admin-Token": "sync-admin-code"})
+    assert allowed.status_code == 200
+
+
+def test_admin_rate_limit_and_request_size_limit(client):
+    rate_limiter.clear()
+    main_module.SETTINGS_ADMIN_TOKEN = "rate-limit-code"
+    for _ in range(20):
+        response = client.get("/api/admin/integrations", headers={"X-Admin-Token": "wrong"})
+        assert response.status_code == 401
+    limited = client.get("/api/admin/integrations", headers={"X-Admin-Token": "wrong"})
+    assert limited.status_code == 429
+    assert "Retry-After" in limited.headers
+    rate_limiter.clear()
+
+    oversized = client.post(
+        "/api/leak-check/email",
+        content=b"x" * (65 * 1024),
+        headers={"Content-Type": "application/json"},
+    )
+    assert oversized.status_code == 413
 
 def test_schema_migration_170(client):
     """Test database schema contains 1.7.10 migration record."""

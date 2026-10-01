@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.3] - 2026-10-01
+
+### Security
+- **Stored-XSS Remediation**: Escapes untrusted Watchlist, breach, telemetry, ransomware, news, and error values; validates external URLs; and replaces dynamic inline handlers with inert data attributes.
+- **Authenticated State Changes**: Manual feed synchronization and Watchlist creation/deletion now require the per-installation administrator code and are described by an OpenAPI API-key security scheme.
+- **Private Password Lookup**: SHA-1 is calculated locally in the browser, so plaintext passwords never reach the Dark Threat Radar backend. The API accepts only strictly validated K-Anonymity components.
+- **Abuse and Input Controls**: Adds bounded Pydantic request models, a 64 KiB mutation-body ceiling, per-client rate limits, and browser security headers.
+- **Reduced Fingerprinting**: Native and Docker launchers no longer advertise the Uvicorn server header.
+- **Container Hardening**: Runs with a read-only application filesystem, all Linux capabilities dropped, `no-new-privileges`, bounded memory/CPU/PIDs, and a restricted temporary filesystem.
+- **Reproducible Dependencies**: Pins the complete production dependency graph in `requirements-prod.txt`, separates test/updater tooling, upgrades the base OS during image builds, and removes unnecessary build packages.
+- **Updater Workspace Validation**: Automatic updates now reject untracked files as well as tracked modifications before activation.
+
+### Changed
+- **Watchlist Administration**: The dashboard now requests the administrator code before adding or deleting monitored assets while keeping Watchlist intelligence readable to all users.
+
 ## [1.9.2] - 2026-10-01
 
 ### Added

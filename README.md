@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.9.2-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.9.3-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-53%2F53%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-58%2F58%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -177,7 +177,7 @@ cd dark-threat-radar
 
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
-./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install -r requirements-prod.txt
 
 # Generate this installation's unique admin access code
 ./venv/bin/python scripts/setup_admin.py
@@ -299,13 +299,13 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/ransomware` | Ransomware victim disclosures (`q`, `group`, `country`, `limit`, `offset`). |
 | `GET` | `/api/attacks/live` | Real-time cyberattack trajectories with geographic coordinates for map rendering. |
 | `GET` | `/api/watchlist` | Retrieve registered watchlist targets and cross-referenced KEV/NVD alerts. |
-| `POST`| `/api/watchlist` | Add a new target (`vendor`, `product`, or `cve`) to the infrastructure watchlist. |
-| `DELETE`| `/api/watchlist/{id}` | Remove a target from the infrastructure watchlist. |
+| `POST`| `/api/watchlist` | Add a new target (`vendor`, `product`, or `cve`); requires `X-Admin-Token`. |
+| `DELETE`| `/api/watchlist/{id}` | Remove a target; requires `X-Admin-Token`. |
 | `POST`| `/api/leak-check/email` | Validate email exposure in known global data breaches (XposedOrNot). |
 | `POST`| `/api/leak-check/password` | Validate password exposure via K-Anonymity SHA-1 range (Have I Been Pwned). |
 | `GET` | `/api/news` | Security bulletins and news feeds with search and pagination. |
 | `GET` | `/api/artifact/{type}/{id}` | Deep inspection details for CVE, malware hash, port, IP, or ransomware claim. |
-| `POST`| `/api/sync` | Manually triggers immediate synchronization of all background feeds. |
+| `POST`| `/api/sync` | Manually triggers immediate synchronization; requires `X-Admin-Token`. |
 | `GET` | `/api/admin/integrations` | Returns ThreatFox/URLhaus configuration and validation state; requires `X-Admin-Token`. |
 | `PUT` | `/api/admin/integrations/{provider}` | Stores and validates a ThreatFox or URLhaus key without returning the secret. |
 | `DELETE` | `/api/admin/integrations/{provider}` | Removes a managed key and returns the connector to `AUTH REQUIRED`. |
@@ -319,6 +319,7 @@ Dark Threat Radar includes a `pytest` regression suite for critical API endpoint
 
 ```bash
 # Execute test suite
+./venv/bin/pip install -r requirements-dev.txt
 ./venv/bin/pytest -v tests/
 ```
 
@@ -334,6 +335,7 @@ Test coverage includes:
 - Schema migration registration through the normalized IOC and connector-health schema (`1.8.1`)
 - Per-installation administrator code generation and file-permission checks
 - Stable release discovery, authenticated update requests, and semantic-version validation
+- Stored-XSS regression protection, administrative write boundaries, request-size limits, and abuse throttling
 
 ---
 
@@ -344,6 +346,11 @@ Test coverage includes:
 - **Per-Installation Administration:** The setup utility generates a unique administrator code locally; no shared or default administrator credential exists in the repository.
 - **Restricted Secret Files:** `.env` and the runtime API key store use owner-only permissions and are excluded from Git.
 - **Non-Root Docker Execution:** Docker container runs under an unprivileged `threatradar` user (UID 10001).
+- **Hardened Browser Boundary:** External CTI values are context-escaped, outbound links accept only HTTP(S), and defensive response headers block framing and MIME sniffing.
+- **Authenticated Mutations:** Manual synchronization, Watchlist changes, connector secrets, and updates require the per-installation administrative code.
+- **Private Password Checks:** Passwords are SHA-1 hashed in the browser; only K-Anonymity hash components reach the backend and only the five-character prefix reaches HIBP.
+- **Abuse Controls:** Sensitive relays and administrative routes have per-client sliding-window limits and bounded request bodies.
+- **Read-Only Container:** The application filesystem drops Linux capabilities and is read-only; only `/app/data` and a restricted temporary filesystem remain writable.
 
 ---
 

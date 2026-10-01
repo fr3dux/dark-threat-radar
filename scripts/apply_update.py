@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import http.client
 import json
 import os
 import re
@@ -13,7 +14,6 @@ import sqlite3
 import subprocess
 import sys
 import time
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -125,15 +125,24 @@ def relocate_virtualenv(venv_path: Path, previous_path: Path) -> None:
 
 
 def wait_for_health(port: str, expected_version: str, attempts: int = 20) -> bool:
-    url = f"http://127.0.0.1:{port}/api/version"
+    try:
+        port_number = int(port)
+    except (TypeError, ValueError):
+        return False
+    if not 1 <= port_number <= 65535:
+        return False
     for _ in range(attempts):
+        connection = http.client.HTTPConnection("127.0.0.1", port_number, timeout=3)
         try:
-            with urllib.request.urlopen(url, timeout=3) as response:
-                payload = json.load(response)
+            connection.request("GET", "/api/version")
+            response = connection.getresponse()
+            payload = json.loads(response.read())
             if response.status == 200 and payload.get("version") == expected_version:
                 return True
         except Exception:
             pass
+        finally:
+            connection.close()
         time.sleep(2)
     return False
 
@@ -201,8 +210,8 @@ def main() -> int:
                 raise RuntimeError("Git origin is not the official Dark Threat Radar repository")
             if run(["git", "branch", "--show-current"], cwd=project_root) != "main":
                 raise RuntimeError("Automatic updates require the main branch")
-            if run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=project_root):
-                raise RuntimeError("Tracked local changes must be committed or reverted before updating")
+            if run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=project_root):
+                raise RuntimeError("Local changes or untracked files must be removed before updating")
 
             previous_commit = run(["git", "rev-parse", "HEAD"], cwd=project_root)
             previous_version = run(
@@ -230,7 +239,7 @@ def main() -> int:
             run([sys.executable, "-m", "venv", str(new_venv)])
             update_python = new_venv / "bin" / "python"
             run([str(update_python), "-m", "pip", "install", "--quiet", "--upgrade", "pip"])
-            run([str(update_python), "-m", "pip", "install", "--quiet", "-r", str(worktree / "requirements.txt")])
+            run([str(update_python), "-m", "pip", "install", "--quiet", "-r", str(worktree / "requirements-dev.txt")])
             test_env = os.environ.copy()
             for secret_name in (
                 "THREATFOX_AUTH_KEY", "URLHAUS_AUTH_KEY", "MB_API_KEY",
@@ -250,6 +259,8 @@ def main() -> int:
             run([str(update_python), "-m", "pytest", "-q", str(worktree / "tests")], cwd=worktree, env=test_env)
             if shutil.which("node"):
                 run(["node", "--check", str(worktree / "app" / "static" / "js" / "app.js")])
+            run([str(update_python), "-m", "pip", "uninstall", "--yes", "pytest", "setuptools", "wheel"])
+            run([str(update_python), "-m", "pip", "uninstall", "--yes", "pip"])
 
             env_values = load_env_file(project_root / ".env")
             database_path = resolve_database(project_root, env_values)
