@@ -20,6 +20,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - [Global Internet Activity (Live Map)](#global-internet-activity-live-map)
 - [Watchlist and Remediation Radar](#watchlist-and-remediation-radar)
 - [Leak Check Credential Scanner](#leak-check-credential-scanner)
+- [Hardware Sizing and System Requirements](#hardware-sizing-and-system-requirements)
 - [Quickstart with Docker Compose](#quickstart-with-docker-compose)
 - [Native Linux Installation](#native-linux-installation)
 - [Configuration and Environment Variables](#configuration-and-environment-variables)
@@ -152,6 +153,33 @@ The Watchlist module allows SOC analysts and engineers to monitor internal techn
 Dark Threat Radar incorporates an interactive verification module (`/api/leak-check/*`):
 - **Email Breach Scanner:** Checks target emails against the XposedOrNot Community Breach Intelligence database, returning compromised services, breach years, and compromised data classes.
 - **K-Anonymity Password Scanner:** Implements the Troy Hunt / Cloudflare K-Anonymity protocol. Only the first 5 characters of the password's SHA-1 hash are queried against the 850M+ compromised passwords dataset. The password itself never leaves local memory.
+
+---
+
+## Hardware Sizing and System Requirements
+
+Dark Threat Radar is designed as a lightweight standalone CTI service, but its 23 connectors perform concurrent downloads, parsing, normalization, and SQLite writes. Size the host for synchronization and update peaks rather than only for idle web traffic.
+
+| Deployment profile | CPU | Memory | Free SSD storage | Intended use |
+| :--- | :--- | :--- | :--- | :--- |
+| **Minimum supported** | 2 vCPU | 2 GB RAM | 10 GB | Lab, evaluation, or one analyst using the default connector schedule. A 1 GB swap file is recommended. |
+| **Recommended** | 4 vCPU | 4 GB RAM | 20 GB | Continuous operation, all public connectors, one-click updates, and a small analyst team. |
+| **Public / growth** | 4+ vCPU | 8 GB RAM | 40+ GB | Internet-facing deployment, longer data history, multiple simultaneous analysts, reverse proxy, monitoring, and local backups. |
+
+Software and platform requirements:
+
+- 64-bit Linux host; current Debian or Ubuntu LTS is recommended.
+- Python 3.11 or newer for native installation, or a current Docker Engine with Docker Compose v2.
+- Reliable outbound HTTPS access to the configured intelligence providers and GitHub release channel.
+- TCP port `9220` available locally, or published only through a reverse proxy/firewall policy.
+- SSD-backed persistent storage for the SQLite database and runtime credential store.
+- Correct system time and DNS resolution; provider TLS validation and scheduler timestamps depend on them.
+
+Sizing basis: on the reference installation after production feed synchronization, the running application used approximately 150–170 MiB of resident memory, the populated SQLite database was approximately 103 MiB, and the repository, Python environment, and database together occupied approximately 221 MiB. These are observed steady-state values, not hard limits. Feed payloads, SQLite WAL activity, isolated update testing, backups, and future database growth require the storage and memory headroom shown above.
+
+The `docker-compose.yml` CPU and memory values are container safety limits, not complete host-sizing recommendations. The host still needs capacity for Docker, filesystem cache, networking, backups, and any reverse proxy. A 1 vCPU / 1 GB host may start the application, but it is not considered a supported configuration for all connectors or safe one-click updates.
+
+The animated map is rendered by the user's browser. Its 60 FPS rendering load affects the analyst workstation's GPU/CPU, not the CTI server sizing above.
 
 ---
 
@@ -381,6 +409,8 @@ O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de amea�
 4. **Enriquecimento lento (6 h):** OSV.dev, CIRCL MISP OSINT, MITRE ATT&CK e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
 
 Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
+
+Para dimensionamento, o mínimo suportado é **2 vCPU, 2 GB de RAM e 10 GB livres em SSD**. Para operação contínua com todos os conectores e uma pequena equipe, recomenda-se **4 vCPU, 4 GB de RAM e 20 GB livres**. Uma publicação aberta à Internet ou com maior retenção deve partir de **4 vCPU, 8 GB de RAM e 40 GB livres**, além de proxy reverso, monitoramento e backups.
 
 ---
 
