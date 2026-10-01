@@ -5,6 +5,9 @@ let syncPollingInterval = null;
 let headerResizeObserver = null;
 let integrationAdminToken = '';
 let integrationSettingsPoll = null;
+let updateStatusData = null;
+let updateStatusPoll = null;
+const loadedAppVersion = document.body.dataset.version || '';
 
 function updateStickyNavigationOffset() {
   const header = document.querySelector('header.app-header');
@@ -41,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeIntegrationSettings();
+      closeUpdateModal();
       closeDrawer();
       const menu = document.getElementById('feeds-dropdown-menu');
       const button = document.getElementById('feed-summary-btn');
@@ -51,7 +55,135 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start periodic status check (every 15s)
   setInterval(pollStatus, 15000);
+  checkForUpdate();
+  setInterval(() => checkForUpdate(), 21600000);
 });
+
+// ==================== SAFE APPLICATION UPDATE ====================
+
+function updateStateIsActive(state) {
+  return ['queued', 'validating', 'testing', 'installing'].includes(state);
+}
+
+function setUpdateMessage(message, type = '') {
+  const element = document.getElementById('update-message');
+  if (!element) return;
+  element.textContent = message;
+  element.className = `integration-message mono ${type}`.trim();
+}
+
+function renderUpdateStatus(data) {
+  updateStatusData = data;
+  const pill = document.getElementById('update-available-pill');
+  const pillText = document.getElementById('update-pill-text');
+  const current = document.getElementById('update-current-version');
+  const latest = document.getElementById('update-latest-version');
+  const operation = document.getElementById('update-operation-state');
+  const changelog = document.getElementById('update-changelog');
+  const installButton = document.getElementById('update-install-button');
+  const releaseLink = document.getElementById('update-release-link');
+  const progress = document.getElementById('update-progress');
+  const progressBar = document.getElementById('update-progress-bar');
+  const state = data.update_state || 'idle';
+  const active = updateStateIsActive(state);
+
+  if (pill) pill.hidden = !(data.update_available || active);
+  if (pillText) pillText.textContent = active ? `UPDATING ${data.update_target_version || ''}`.trim() : `UPDATE v${data.latest_version}`;
+  if (current) current.textContent = `v${data.current_version}`;
+  if (latest) latest.textContent = `v${data.latest_version}`;
+  if (operation) operation.textContent = state.replaceAll('_', ' ').toUpperCase();
+  if (changelog) changelog.textContent = data.changelog || 'Release notes are available on GitHub.';
+  if (releaseLink) releaseLink.href = safeHttpUrl(data.release_url) || 'https://github.com/fr3dux/dark-threat-radar/releases';
+  if (installButton) installButton.disabled = !data.update_available || !data.updater_enabled || active;
+  if (progress) progress.hidden = !active;
+  if (progressBar) progressBar.style.width = `${Math.max(0, Math.min(100, Number(data.update_progress || 0)))}%`;
+
+  if (data.check_error) {
+    setUpdateMessage(data.check_error, 'error');
+  } else if (active) {
+    setUpdateMessage(data.update_message || 'Update is running. This page will reconnect automatically.');
+  } else if (state === 'rolled_back' || state === 'failed') {
+    setUpdateMessage(data.update_message || 'Update failed.', 'error');
+  } else if (!data.update_available) {
+    setUpdateMessage('This installation is up to date.', 'ok');
+  } else if (!data.updater_enabled) {
+    setUpdateMessage('An update is available, but one-click installation is not enabled on this host.');
+  } else {
+    setUpdateMessage('Update verified. Enter the administrative access code to install it.', 'ok');
+  }
+}
+
+async function checkForUpdate() {
+  try {
+    const response = await fetch('/api/update/status', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    renderUpdateStatus(data);
+    if (loadedAppVersion && data.current_version !== loadedAppVersion) {
+      window.location.reload();
+      return;
+    }
+    if (updateStateIsActive(data.update_state) && !updateStatusPoll) {
+      updateStatusPoll = setInterval(() => checkForUpdate(), 3000);
+    } else if (!updateStateIsActive(data.update_state) && updateStatusPoll) {
+      clearInterval(updateStatusPoll);
+      updateStatusPoll = null;
+    }
+  } catch (_error) {
+    if (updateStatusPoll) setUpdateMessage('Service is restarting; waiting to reconnect...');
+  }
+}
+
+function openUpdateModal() {
+  const overlay = document.getElementById('update-modal-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  checkForUpdate();
+}
+
+function closeUpdateModal() {
+  const overlay = document.getElementById('update-modal-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  const token = document.getElementById('update-admin-token');
+  if (token) token.value = '';
+}
+
+async function installLatestUpdate() {
+  const tokenInput = document.getElementById('update-admin-token');
+  const installButton = document.getElementById('update-install-button');
+  const token = tokenInput?.value.trim() || '';
+  if (!token) {
+    setUpdateMessage('Enter the administrative access code.', 'error');
+    tokenInput?.focus();
+    return;
+  }
+  if (!updateStatusData?.update_available || !updateStatusData?.updater_enabled) return;
+  if (!confirm(`Install Dark Threat Radar v${updateStatusData.latest_version}? The service will restart automatically.`)) return;
+
+  if (installButton) installButton.disabled = true;
+  setUpdateMessage('Submitting authenticated update request...');
+  try {
+    const response = await fetch('/api/admin/update', {
+      method: 'POST',
+      headers: { 'X-Admin-Token': token }
+    });
+    let data = {};
+    try { data = await response.json(); } catch (_) { /* no response body */ }
+    if (!response.ok) throw new Error(data.error || data.detail || `HTTP ${response.status}`);
+    if (tokenInput) tokenInput.value = '';
+    setUpdateMessage(`Update v${data.target_version} queued. Validation is starting.`, 'ok');
+    if (!updateStatusPoll) updateStatusPoll = setInterval(() => checkForUpdate(), 3000);
+    await checkForUpdate();
+  } catch (error) {
+    setUpdateMessage(error.message, 'error');
+    if (installButton) installButton.disabled = false;
+  }
+}
 
 // ==================== NAVIGATION & TAB SWITCHING ====================
 

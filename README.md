@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.8.8-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-43%2F43%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-48%2F48%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -23,6 +23,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - [Quickstart with Docker Compose](#quickstart-with-docker-compose)
 - [Native Linux Installation](#native-linux-installation)
 - [Configuration and Environment Variables](#configuration-and-environment-variables)
+- [Secure Updates](#secure-updates)
 - [REST API Reference](#rest-api-reference)
 - [Automated Testing Suite](#automated-testing-suite)
 - [Security and Hygiene Architecture](#security-and-hygiene-architecture)
@@ -43,6 +44,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - **EPSS Scoring Correlation:** Enriches all vulnerability records with FIRST.org Exploit Prediction Scoring System (EPSS) probabilities and percentiles alongside CVSS scores.
 - **Industrial SOC Aesthetic:** Sober, dense, high-contrast analyst-grade interface with side-by-side symmetrical card pairs, lateral drawer inspection, compact single-row menu, and dark theme.
 - **Enterprise-Grade Versioning:** Strict Semantic Versioning (SemVer), schema migration tracking (`schema_migrations`), and an automated `pytest` validation suite.
+- **Secure Update Channel:** Detects new stable GitHub releases in the dashboard. Native installations can opt into authenticated one-click updates through a privilege-separated systemd worker with backup, isolated testing, health checks, and rollback.
 
 ---
 
@@ -213,6 +215,18 @@ sudo systemctl enable --now threat-radar.service
 sudo systemctl status threat-radar.service
 ```
 
+### 4. Optional One-Click Updater
+
+After the native service is working, install the root-owned update worker once:
+
+```bash
+sudo /opt/dark-threat-radar/venv/bin/python /opt/dark-threat-radar/scripts/install_systemd_updater.py \
+  --project-root /opt/dark-threat-radar \
+  --service threat-radar.service
+```
+
+The installer copies the worker to a root-owned system location and runs it with the system Python interpreter, outside the application environment. The web application never receives permission to execute arbitrary commands; it can only create a validated request for the fixed external updater. Adjust `/opt/dark-threat-radar` if the repository is installed elsewhere.
+
 ---
 
 ## Configuration and Environment Variables
@@ -233,6 +247,11 @@ sudo systemctl status threat-radar.service
 | `THREATFOX_AUTH_KEY` | `""` | Initial ThreatFox Auth-Key; can also be managed securely from the web panel. |
 | `URLHAUS_AUTH_KEY` | `""` | Initial URLhaus Auth-Key; can also be managed securely from the web panel. |
 | `SETTINGS_ADMIN_TOKEN` | Generated during setup | Unique per-installation administrative access code for web-based secret management. |
+| `UPDATE_REPOSITORY` | `fr3dux/dark-threat-radar` | Fixed GitHub repository used for stable release discovery. |
+| `UPDATE_CHECK_INTERVAL_SECONDS` | `21600` (minimum 300) | Cached interval for checking the stable release channel. |
+| `ENABLE_WEB_UPDATES` | `false` | Enabled by the native updater installer after its root-owned worker is ready. |
+| `UPDATE_REQUEST_PATH` | `/var/lib/dark-threat-radar/update.request.json` | Privilege-separated update request watched by systemd. |
+| `UPDATE_STATUS_PATH` | `/var/lib/dark-threat-radar/update-status.json` | Non-secret update progress and result file. |
 | `GITHUB_TOKEN` | `""` | Optional token that raises GitHub Advisory API rate limits. |
 | `ENABLE_OPENPHISH` | `false` | Enables OpenPhish only after the operator confirms applicable provider terms. |
 | `OPENPHISH_API_KEY` | `""` | Optional OpenPhish plan credential. |
@@ -246,6 +265,23 @@ If the code is lost, the server owner can replace `SETTINGS_ADMIN_TOKEN` in `.en
 
 ---
 
+## Secure Updates
+
+The dashboard checks the official stable release channel every six hours and displays `UPDATE AVAILABLE` only when a higher semantic version exists. Release discovery is read-only and works for native and Docker installations.
+
+On native systemd installations where the optional updater is installed, the administrator can review the version and release notes, enter the administrative access code, and select `INSTALL UPDATE`. The external worker then:
+
+1. Validates the fixed Git origin, stable annotated tag, clean `main` branch, and forward-only commit ancestry.
+2. Creates an isolated Git worktree and fresh Python environment.
+3. Runs the complete test suite and JavaScript syntax validation before downtime.
+4. Creates an online SQLite backup and a local rollback branch.
+5. Activates the release, restarts the service, and verifies `/api/version`.
+6. Restores the previous commit, environment, and database automatically if the health check fails.
+
+Docker installations intentionally receive update notifications only. A container must not control the host Docker daemon; update it from the host with `git pull` followed by `docker compose up -d --build`. Persistent data remains in the `threat-radar-data` volume.
+
+---
+
 ## REST API Reference
 
 Interactive documentation with live OpenAPI testing is available at `/docs` (Swagger UI) and `/redoc`.
@@ -253,6 +289,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/version` | Returns centralized SemVer version and system metadata. |
+| `GET` | `/api/update/status` | Checks the official stable channel and returns sanitized update state. |
 | `GET` | `/api/status` | Ingestion health, per-feed synchronization timestamps, and counts. |
 | `GET` | `/api/connectors` | Operational state and counters for all 15 configured connectors. |
 | `GET` | `/api/stats` | Aggregated dashboard statistics (CVSS distribution, vendors, malware, ransomware). |
@@ -273,6 +310,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/admin/integrations` | Returns ThreatFox/URLhaus configuration and validation state; requires `X-Admin-Token`. |
 | `PUT` | `/api/admin/integrations/{provider}` | Stores and validates a ThreatFox or URLhaus key without returning the secret. |
 | `DELETE` | `/api/admin/integrations/{provider}` | Removes a managed key and returns the connector to `AUTH REQUIRED`. |
+| `POST` | `/api/admin/update` | Authenticates and queues the latest validated stable release for the external updater. |
 
 ---
 
@@ -296,6 +334,7 @@ Test coverage includes:
 - Input validation and 404/400 exception boundaries (`test_artifact_cve_not_found`, `test_artifact_invalid_type`)
 - Schema migration registration through the normalized IOC and connector-health schema (`1.8.1`)
 - Per-installation administrator code generation and file-permission checks
+- Stable release discovery, authenticated update requests, and semantic-version validation
 
 ---
 

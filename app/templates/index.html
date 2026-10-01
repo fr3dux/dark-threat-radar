@@ -6,7 +6,7 @@
   <title>Dark Threat Radar // Cyber Threat Intelligence Platform</title>
   <link rel="stylesheet" href="/static/css/style.css?v={{ version }}">
 </head>
-<body>
+<body data-version="{{ version }}">
 
   <!-- ==================== APP HEADER WITH RESTORED FEEDS RIBBON ==================== -->
   <header class="app-header">
@@ -68,6 +68,11 @@
           <span class="status-indicator-dot pulse-sync"></span>
           <span class="mono font-bold">SCHEDULED SYNC</span>
         </div>
+
+        <button type="button" class="update-available-pill" id="update-available-pill" onclick="openUpdateModal()" hidden>
+          <span class="status-indicator-dot"></span>
+          <span class="mono font-bold" id="update-pill-text">UPDATE AVAILABLE</span>
+        </button>
 
         <!-- Interactive API Documentation -->
         <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation (Swagger/OpenAPI)">API DOCS</a>
@@ -1020,6 +1025,49 @@
 
         <div class="integration-modal-footer mono">
           Auth-Keys are issued by the <a href="https://auth.abuse.ch/" target="_blank" rel="noopener">abuse.ch Authentication Portal</a>.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Authenticated, privilege-separated application updater -->
+  <div class="integration-modal-overlay" id="update-modal-overlay" onclick="if(event.target === this) closeUpdateModal()" aria-hidden="true">
+    <section class="integration-modal update-modal" role="dialog" aria-modal="true" aria-labelledby="update-modal-title">
+      <div class="integration-modal-header">
+        <div>
+          <div class="mono integration-modal-kicker">SYSTEM // STABLE RELEASE CHANNEL</div>
+          <h2 class="mono" id="update-modal-title">DARK THREAT RADAR UPDATE</h2>
+        </div>
+        <button type="button" class="drawer-close mono" onclick="closeUpdateModal()">ESC [X]</button>
+      </div>
+      <div class="integration-modal-body">
+        <p class="integration-security-note">Updates are accepted only from the fixed official GitHub repository. Installation is performed by an external system service with backup, isolated tests, health verification, and automatic rollback.</p>
+
+        <div class="update-version-grid">
+          <div><span class="mono update-label">INSTALLED</span><strong class="mono" id="update-current-version">v{{ version }}</strong></div>
+          <div><span class="mono update-label">AVAILABLE</span><strong class="mono" id="update-latest-version">CHECKING</strong></div>
+          <div><span class="mono update-label">STATE</span><strong class="mono" id="update-operation-state">IDLE</strong></div>
+        </div>
+
+        <div class="update-release-notes">
+          <div class="drawer-section-title">RELEASE NOTES</div>
+          <pre id="update-changelog">Checking the official stable channel...</pre>
+        </div>
+
+        <form class="admin-access-row" onsubmit="event.preventDefault(); installLatestUpdate()">
+          <label class="mono" for="update-admin-token">ADMIN ACCESS CODE</label>
+          <div class="integration-input-row">
+            <input type="password" id="update-admin-token" class="search-input" autocomplete="off" placeholder="Required to install the update">
+            <button type="submit" class="btn btn-primary" id="update-install-button" disabled>INSTALL UPDATE</button>
+          </div>
+          <div class="integration-message mono" id="update-message">Checking update service...</div>
+        </form>
+
+        <div class="update-progress" id="update-progress" hidden>
+          <div class="update-progress-bar" id="update-progress-bar"></div>
+        </div>
+        <div class="integration-modal-footer mono">
+          <a id="update-release-link" href="https://github.com/fr3dux/dark-threat-radar/releases" target="_blank" rel="noopener">VIEW OFFICIAL RELEASE →</a>
         </div>
       </div>
     </section>

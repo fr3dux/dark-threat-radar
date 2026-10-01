@@ -25,6 +25,15 @@ SETTINGS_ADMIN_TOKEN = os.getenv("SETTINGS_ADMIN_TOKEN", "")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 OPENPHISH_API_KEY = os.getenv("OPENPHISH_API_KEY", "")
 
+# Release discovery is always read-only. One-click installation remains off
+# until the root-owned external updater has been explicitly installed.
+UPDATE_REPOSITORY = os.getenv("UPDATE_REPOSITORY", "fr3dux/dark-threat-radar")
+UPDATE_CHECK_INTERVAL_SECONDS = max(300, int(os.getenv("UPDATE_CHECK_INTERVAL_SECONDS", "21600")))
+ENABLE_WEB_UPDATES = os.getenv("ENABLE_WEB_UPDATES", "false").lower() in {"1", "true", "yes"}
+UPDATE_REQUEST_PATH = Path(os.getenv("UPDATE_REQUEST_PATH", "/var/lib/dark-threat-radar/update.request.json"))
+UPDATE_STATUS_PATH = Path(os.getenv("UPDATE_STATUS_PATH", "/var/lib/dark-threat-radar/update-status.json"))
+UPDATE_READY_PATH = Path(os.getenv("UPDATE_READY_PATH", "/var/lib/dark-threat-radar/updater.ready"))
+
 # The OpenPhish community feed may not be suitable for every public/commercial
 # deployment. It stays disabled until the operator explicitly accepts its terms.
 ENABLE_OPENPHISH = os.getenv("ENABLE_OPENPHISH", "false").lower() in {"1", "true", "yes"}

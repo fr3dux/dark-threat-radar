@@ -48,6 +48,7 @@ from app.scheduler import (
     scheduled_sync_task,
     get_sync_state
 )
+from app.updater import get_update_status, queue_latest_update
 
 logging.basicConfig(
     level=logging.INFO,
@@ -124,6 +125,28 @@ async def index_page(request: Request):
 async def api_version():
     """Return centralized application semantic version and metadata."""
     return get_version_info()
+
+
+@app.get("/api/update/status", tags=["System"])
+async def api_update_status():
+    """Check the fixed official repository for a newer stable release."""
+    return await get_update_status()
+
+
+@app.post("/api/admin/update", status_code=202, tags=["Administration"])
+async def api_install_update(
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    """Queue the latest validated release for the external system updater."""
+    require_settings_admin(x_admin_token)
+    try:
+        return await queue_latest_update()
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/api/stats", response_model=StatsResponse, tags=["Dashboard"])

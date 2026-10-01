@@ -42,6 +42,38 @@ def test_api_version(client):
     assert "license" in data
 
 
+def test_update_status_endpoint(client, monkeypatch):
+    async def fake_status(force=False):
+        return {
+            "current_version": "1.9.0",
+            "latest_version": "1.9.1",
+            "latest_tag": "v1.9.1",
+            "update_available": True,
+            "updater_enabled": True,
+        }
+
+    monkeypatch.setattr(main_module, "get_update_status", fake_status)
+    response = client.get("/api/update/status")
+    assert response.status_code == 200
+    assert response.json()["update_available"] is True
+
+
+def test_update_install_requires_admin_and_queues(client, monkeypatch):
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "update-admin-code")
+
+    async def fake_queue():
+        return {"status": "queued", "target_version": "1.9.1"}
+
+    monkeypatch.setattr(main_module, "queue_latest_update", fake_queue)
+    assert client.post("/api/admin/update").status_code == 401
+    response = client.post(
+        "/api/admin/update",
+        headers={"X-Admin-Token": "update-admin-code"},
+    )
+    assert response.status_code == 202
+    assert response.json() == {"status": "queued", "target_version": "1.9.1"}
+
+
 def test_api_status(client):
     """Test /api/status returns live feed states, sync lock, and version."""
     response = client.get("/api/status")

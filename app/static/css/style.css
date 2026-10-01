@@ -2158,6 +2158,79 @@ main.main-content {
   flex: 0 0 auto;
 }
 
+.update-available-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(240, 136, 62, 0.65);
+  border-radius: 3px;
+  background: rgba(240, 136, 62, 0.09);
+  color: var(--accent-orange);
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.update-available-pill[hidden] { display: none; }
+.update-available-pill:hover { background: rgba(240, 136, 62, 0.17); }
+.update-available-pill .status-indicator-dot { background: var(--accent-orange); }
+
+.update-modal { width: min(760px, 100%); }
+
+.update-version-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.update-version-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+}
+
+.update-version-grid strong { color: var(--text-primary); font-size: 13px; }
+.update-label { color: var(--text-muted); font-size: 9px; }
+
+.update-release-notes {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  background: #090d13;
+}
+
+.update-release-notes pre {
+  max-height: 230px;
+  margin: 9px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.update-progress {
+  height: 5px;
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-deep);
+}
+
+.update-progress-bar {
+  width: 0;
+  height: 100%;
+  background: var(--accent-blue);
+  transition: width 0.3s ease;
+}
+
 /* ==================== SECURE INTEGRATION SETTINGS (v1.8.6) ==================== */
 .integration-modal-overlay {
   position: fixed;
@@ -2347,6 +2420,7 @@ main.main-content {
   .infocon-badge,
   .feed-summary-pill,
   .auto-sync-badge,
+  .update-available-pill,
   .nav-link-docs {
     flex: 0 0 auto;
   }
@@ -2376,6 +2450,8 @@ main.main-content {
   .integration-input-row .btn {
     justify-content: center;
   }
+
+  .update-version-grid { grid-template-columns: 1fr; }
 
   main.main-content {
     padding: 12px 10px 32px;

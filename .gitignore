@@ -29,6 +29,9 @@ venv/
 env/
 ENV/
 .venv/
+.update-venv-*/
+.venv-backup-*/
+.failed-venv-*/
 
 # Environment variables & local secrets
 .env

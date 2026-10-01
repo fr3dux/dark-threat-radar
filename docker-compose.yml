@@ -16,6 +16,9 @@ services:
       - THREATFOX_AUTH_KEY=${THREATFOX_AUTH_KEY:-}
       - URLHAUS_AUTH_KEY=${URLHAUS_AUTH_KEY:-}
       - SETTINGS_ADMIN_TOKEN=${SETTINGS_ADMIN_TOKEN:?Run python3 scripts/setup_admin.py first}
+      - UPDATE_REPOSITORY=${UPDATE_REPOSITORY:-fr3dux/dark-threat-radar}
+      - UPDATE_CHECK_INTERVAL_SECONDS=${UPDATE_CHECK_INTERVAL_SECONDS:-21600}
+      - ENABLE_WEB_UPDATES=false
       - DB_PATH=/app/data/threat_radar.db
       - RUNTIME_SECRETS_PATH=/app/data/.runtime-secrets.json
     volumes:

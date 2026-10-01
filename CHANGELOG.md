@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-10-01
+
+### Added
+- **Dashboard Update Notifications**: Checks the fixed official GitHub stable channel and displays a compact `UPDATE AVAILABLE` action only when a higher semantic version exists.
+- **Authenticated Update Center**: Shows installed/available versions, release notes, operational state, and progress; installation requires the existing administrative access code.
+- **Privilege-Separated Native Updater**: Added an opt-in, root-owned systemd path worker outside the application environment that validates the official origin and annotated tag, builds an isolated environment, runs tests, backs up SQLite, activates the release, health-checks it, and rolls back automatically on failure.
+- **Container-Safe Behavior**: Docker deployments receive update notifications without exposing the host Docker socket or attempting to self-modify the running container.
+
+### Security
+- **Fixed Trust Boundary**: The browser cannot supply repositories, URLs, commands, branches, or arbitrary versions to the root-owned update worker.
+- **Forward-Only Releases**: Automatic installation requires a clean `main` branch and a stable official tag whose commit is both forward from the installed commit and contained in `origin/main`.
+
 ## [1.8.8] - 2026-10-01
 
 ### Fixed
