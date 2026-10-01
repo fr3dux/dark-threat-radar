@@ -398,14 +398,15 @@ async def api_iocs(
         # `where` contains only server-authored clauses; all user values remain bound.
         cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM normalized_iocs n {where}", params)  # nosec B608
         total = (await cursor.fetchone())["count"]
-        cursor = await conn.execute(  # nosec B608 - fixed clauses with bound values
-            f"""SELECT n.*,
+        ioc_select_query = """SELECT n.*,
                        (SELECT COUNT(*) FROM ioc_sources s
                         WHERE s.ioc_id=n.id AND s.active=1) AS source_count,
                        (SELECT GROUP_CONCAT(s.source_name, ', ')
                         FROM ioc_sources s WHERE s.ioc_id=n.id AND s.active=1) AS sources
-                FROM normalized_iocs n {where}
-                ORDER BY n.confidence DESC, n.last_seen DESC LIMIT ? OFFSET ?""",
+                FROM normalized_iocs n """ + where + \
+                " ORDER BY n.confidence DESC, n.last_seen DESC LIMIT ? OFFSET ?"  # nosec B608
+        cursor = await conn.execute(
+            ioc_select_query,
             [*params, limit, offset],
         )
         items = [dict(row) for row in await cursor.fetchall()]
@@ -465,8 +466,10 @@ async def api_vendor_advisories(
         # `where` contains only server-authored clauses; all user values remain bound.
         cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM vendor_advisories {where}", params)  # nosec B608
         total = (await cursor.fetchone())["count"]
-        cursor = await conn.execute(  # nosec B608 - fixed clauses with bound values
-            f"SELECT * FROM vendor_advisories {where} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+        advisory_query = "SELECT * FROM vendor_advisories " + where + \
+            " ORDER BY updated_at DESC LIMIT ? OFFSET ?"  # nosec B608
+        cursor = await conn.execute(
+            advisory_query,
             [*params, limit, offset],
         )
         items = [dict(row) for row in await cursor.fetchall()]
