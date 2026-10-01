@@ -2,6 +2,7 @@
 
 import asyncio
 import stat
+from datetime import datetime, timedelta, timezone
 
 from app import database
 from app import credential_store
@@ -11,6 +12,8 @@ from app.ingestion import threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
+from app.ingestion.common import IOCRecord, expire_stale_iocs, upsert_ioc_records
+from app.ingestion.normalization import TYPE_IPV4
 
 
 def test_spamhaus_ndjson_parser():
@@ -82,6 +85,45 @@ def test_runtime_credentials_are_owner_only_and_never_require_restart(tmp_path, 
 
     credential_store.delete_provider_secret("threatfox")
     assert credential_store.get_provider_secret("threatfox") == ""
+
+
+def test_new_provider_credentials_share_protected_runtime_store(tmp_path, monkeypatch):
+    secret_path = tmp_path / ".runtime-secrets.json"
+    monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", secret_path)
+    for provider in ("alienvault_otx", "phishtank", "abuseipdb"):
+        monkeypatch.delenv(credential_store.PROVIDER_ENV_VARS[provider], raising=False)
+        credential_store.save_provider_secret(provider, f"{provider}-test-key")
+        assert credential_store.provider_secret_is_configured(provider) is True
+    assert stat.S_IMODE(secret_path.stat().st_mode) == 0o600
+
+
+def test_source_aware_expiry_keeps_correlated_ioc_active(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "expiry.db")
+    now = datetime.now(timezone.utc)
+
+    async def verify():
+        await database.init_db()
+        await upsert_ioc_records("blocklist_de", [IOCRecord(
+            TYPE_IPV4, "203.0.113.10", "scanner",
+            expires_at=(now - timedelta(minutes=1)).isoformat(),
+        )])
+        await upsert_ioc_records("abuseipdb", [IOCRecord(
+            TYPE_IPV4, "203.0.113.10", "abusive_host",
+            expires_at=(now + timedelta(days=1)).isoformat(),
+        )])
+        await expire_stale_iocs()
+        async with database.get_db() as conn:
+            row = await (await conn.execute(
+                "SELECT active FROM normalized_iocs WHERE normalized_value='203.0.113.10'"
+            )).fetchone()
+            sources = await (await conn.execute(
+                "SELECT source_name, active FROM ioc_sources ORDER BY source_name"
+            )).fetchall()
+        return row["active"], [(item["source_name"], item["active"]) for item in sources]
+
+    active, sources = asyncio.run(verify())
+    assert active == 1
+    assert sources == [("abuseipdb", 1), ("blocklist_de", 0)]
 
 
 def test_openphish_runtime_opt_in_is_persistent(tmp_path, monkeypatch):

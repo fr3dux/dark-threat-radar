@@ -63,7 +63,9 @@ async def upsert_ioc_records(source_name: str, records: list[IOCRecord]) -> dict
                 stats["updated"] += 1
                 await conn.execute(
                     """UPDATE normalized_iocs SET
-                       last_seen=?, updated_at=?, active=1, revoked=0,
+                       last_seen=?, updated_at=?,
+                       active=CASE WHEN ?=1 THEN 1 ELSE active END,
+                       revoked=CASE WHEN ?=1 THEN 0 ELSE revoked END,
                        confidence=MAX(confidence, ?),
                        severity=CASE WHEN ? > confidence THEN ? ELSE severity END,
                        expires_at=CASE
@@ -71,7 +73,8 @@ async def upsert_ioc_records(source_name: str, records: list[IOCRecord]) -> dict
                            WHEN expires_at IS NULL OR expires_at < ? THEN ?
                            ELSE expires_at END
                        WHERE id=?""",
-                    (last_seen, now, confidence, confidence, severity,
+                    (last_seen, now, int(record.active), int(record.active),
+                     confidence, confidence, severity,
                      record.expires_at or None, record.expires_at or None,
                      record.expires_at or None, ioc_id),
                 )

@@ -1,5 +1,6 @@
 """Recent TLP:CLEAR events from the public CIRCL MISP OSINT feed."""
 
+import asyncio
 import logging
 import time
 from datetime import datetime, timedelta, timezone
@@ -46,12 +47,19 @@ async def ingest_circl_misp() -> int:
                 manifest.items(),
                 key=lambda item: str((item[1] or {}).get("timestamp", "")) if isinstance(item[1], dict) else "",
                 reverse=True,
-            )[:25]
-            events = []
-            for event_id, _metadata in ordered:
+            )[:10]
+
+            async def fetch_event(event_id: str) -> dict | None:
                 response = await client.get(f"{FEED_URL}{event_id}.json")
-                if response.status_code == 200:
-                    events.append(response.json())
+                if response.status_code != 200 or len(response.content) > 5_000_000:
+                    return None
+                return response.json()
+
+            documents = await asyncio.gather(
+                *(fetch_event(str(event_id)) for event_id, _metadata in ordered),
+                return_exceptions=True,
+            )
+            events = [item for item in documents if isinstance(item, dict)]
 
         expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         records: list[IOCRecord] = []

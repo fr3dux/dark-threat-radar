@@ -61,7 +61,9 @@ async def ingest_phishtank() -> int:
         )
         return stats["created"] + stats["updated"]
     except Exception as exc:
-        logger.exception("PhishTank ingestion failed")
+        # The provider key is part of the download path, so never log the
+        # exception text or request URL.
+        logger.error("PhishTank ingestion failed (%s)", type(exc).__name__)
         await update_connector_health(
             "phishtank", "Phishing", "failed",
             duration_seconds=round(time.time() - started, 2),

@@ -22,6 +22,13 @@ def _note(vulnerability: dict) -> str:
     return "Microsoft security vulnerability"
 
 
+def _score(value: object) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 async def ingest_msrc_csaf() -> int:
     started = time.time()
     created = updated = received = 0
@@ -53,8 +60,8 @@ async def ingest_msrc_csaf() -> int:
                         continue
                     received += 1
                     scores = vulnerability.get("CVSSScoreSets") or []
-                    score = scores[0].get("BaseScore") if scores else None
-                    severity = "CRITICAL" if score and float(score) >= 9 else "HIGH" if score and float(score) >= 7 else "MEDIUM"
+                    score = _score(scores[0].get("BaseScore")) if scores else None
+                    severity = "CRITICAL" if score is not None and score >= 9 else "HIGH" if score is not None and score >= 7 else "MEDIUM"
                     title = _note(vulnerability)[:500]
                     remediation = vulnerability.get("Remediations") or []
                     fixed = [str(item.get("Description") or "") for item in remediation[:20] if item.get("Description")]

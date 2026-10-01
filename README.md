@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.9.4-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.10.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-58%2F58%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-60%2F60%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -52,13 +52,14 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                    15 Public CTI Connectors                            │
+│                    23 Public CTI Connectors                            │
 ├────────────────────────────────────────────────────────────────────────┤
 │ CORE / 5m: CISA KEV, NVD, EPSS, DShield, MalwareBazaar,                │
 │            ransomware.live, CTI News                                   │
 │ FAST / 15m: ThreatFox, URLhaus, Feodo Tracker, SSLBL                   │
-│ HOURLY: GitHub Advisories, Spamhaus DROP                               │
-│ SLOW / 6h: OSV.dev, OpenPhish (optional; disabled by default)           │
+│ HOURLY: GitHub, Spamhaus, OTX, PhishTank, AbuseIPDB, blocklist.de,     │
+│         Microsoft MSRC, Red Hat Security                               │
+│ SLOW / 6h: OSV.dev, CIRCL MISP, MITRE ATT&CK, OpenPhish (optional)     │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │ isolated connector groups
                                    ▼
@@ -73,6 +74,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 │                SQLite Async Storage & Migrations (WAL)                 │
 │ CVEs │ malware │ DShield │ ransomware │ news │ watchlist              │
 │ normalized_iocs │ ioc_sources │ connector_health │ vendor_advisories   │
+│ ATT&CK knowledge base │ per-source lifecycle and expiration            │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │ async queries
                                    ▼
@@ -92,7 +94,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 
 ## Integrated Threat Intelligence Sources
 
-Dark Threat Radar tracks 15 public CTI connectors. Fourteen are enabled by default; OpenPhish remains disabled until an administrator reviews the provider terms and explicitly enables it from **Feed Settings**. ThreatFox and URLhaus report `AUTH REQUIRED` until their keys are configured.
+Dark Threat Radar tracks 23 public CTI connectors. OpenPhish remains disabled until an administrator reviews the provider terms and explicitly enables it from **Feed Settings**. ThreatFox, URLhaus, AlienVault OTX, PhishTank, and AbuseIPDB report `AUTH REQUIRED` until their free-community credentials are configured. Credentials can be managed from **Feed Settings** and are never returned to the browser.
 
 | Feed | Source / API | Description | Ingestion Frequency |
 | :--- | :--- | :--- | :--- |
@@ -109,8 +111,16 @@ Dark Threat Radar tracks 15 public CTI connectors. Fourteen are enabled by defau
 | **SSLBL** | abuse.ch | Malicious TLS certificates, C2 IPs, and contextual JA3 fingerprints from recommended lists. | Fast: 15 min |
 | **GitHub Advisory Database** | GitHub REST API | Global security advisories across open-source ecosystems, including GHSA and CVE aliases. | Hourly |
 | **Spamhaus DROP** | Spamhaus | IPv4, IPv6, and ASN DROP intelligence normalized as CIDR and ASN indicators. | Hourly |
+| **AlienVault OTX** | LevelBlue Open Threat Exchange | Subscribed public pulses with malicious IPs, domains, URLs, hashes, CVEs, and contextual threat metadata. | Hourly; key required |
+| **PhishTank** | Cisco Talos community | Verified, online phishing URLs with target brand metadata. | Hourly; key required |
+| **AbuseIPDB** | AbuseIPDB | High-confidence abusive IPs, country context, and abuse-report counts from the community blacklist. | Hourly; key required |
+| **blocklist.de** | blocklist.de | Recently reported attacking IPv4 addresses with short-lived, source-aware indicator expiration. | Hourly |
+| **Microsoft MSRC** | Microsoft Security Response Center | Current Microsoft security update and CVE advisories from the public CVRF/CSAF service. | Hourly |
+| **Red Hat Security Data** | Red Hat Product Security | Recent Red Hat CVEs, severity, CVSS, CWE, and public advisory references. | Hourly |
 | **OSV.dev** | OSV API | Targeted vulnerability enrichment for packages registered in the Watchlist. | Slow: 6 hours |
 | **OpenPhish** | Official Community text feed | Active phishing URLs. No key is required; explicit terms acknowledgement is required in Feed Settings. | Disabled by default; 6 hours when enabled |
+| **CIRCL MISP OSINT** | CIRCL public MISP feed | Recent TLP:CLEAR MISP events and normalized attributes from the public OSINT feed. | Slow: 6 hours |
+| **MITRE ATT&CK** | MITRE CTI STIX | Enterprise ATT&CK techniques, threat groups, malware, tools, and campaigns for local analytical enrichment. | Slow: 6 hours |
 
 Operational attribution, authentication, and usage notes are maintained in [SOURCES_LICENSES.md](SOURCES_LICENSES.md).
 
@@ -237,8 +247,8 @@ The installer copies the worker to a root-owned system location and runs it with
 | `PORT` | `9220` | Listening HTTP port. |
 | `SYNC_INTERVAL_SECONDS` | `300` | Core connector interval: CISA, NVD, EPSS, DShield, MalwareBazaar, ransomware.live, and news. |
 | `CTI_FAST_INTERVAL_SECONDS` | `900` (minimum 900) | ThreatFox, URLhaus, Feodo Tracker, and SSLBL interval. |
-| `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub Advisories and Spamhaus DROP interval. |
-| `CTI_SLOW_INTERVAL_SECONDS` | `21600` (minimum 21600) | OSV.dev and, when enabled, OpenPhish interval. |
+| `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub, Spamhaus, OTX, PhishTank, AbuseIPDB, blocklist.de, MSRC, and Red Hat interval. |
+| `CTI_SLOW_INTERVAL_SECONDS` | `21600` (minimum 21600) | OSV.dev, CIRCL MISP, MITRE ATT&CK, and, when enabled, OpenPhish interval. |
 | `BASE_DIR` | `/opt/dark-threat-radar` (or repo root) | Absolute root directory of the application. |
 | `DB_PATH` | `./threat_radar.db` | Path to the SQLite database file. |
 | `LOCAL_NEWS_FILE` | `./news_history.json` | Path to optional local OSINT/news JSON cache. |
@@ -246,6 +256,9 @@ The installer copies the worker to a root-owned system location and runs it with
 | `NVD_API_KEY` | `""` | Optional NIST NVD 2.0 API Key for higher rate limits. |
 | `THREATFOX_AUTH_KEY` | `""` | Initial ThreatFox Auth-Key; can also be managed securely from the web panel. |
 | `URLHAUS_AUTH_KEY` | `""` | Initial URLhaus Auth-Key; can also be managed securely from the web panel. |
+| `OTX_API_KEY` | `""` | AlienVault OTX API key; can also be managed securely from the web panel. |
+| `PHISHTANK_API_KEY` | `""` | PhishTank application key; can also be managed securely from the web panel. |
+| `ABUSEIPDB_API_KEY` | `""` | AbuseIPDB API key; can also be managed securely from the web panel. |
 | `SETTINGS_ADMIN_TOKEN` | Generated during setup | Unique per-installation administrative access code for web-based secret management. |
 | `UPDATE_REPOSITORY` | `fr3dux/dark-threat-radar` | Fixed GitHub repository used for stable release discovery. |
 | `UPDATE_CHECK_INTERVAL_SECONDS` | `21600` (minimum 300) | Cached interval for checking the stable release channel. |
@@ -260,7 +273,7 @@ The installer copies the worker to a root-owned system location and runs it with
 
 Run `python3 scripts/setup_admin.py` once after cloning. The command creates `.env` with owner-only permissions, generates a cryptographically random code, and displays it once so it can be saved in a password manager. Neither `.env` nor the runtime API key store is committed to Git, so every clone receives a different code.
 
-If the code is lost, the server owner can replace `SETTINGS_ADMIN_TOKEN` in `.env` with a new long random value and restart the application. Existing ThreatFox and URLhaus keys remain in the local runtime secret store. Docker installations persist that store in the `threat-radar-data` volume.
+If the code is lost, the server owner can replace `SETTINGS_ADMIN_TOKEN` in `.env` with a new long random value and restart the application. Existing managed provider keys remain in the local runtime secret store. Docker installations persist that store in the `threat-radar-data` volume.
 
 ---
 
@@ -290,9 +303,10 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/version` | Returns centralized SemVer version and system metadata. |
 | `GET` | `/api/update/status` | Checks the official stable channel and returns sanitized update state. |
 | `GET` | `/api/status` | Ingestion health, per-feed synchronization timestamps, and counts. |
-| `GET` | `/api/connectors` | Operational state and counters for all 15 configured connectors. |
+| `GET` | `/api/connectors` | Operational state and counters for all 23 configured connectors. |
 | `GET` | `/api/stats` | Aggregated dashboard statistics (CVSS distribution, vendors, malware, ransomware). |
 | `GET` | `/api/iocs` | Search normalized IOCs by value, type, source, and active state. |
+| `GET` | `/api/attack-knowledge` | Query the local MITRE ATT&CK knowledge base by text and STIX object type. |
 | `GET` | `/api/cves` | Query CVEs with filters (`q`, `severity`, `source`, `has_ransomware`, `limit`, `offset`). |
 | `GET` | `/api/malware` | Query malware samples (`q`, `file_type`, `signature`, `limit`, `offset`). |
 | `GET` | `/api/dshield` | SANS DShield telemetry (INFOCON, top attacking IPs, top scanned ports). |
@@ -306,8 +320,8 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/news` | Security bulletins and news feeds with search and pagination. |
 | `GET` | `/api/artifact/{type}/{id}` | Deep inspection details for CVE, malware hash, port, IP, or ransomware claim. |
 | `POST`| `/api/sync` | Manually triggers immediate synchronization; requires `X-Admin-Token`. |
-| `GET` | `/api/admin/integrations` | Returns ThreatFox/URLhaus configuration and validation state; requires `X-Admin-Token`. |
-| `PUT` | `/api/admin/integrations/{provider}` | Stores and validates a ThreatFox or URLhaus key without returning the secret. |
+| `GET` | `/api/admin/integrations` | Returns managed connector configuration and validation state; requires `X-Admin-Token`. |
+| `PUT` | `/api/admin/integrations/{provider}` | Stores and validates a supported provider key without returning the secret. |
 | `DELETE` | `/api/admin/integrations/{provider}` | Removes a managed key and returns the connector to `AUTH REQUIRED`. |
 | `POST` | `/api/admin/update` | Authenticates and queues the latest validated stable release for the external updater. |
 
@@ -326,13 +340,13 @@ Dark Threat Radar includes a `pytest` regression suite for critical API endpoint
 Test coverage includes:
 - Semantic version injection verification (`test_api_version`, `test_index_page_version_injection`)
 - All primary API query endpoints (`/api/stats`, `/api/cves`, `/api/malware`, `/api/dshield`, `/api/ransomware`, `/api/attacks/live`)
-- Connector status, normalized IOC search, and ThreatFox/URLhaus administrative flows
+- Connector status, normalized IOC search, and managed-provider administrative flows
 - Provider parsers and failure isolation for the expanded connector set
 - IOC normalization, deterministic IDs, confidence scoring, and multi-source correlation
 - Watchlist CRUD & correlation logic (`test_api_watchlist_crud`)
 - Leak check endpoints (`test_leak_check_password`, `test_leak_check_email`)
 - Input validation and 404/400 exception boundaries (`test_artifact_cve_not_found`, `test_artifact_invalid_type`)
-- Schema migration registration through the normalized IOC and connector-health schema (`1.8.1`)
+- Schema migration registration through source-aware IOC lifecycle and ATT&CK knowledge storage (`1.10.0`)
 - Per-installation administrator code generation and file-permission checks
 - Stable release discovery, authenticated update requests, and semantic-version validation
 - Stored-XSS regression protection, administrative write boundaries, request-size limits, and abuse throttling
@@ -356,12 +370,12 @@ Test coverage includes:
 
 ## Resumo em Portugues
 
-O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de ameaças cibernéticas (CTI) e apoio a SOC. Desenvolvido em FastAPI com SQLite assíncrono, o sistema acompanha 15 conectores públicos em quatro grupos de agendamento:
+O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de ameaças cibernéticas (CTI) e apoio a SOC. Desenvolvido em FastAPI com SQLite assíncrono, o sistema acompanha 23 conectores públicos em quatro grupos de agendamento:
 
 1. **Núcleo de vulnerabilidades e telemetria (5 min):** CISA KEV, NIST NVD, FIRST EPSS, SANS ISC DShield, MalwareBazaar, ransomware.live e notícias CTI.
 2. **IOCs rápidos (15 min):** ThreatFox, URLhaus, Feodo Tracker e SSLBL. ThreatFox e URLhaus exigem Auth-Key e podem ser configurados pelo painel administrativo.
-3. **Inteligência horária:** GitHub Advisory Database e Spamhaus DROP.
-4. **Enriquecimento lento (6 h):** OSV.dev e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
+3. **Inteligência horária:** GitHub Advisory Database, Spamhaus DROP, AlienVault OTX, PhishTank, AbuseIPDB, blocklist.de, Microsoft MSRC e Red Hat Security. OTX, PhishTank e AbuseIPDB exigem credenciais gratuitas e podem ser configurados pelo painel.
+4. **Enriquecimento lento (6 h):** OSV.dev, CIRCL MISP OSINT, MITRE ATT&CK e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
 
 Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
 

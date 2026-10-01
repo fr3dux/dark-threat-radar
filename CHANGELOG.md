@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-10-01
+
+### Added
+- **Eight New Public CTI Sources**: Adds AlienVault OTX, PhishTank, AbuseIPDB, blocklist.de, Microsoft MSRC, Red Hat Security Data, CIRCL MISP OSINT, and MITRE ATT&CK, bringing the engine to 23 connectors.
+- **Managed Community Credentials**: OTX, PhishTank, and AbuseIPDB keys can be stored and validated through the existing authenticated Feed Settings panel without restarting the service.
+- **ATT&CK Knowledge API**: Stores MITRE techniques, groups, malware, tools, and campaigns locally and exposes them through `GET /api/attack-knowledge`.
+- **Source-Aware IOC Lifecycle**: Tracks expiration independently for each contributing source so stale short-lived observations expire without hiding an indicator still confirmed elsewhere.
+
+### Changed
+- **Provider-Aware Scheduling**: Runs the new public feeds at hourly or six-hour intervals appropriate to provider limits and dataset size.
+- **CIRCL Feed Efficiency**: Fetches a bounded set of recent public MISP events concurrently with response-size safeguards.
+
+### Security
+- **Protected Secret Handling**: New provider keys use the owner-only runtime secret store and are never returned by the API or included in connector logs.
+
 ## [1.9.4] - 2026-10-01
 
 ### Changed
