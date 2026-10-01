@@ -9,7 +9,7 @@ LOCAL_NEWS_FILE = Path(os.getenv("LOCAL_NEWS_FILE", "/root/news_history.json" if
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "9220"))
 
-# Sync interval in seconds (default 1 hour = 3600)
+# Core connector interval in seconds (default 5 minutes)
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
 
 # MalwareBazaar API key if available
