@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-10-01
+
+### Security
+- **Safe Docker Build Context**: Excludes local secrets, databases, virtual environments, logs, and development artifacts so they cannot be embedded in an image built after local configuration.
+
+### Fixed
+- **Relocatable Update Environment**: Repairs Python console launchers and activation helpers after the updater atomically activates its validated virtual environment.
+
 ## [1.9.0] - 2026-10-01
 
 ### Added

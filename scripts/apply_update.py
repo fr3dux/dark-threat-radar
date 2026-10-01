@@ -101,6 +101,29 @@ def backup_database(source: Path, destination: Path) -> bool:
     return True
 
 
+def relocate_virtualenv(venv_path: Path, previous_path: Path) -> None:
+    """Repair text launchers after an atomic virtualenv directory move.
+
+    Python virtual environments are not relocatable by default: console-script
+    shebangs and activation helpers contain the absolute path used at creation
+    time. The updater builds in an isolated temporary directory, so those paths
+    must be rewritten immediately after the validated environment is activated.
+    """
+    old_prefix = str(previous_path).encode("utf-8")
+    new_prefix = str(venv_path).encode("utf-8")
+    bin_path = venv_path / "bin"
+    if not bin_path.is_dir():
+        raise RuntimeError("Activated virtual environment is missing its bin directory")
+
+    for entry in bin_path.iterdir():
+        if entry.is_symlink() or not entry.is_file():
+            continue
+        content = entry.read_bytes()
+        if b"\x00" in content or old_prefix not in content:
+            continue
+        entry.write_bytes(content.replace(old_prefix, new_prefix))
+
+
 def wait_for_health(port: str, expected_version: str, attempts: int = 20) -> bool:
     url = f"http://127.0.0.1:{port}/api/version"
     for _ in range(attempts):
@@ -249,7 +272,9 @@ def main() -> int:
             if old_venv.exists():
                 shutil.rmtree(old_venv)
             os.replace(current_venv, old_venv)
-            os.replace(new_venv, current_venv)
+            staged_venv = new_venv
+            os.replace(staged_venv, current_venv)
+            relocate_virtualenv(current_venv, staged_venv)
             new_venv = None
             run(["systemctl", "start", args.service])
             service_stopped = False

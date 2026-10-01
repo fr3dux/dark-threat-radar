@@ -3,7 +3,7 @@ FROM python:3.11-slim
 # Labels & Metadata
 LABEL maintainer="ThreatRadar Core Team" \
       description="Autonomous Standalone Cyber Threat Intelligence Hub & SOC Radar" \
-      version="1.9.0"
+      version="1.9.1"
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
