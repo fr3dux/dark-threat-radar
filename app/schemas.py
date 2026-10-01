@@ -46,6 +46,10 @@ class ConnectorHealth(BaseModel):
     http_code: Optional[int] = None
 
 
+class IntegrationKeyUpdate(BaseModel):
+    api_key: str = Field(..., min_length=1, max_length=512)
+
+
 class StatusResponse(BaseModel):
     version: str
     feeds: List[FeedStatus]

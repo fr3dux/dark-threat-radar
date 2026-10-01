@@ -3,6 +3,8 @@ let currentTab = 'panel-dashboard';
 let searchDebounceTimeout = null;
 let syncPollingInterval = null;
 let headerResizeObserver = null;
+let integrationAdminToken = '';
+let integrationSettingsPoll = null;
 
 function updateStickyNavigationOffset() {
   const header = document.querySelector('header.app-header');
@@ -38,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Close drawer on ESC
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      closeIntegrationSettings();
       closeDrawer();
       const menu = document.getElementById('feeds-dropdown-menu');
       const button = document.getElementById('feed-summary-btn');
@@ -872,7 +875,7 @@ async function pollStatus() {
             <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || `Last success: ${c.last_success || 'never'}`)}">
               <span class="status-dot ${escapeHtml(c.state)}"></span>
               <span class="feed-name mono">${escapeHtml(c.source_name.replaceAll('_', ' ').toUpperCase())}</span>
-              <span class="connector-state ${escapeHtml(c.state)} mono">${escapeHtml(c.state.replaceAll('_', ' '))}</span>
+              <span class="connector-state ${escapeHtml(c.state)} mono">${escapeHtml(c.state === 'failed' ? 'error' : c.state.replaceAll('_', ' '))}</span>
             </div>
           `).join('')}
         `).join('');
@@ -1511,6 +1514,177 @@ async function deleteWatchlistItem(itemId) {
     }
   } catch (e) {
     alert('Error removing target: ' + e);
+  }
+}
+
+// ==================== SECURE CONNECTOR CREDENTIAL SETTINGS ====================
+
+function integrationStateLabel(state) {
+  if (state === 'failed') return 'ERROR';
+  return String(state || 'never_run').replaceAll('_', ' ').toUpperCase();
+}
+
+function setIntegrationMessage(message, type = '') {
+  const element = document.getElementById('integration-access-message');
+  if (!element) return;
+  element.textContent = message;
+  element.className = `integration-message mono ${type}`.trim();
+}
+
+function openIntegrationSettings() {
+  const overlay = document.getElementById('integration-modal-overlay');
+  const menu = document.getElementById('feeds-dropdown-menu');
+  const summaryButton = document.getElementById('feed-summary-btn');
+  if (menu) menu.style.display = 'none';
+  if (summaryButton) summaryButton.setAttribute('aria-expanded', 'false');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('integration-admin-token')?.focus(), 0);
+}
+
+function closeIntegrationSettings() {
+  const overlay = document.getElementById('integration-modal-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  integrationAdminToken = '';
+  if (integrationSettingsPoll) {
+    clearInterval(integrationSettingsPoll);
+    integrationSettingsPoll = null;
+  }
+  ['threatfox', 'urlhaus'].forEach(provider => {
+    const keyInput = document.getElementById(`integration-key-${provider}`);
+    const saveButton = document.getElementById(`integration-save-${provider}`);
+    const removeButton = document.getElementById(`integration-remove-${provider}`);
+    if (keyInput) { keyInput.value = ''; keyInput.disabled = true; }
+    if (saveButton) saveButton.disabled = true;
+    if (removeButton) removeButton.disabled = true;
+  });
+  const tokenInput = document.getElementById('integration-admin-token');
+  if (tokenInput) tokenInput.value = '';
+  setIntegrationMessage('Administrative authentication is required.');
+}
+
+async function parseIntegrationResponse(response) {
+  let data = {};
+  try { data = await response.json(); } catch (_) { /* no response body */ }
+  if (!response.ok) {
+    const detail = Array.isArray(data.detail) ? 'Invalid credential format.' : (data.error || data.detail || `HTTP ${response.status}`);
+    throw new Error(detail);
+  }
+  return data;
+}
+
+async function verifyIntegrationAccess() {
+  const tokenInput = document.getElementById('integration-admin-token');
+  const token = tokenInput?.value.trim() || '';
+  if (!token) {
+    setIntegrationMessage('Enter the administrative access code.', 'error');
+    return;
+  }
+  integrationAdminToken = token;
+  setIntegrationMessage('Verifying administrative access...');
+  try {
+    await loadIntegrationSettings();
+    if (tokenInput) tokenInput.value = '';
+    setIntegrationMessage('Administrative access verified. Keys remain server-side only.', 'ok');
+    if (integrationSettingsPoll) clearInterval(integrationSettingsPoll);
+    integrationSettingsPoll = setInterval(() => loadIntegrationSettings(true), 5000);
+  } catch (error) {
+    integrationAdminToken = '';
+    setIntegrationMessage(error.message, 'error');
+  }
+}
+
+async function loadIntegrationSettings(silent = false) {
+  if (!integrationAdminToken) throw new Error('Administrative authentication is required.');
+  const response = await fetch('/api/admin/integrations', {
+    headers: { 'X-Admin-Token': integrationAdminToken }
+  });
+  const data = await parseIntegrationResponse(response);
+
+  (data.items || []).forEach(item => {
+    const state = item.state || 'never_run';
+    const stateBadge = document.getElementById(`integration-state-${item.provider}`);
+    const keyInput = document.getElementById(`integration-key-${item.provider}`);
+    const saveButton = document.getElementById(`integration-save-${item.provider}`);
+    const removeButton = document.getElementById(`integration-remove-${item.provider}`);
+    const meta = document.getElementById(`integration-meta-${item.provider}`);
+    if (stateBadge) {
+      stateBadge.className = `connector-state ${state} mono`;
+      stateBadge.textContent = integrationStateLabel(state);
+    }
+    if (keyInput) keyInput.disabled = false;
+    if (saveButton) saveButton.disabled = false;
+    if (removeButton) removeButton.disabled = !item.configured;
+    if (meta) {
+      const configuredText = item.configured ? 'KEY CONFIGURED' : 'NO KEY CONFIGURED';
+      const detail = state === 'healthy'
+        ? `Last success: ${item.last_success || 'just now'}`
+        : (item.last_error || 'Awaiting connector validation');
+      meta.textContent = `${configuredText} // ${detail}`;
+    }
+  });
+
+  if (!silent) return data;
+  return data;
+}
+
+async function saveIntegrationKey(provider) {
+  const keyInput = document.getElementById(`integration-key-${provider}`);
+  const saveButton = document.getElementById(`integration-save-${provider}`);
+  const key = keyInput?.value.trim() || '';
+  if (!integrationAdminToken) {
+    setIntegrationMessage('Unlock administrative access first.', 'error');
+    return;
+  }
+  if (!key) {
+    setIntegrationMessage(`Paste the ${provider.toUpperCase()} Auth-Key first.`, 'error');
+    keyInput?.focus();
+    return;
+  }
+
+  if (saveButton) saveButton.disabled = true;
+  setIntegrationMessage(`Saving and validating ${provider.toUpperCase()}...`);
+  try {
+    const response = await fetch(`/api/admin/integrations/${provider}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': integrationAdminToken
+      },
+      body: JSON.stringify({ api_key: key })
+    });
+    await parseIntegrationResponse(response);
+    if (keyInput) keyInput.value = '';
+    setIntegrationMessage(`${provider.toUpperCase()} key saved. Connector validation is running.`, 'ok');
+    await loadIntegrationSettings(true);
+    pollStatus();
+  } catch (error) {
+    setIntegrationMessage(error.message, 'error');
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
+async function removeIntegrationKey(provider) {
+  if (!integrationAdminToken) return;
+  if (!confirm(`Remove the ${provider.toUpperCase()} Auth-Key from this server?`)) return;
+  setIntegrationMessage(`Removing ${provider.toUpperCase()} key...`);
+  try {
+    const response = await fetch(`/api/admin/integrations/${provider}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Token': integrationAdminToken }
+    });
+    await parseIntegrationResponse(response);
+    setIntegrationMessage(`${provider.toUpperCase()} key removed. Status returned to AUTH REQUIRED.`, 'ok');
+    await loadIntegrationSettings(true);
+    pollStatus();
+  } catch (error) {
+    setIntegrationMessage(error.message, 'error');
   }
 }
 

@@ -2,16 +2,22 @@ import httpx
 import asyncio
 import json
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Body
+from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Body, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import HOST, PORT, BASE_DIR
+from app.config import HOST, PORT, BASE_DIR, SETTINGS_ADMIN_TOKEN
+from app.credential_store import (
+    delete_provider_secret,
+    provider_secret_is_configured,
+    save_provider_secret,
+)
 from app.version import __version__, __app_name__, __description__, get_version_info
 from app.schemas import (
     RansomwareVictim,
@@ -24,7 +30,8 @@ from app.schemas import (
     DShieldResponse,
     NewsListResponse,
     ArtifactResponse,
-    ErrorResponse
+    ErrorResponse,
+    IntegrationKeyUpdate,
 )
 from app.database import (
     init_db,
@@ -32,6 +39,7 @@ from app.database import (
     get_dashboard_stats,
     get_all_feed_statuses,
     get_all_connector_health,
+    update_connector_health,
 )
 from app.scheduler import (
     start_scheduler,
@@ -163,6 +171,99 @@ async def api_connectors():
     for connector in connectors:
         counts[connector["state"]] = counts.get(connector["state"], 0) + 1
     return {"total": len(connectors), "states": counts, "items": connectors}
+
+
+# ==================== ADMIN INTEGRATION SETTINGS ====================
+
+MANAGED_INTEGRATIONS = {
+    "threatfox": {"name": "ThreatFox", "category": "Malware & IOCs"},
+    "urlhaus": {"name": "URLhaus", "category": "Malware & IOCs"},
+}
+
+
+def require_settings_admin(admin_token: Optional[str]) -> None:
+    """Protect secret-management endpoints on an otherwise public CTI portal."""
+    if not SETTINGS_ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail="API key administration is not enabled on this server")
+    if not admin_token or not secrets.compare_digest(admin_token, SETTINGS_ADMIN_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid administrative access code")
+
+
+async def sync_managed_integration(provider: str) -> None:
+    if provider == "threatfox":
+        from app.ingestion.threatfox import ingest_threatfox
+        await ingest_threatfox()
+    elif provider == "urlhaus":
+        from app.ingestion.urlhaus import ingest_urlhaus
+        await ingest_urlhaus()
+
+
+@app.get("/api/admin/integrations", tags=["Administration"])
+async def api_admin_integrations(
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    """Return credential presence and connector health without returning secrets."""
+    require_settings_admin(x_admin_token)
+    health = {item["source_name"]: item for item in await get_all_connector_health()}
+    items = []
+    for provider, metadata in MANAGED_INTEGRATIONS.items():
+        connector = health.get(provider, {})
+        items.append({
+            "provider": provider,
+            "name": metadata["name"],
+            "configured": provider_secret_is_configured(provider),
+            "state": connector.get("state", "never_run"),
+            "last_success": connector.get("last_success"),
+            "last_error": connector.get("last_error"),
+        })
+    return {"items": items}
+
+
+@app.put("/api/admin/integrations/{provider}", tags=["Administration"])
+async def api_save_integration_key(
+    provider: str,
+    payload: IntegrationKeyUpdate,
+    background_tasks: BackgroundTasks,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    """Save a connector API key server-side and validate it through ingestion."""
+    require_settings_admin(x_admin_token)
+    metadata = MANAGED_INTEGRATIONS.get(provider)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Unsupported integration")
+    try:
+        save_provider_secret(provider, payload.api_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    await update_connector_health(
+        provider,
+        metadata["category"],
+        "never_run",
+        last_error="Credential saved; validation is pending",
+    )
+    background_tasks.add_task(sync_managed_integration, provider)
+    return {"provider": provider, "configured": True, "validation": "started"}
+
+
+@app.delete("/api/admin/integrations/{provider}", tags=["Administration"])
+async def api_delete_integration_key(
+    provider: str,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    """Remove a runtime connector key and return the source to AUTH REQUIRED."""
+    require_settings_admin(x_admin_token)
+    metadata = MANAGED_INTEGRATIONS.get(provider)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Unsupported integration")
+    delete_provider_secret(provider)
+    await update_connector_health(
+        provider,
+        metadata["category"],
+        "auth_required",
+        last_error=f"{provider.upper()}_AUTH_KEY is not configured",
+    )
+    return {"provider": provider, "configured": False, "state": "auth_required"}
 
 
 @app.get("/api/iocs", tags=["Intel"])

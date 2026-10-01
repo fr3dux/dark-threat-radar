@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from app.config import URLHAUS_AUTH_KEY
+from app.credential_store import get_provider_secret
 from app.database import get_db, update_connector_health
 from app.ingestion.normalization import (
     normalize_url, generate_ioc_id, TYPE_URL
@@ -45,12 +45,13 @@ async def ingest_urlhaus() -> int:
     start_time = time.time()
     source_name = "urlhaus"
     category = "Malware & IOCs"
+    auth_key = get_provider_secret(source_name)
 
     headers = {
         "User-Agent": "DarkThreatRadar/1.8.1"
     }
-    if URLHAUS_AUTH_KEY:
-        headers["Auth-Key"] = URLHAUS_AUTH_KEY
+    if auth_key:
+        headers["Auth-Key"] = auth_key
 
     items_received = 0
     items_created = 0
@@ -59,7 +60,7 @@ async def ingest_urlhaus() -> int:
     last_error = None
     http_code = None
 
-    if not URLHAUS_AUTH_KEY:
+    if not auth_key:
         await update_connector_health(
             source_name,
             category,
@@ -70,14 +71,13 @@ async def ingest_urlhaus() -> int:
 
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-            resp = await client.get(EXPORT_URL.format(auth_key=URLHAUS_AUTH_KEY), headers=headers)
+            resp = await client.get(EXPORT_URL.format(auth_key=auth_key), headers=headers)
             http_code = resp.status_code
 
             if resp.status_code != 200:
                 last_error = f"HTTP {resp.status_code}"
-                state = "auth_required" if resp.status_code in (401, 403) else "failed"
                 await update_connector_health(
-                    source_name, category, state,
+                    source_name, category, "failed",
                     duration_seconds=round(time.time() - start_time, 2),
                     last_error=last_error, http_code=http_code
                 )

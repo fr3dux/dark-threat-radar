@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from app.config import THREATFOX_AUTH_KEY
+from app.credential_store import get_provider_secret
 from app.database import get_db, update_connector_health
 from app.ingestion.normalization import (
     normalize_indicator, generate_ioc_id,
@@ -36,13 +36,14 @@ async def ingest_threatfox() -> int:
     start_time = time.time()
     source_name = "threatfox"
     category = "Malware & IOCs"
+    auth_key = get_provider_secret(source_name)
 
     headers = {
         "User-Agent": "DarkThreatRadar/1.8.1",
         "Content-Type": "application/json"
     }
-    if THREATFOX_AUTH_KEY:
-        headers["Auth-Key"] = THREATFOX_AUTH_KEY
+    if auth_key:
+        headers["Auth-Key"] = auth_key
 
     payload = {"query": "get_iocs", "days": 1}
 
@@ -53,7 +54,7 @@ async def ingest_threatfox() -> int:
     last_error = None
     http_code = None
 
-    if not THREATFOX_AUTH_KEY:
+    if not auth_key:
         await update_connector_health(
             source_name,
             category,
@@ -69,9 +70,8 @@ async def ingest_threatfox() -> int:
 
             if resp.status_code != 200:
                 last_error = f"HTTP {resp.status_code}"
-                state = "auth_required" if resp.status_code in (401, 403) else "failed"
                 await update_connector_health(
-                    source_name, category, state,
+                    source_name, category, "failed",
                     duration_seconds=round(time.time() - start_time, 2),
                     last_error=last_error, http_code=http_code
                 )
@@ -80,9 +80,8 @@ async def ingest_threatfox() -> int:
             data = resp.json()
             if data.get("query_status") != "ok":
                 last_error = f"API query status: {data.get('query_status')}"
-                state = "auth_required" if "auth" in last_error.lower() else "degraded"
                 await update_connector_health(
-                    source_name, category, state,
+                    source_name, category, "failed",
                     duration_seconds=round(time.time() - start_time, 2),
                     last_error=last_error, http_code=http_code
                 )

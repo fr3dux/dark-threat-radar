@@ -51,12 +51,15 @@
                 <div class="dropdown-feed-item" title="{{ connector.last_error or ('Last success: ' ~ (connector.last_success or 'never')) }}">
                   <span class="status-dot {{ connector.state }}"></span>
                   <span class="feed-name mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
-                  <span class="connector-state {{ connector.state }} mono">{{ connector.state | replace('_', ' ') }}</span>
+                  <span class="connector-state {{ connector.state }} mono">{{ 'error' if connector.state == 'failed' else (connector.state | replace('_', ' ')) }}</span>
                 </div>
                 {% endfor %}
               {% endfor %}
             </div>
-            <div class="dropdown-footer mono">LIVE HEALTH · UPDATED EVERY 15S</div>
+            <div class="dropdown-footer mono">
+              <button type="button" class="btn btn-sm integration-settings-trigger" onclick="openIntegrationSettings()">⚙ API KEYS</button>
+              <span>LIVE HEALTH · UPDATED EVERY 15S</span>
+            </div>
           </div>
         </div>
 
@@ -957,6 +960,70 @@
       <span>Dark Threat Radar v{{ version }} // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
     </div>
   </footer>
+
+  <!-- Authenticated server-side connector credential settings -->
+  <div class="integration-modal-overlay" id="integration-modal-overlay" onclick="if(event.target === this) closeIntegrationSettings()" aria-hidden="true">
+    <section class="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-modal-title">
+      <div class="integration-modal-header">
+        <div>
+          <div class="mono integration-modal-kicker">ADMINISTRATION // SERVER-SIDE SECRETS</div>
+          <h2 class="mono" id="integration-modal-title">CTI API KEY SETTINGS</h2>
+        </div>
+        <button type="button" class="drawer-close mono" onclick="closeIntegrationSettings()">ESC [X]</button>
+      </div>
+
+      <div class="integration-modal-body">
+        <p class="integration-security-note">Keys are stored only on this server with owner-only permissions. Existing keys are never sent back to the browser.</p>
+
+        <form class="admin-access-row" onsubmit="event.preventDefault(); verifyIntegrationAccess()">
+          <label class="mono" for="integration-admin-token">ADMIN ACCESS CODE</label>
+          <div class="integration-input-row">
+            <input type="password" id="integration-admin-token" class="search-input" autocomplete="off" placeholder="Enter administrative access code">
+            <button type="submit" class="btn btn-primary">UNLOCK</button>
+          </div>
+          <div class="integration-message mono" id="integration-access-message">Administrative authentication is required.</div>
+        </form>
+
+        <div class="integration-provider-list" id="integration-provider-list" aria-live="polite">
+          <article class="integration-provider-card" data-provider="threatfox">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">THREATFOX</strong>
+                <span class="integration-provider-description">Malware IOCs, infrastructure and families</span>
+              </div>
+              <span class="connector-state auth_required mono" id="integration-state-threatfox">LOCKED</span>
+            </div>
+            <div class="integration-input-row">
+              <input type="password" id="integration-key-threatfox" class="search-input" autocomplete="new-password" placeholder="Paste a new Auth-Key" disabled>
+              <button type="button" class="btn btn-primary" id="integration-save-threatfox" onclick="saveIntegrationKey('threatfox')" disabled>SAVE &amp; TEST</button>
+              <button type="button" class="btn" id="integration-remove-threatfox" onclick="removeIntegrationKey('threatfox')" disabled>REMOVE</button>
+            </div>
+            <div class="integration-provider-meta mono" id="integration-meta-threatfox">Not authenticated</div>
+          </article>
+
+          <article class="integration-provider-card" data-provider="urlhaus">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">URLHAUS</strong>
+                <span class="integration-provider-description">Malware distribution URLs and payload context</span>
+              </div>
+              <span class="connector-state auth_required mono" id="integration-state-urlhaus">LOCKED</span>
+            </div>
+            <div class="integration-input-row">
+              <input type="password" id="integration-key-urlhaus" class="search-input" autocomplete="new-password" placeholder="Paste a new Auth-Key" disabled>
+              <button type="button" class="btn btn-primary" id="integration-save-urlhaus" onclick="saveIntegrationKey('urlhaus')" disabled>SAVE &amp; TEST</button>
+              <button type="button" class="btn" id="integration-remove-urlhaus" onclick="removeIntegrationKey('urlhaus')" disabled>REMOVE</button>
+            </div>
+            <div class="integration-provider-meta mono" id="integration-meta-urlhaus">Not authenticated</div>
+          </article>
+        </div>
+
+        <div class="integration-modal-footer mono">
+          Auth-Keys are issued by the <a href="https://auth.abuse.ch/" target="_blank" rel="noopener">abuse.ch Authentication Portal</a>.
+        </div>
+      </div>
+    </section>
+  </div>
 
   <!-- Deep Inspection Lateral Drawer -->
   <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>

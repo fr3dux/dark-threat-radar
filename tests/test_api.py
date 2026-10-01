@@ -7,6 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app import main as main_module
+from app import credential_store
 from app.version import __version__, __app_name__
 from app.database import init_db, get_schema_migrations
 
@@ -160,6 +162,38 @@ def test_index_uses_dynamic_public_cti_port_ranking(client):
     assert "561k probes" not in html
     assert "472k probes" not in html
     assert "374k probes" not in html
+
+
+def test_admin_integration_keys_are_protected_and_never_returned(client, tmp_path, monkeypatch):
+    secret_path = tmp_path / ".runtime-secrets.json"
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "test-admin-code")
+    monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", secret_path)
+    monkeypatch.delenv("THREATFOX_AUTH_KEY", raising=False)
+
+    async def fake_sync(_provider):
+        return None
+
+    monkeypatch.setattr(main_module, "sync_managed_integration", fake_sync)
+
+    unauthorized = client.get("/api/admin/integrations")
+    assert unauthorized.status_code == 401
+
+    headers = {"X-Admin-Token": "test-admin-code"}
+    saved = client.put(
+        "/api/admin/integrations/threatfox",
+        headers=headers,
+        json={"api_key": "private-test-key"},
+    )
+    assert saved.status_code == 200
+
+    status = client.get("/api/admin/integrations", headers=headers)
+    assert status.status_code == 200
+    assert status.json()["items"][0]["configured"] is True
+    assert "private-test-key" not in status.text
+
+    removed = client.delete("/api/admin/integrations/threatfox", headers=headers)
+    assert removed.status_code == 200
+    assert removed.json()["state"] == "auth_required"
 
 
 def test_database_schema_migrations():

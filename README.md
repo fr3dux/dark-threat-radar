@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.8.5-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.8.6-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -218,6 +218,10 @@ sudo systemctl status threat-radar.service
 | `LOCAL_NEWS_FILE` | `./news_history.json` | Path to optional local OSINT/news JSON cache. |
 | `MB_API_KEY` | `""` | Optional Abuse.ch MalwareBazaar Auth Key. |
 | `NVD_API_KEY` | `""` | Optional NIST NVD 2.0 API Key for higher rate limits. |
+| `THREATFOX_AUTH_KEY` | `""` | Initial ThreatFox Auth-Key; can also be managed securely from the web panel. |
+| `URLHAUS_AUTH_KEY` | `""` | Initial URLhaus Auth-Key; can also be managed securely from the web panel. |
+| `SETTINGS_ADMIN_TOKEN` | `""` | Required administrative access code for web-based secret management. |
+| `RUNTIME_SECRETS_PATH` | `./.runtime-secrets.json` | Owner-only runtime credential store, excluded from Git. |
 
 ---
 

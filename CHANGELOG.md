@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.6] - 2026-10-01
+
+### Added
+- **Web API Key Administration**: Added an authenticated panel for configuring ThreatFox and URLhaus Auth-Keys without editing server files.
+- **Server-Only Secret Store**: Runtime credentials are excluded from Git, written atomically with owner-only permissions, and are never returned to the browser.
+- **Immediate Connector Validation**: Saving a key runs its connector immediately; missing keys remain `AUTH REQUIRED`, rejected keys show `ERROR`, and accepted keys become `HEALTHY`.
+
 ## [1.8.5] - 2026-09-30
 
 ### Fixed

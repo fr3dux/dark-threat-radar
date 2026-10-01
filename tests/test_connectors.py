@@ -1,9 +1,12 @@
 """Offline tests for connector contracts and schema migration."""
 
 import asyncio
+import stat
 
 from app import database
+from app import credential_store
 from app.ingestion import _run_group
+from app.ingestion import threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
@@ -65,3 +68,60 @@ def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):
     assert len(connectors) == 15
     assert next(c for c in connectors if c["source_name"] == "openphish")["state"] == "disabled"
     assert sum(v["version"] == "1.8.1" for v in versions) == 1
+
+
+def test_runtime_credentials_are_owner_only_and_never_require_restart(tmp_path, monkeypatch):
+    secret_path = tmp_path / ".runtime-secrets.json"
+    monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", secret_path)
+    monkeypatch.delenv("THREATFOX_AUTH_KEY", raising=False)
+
+    credential_store.save_provider_secret("threatfox", "test-secret-value")
+    assert credential_store.get_provider_secret("threatfox") == "test-secret-value"
+    assert stat.S_IMODE(secret_path.stat().st_mode) == 0o600
+
+    credential_store.delete_provider_secret("threatfox")
+    assert credential_store.get_provider_secret("threatfox") == ""
+
+
+def test_rejected_threatfox_key_is_error_not_auth_required(monkeypatch):
+    states = []
+
+    class RejectedResponse:
+        status_code = 401
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return None
+        async def post(self, *_args, **_kwargs): return RejectedResponse()
+
+    async def capture_state(_source, _category, state, **_kwargs):
+        states.append(state)
+
+    monkeypatch.setattr(threatfox, "get_provider_secret", lambda _provider: "rejected-key")
+    monkeypatch.setattr(threatfox.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(threatfox, "update_connector_health", capture_state)
+
+    asyncio.run(threatfox.ingest_threatfox())
+    assert states == ["failed"]
+
+
+def test_rejected_urlhaus_key_is_error_not_auth_required(monkeypatch):
+    states = []
+
+    class RejectedResponse:
+        status_code = 403
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return None
+        async def get(self, *_args, **_kwargs): return RejectedResponse()
+
+    async def capture_state(_source, _category, state, **_kwargs):
+        states.append(state)
+
+    monkeypatch.setattr(urlhaus, "get_provider_secret", lambda _provider: "rejected-key")
+    monkeypatch.setattr(urlhaus.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(urlhaus, "update_connector_health", capture_state)
+
+    asyncio.run(urlhaus.ingest_urlhaus())
+    assert states == ["failed"]
