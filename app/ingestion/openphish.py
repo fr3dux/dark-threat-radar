@@ -1,7 +1,7 @@
 """OpenPhish Ingestion Module
-Collects active phishing URLs from OpenPhish Community Feed (or Premium API if key provided).
+Collects active phishing URLs from the official OpenPhish Community Feed.
 Extracts domain, host, path, protocol, and differentiates phishing from malware distribution.
-URL: https://openphish.com/feed.txt
+URL: https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt
 """
 
 import httpx
@@ -10,7 +10,6 @@ import time
 from urllib.parse import urlparse
 from datetime import datetime, timezone
 
-from app.config import OPENPHISH_API_KEY
 from app.database import get_db, update_connector_health
 from app.ingestion.normalization import (
     normalize_url, generate_ioc_id, TYPE_URL
@@ -19,7 +18,7 @@ from app.ingestion.confidence import calculate_confidence, get_confidence_severi
 
 logger = logging.getLogger("ingestion.openphish")
 
-COMMUNITY_FEED_URL = "https://openphish.com/feed.txt"
+COMMUNITY_FEED_URL = "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt"
 
 
 async def ingest_openphish() -> int:
@@ -36,10 +35,7 @@ async def ingest_openphish() -> int:
     http_code = None
 
     feed_url = COMMUNITY_FEED_URL
-    headers = {"User-Agent": "DarkThreatRadar/1.8.0"}
-    if OPENPHISH_API_KEY:
-        headers["X-API-Key"] = OPENPHISH_API_KEY
-
+    headers = {"User-Agent": "DarkThreatRadar/1.9.2"}
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             resp = await client.get(feed_url, headers=headers)

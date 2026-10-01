@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.9.1-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.9.2-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-48%2F48%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-53%2F53%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -92,7 +92,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 
 ## Integrated Threat Intelligence Sources
 
-Dark Threat Radar tracks 15 public CTI connectors. Fourteen are enabled by default; OpenPhish remains disabled until the operator explicitly accepts the provider terms for the intended deployment. ThreatFox and URLhaus report `AUTH REQUIRED` until their keys are configured.
+Dark Threat Radar tracks 15 public CTI connectors. Fourteen are enabled by default; OpenPhish remains disabled until an administrator reviews the provider terms and explicitly enables it from **Feed Settings**. ThreatFox and URLhaus report `AUTH REQUIRED` until their keys are configured.
 
 | Feed | Source / API | Description | Ingestion Frequency |
 | :--- | :--- | :--- | :--- |
@@ -110,7 +110,7 @@ Dark Threat Radar tracks 15 public CTI connectors. Fourteen are enabled by defau
 | **GitHub Advisory Database** | GitHub REST API | Global security advisories across open-source ecosystems, including GHSA and CVE aliases. | Hourly |
 | **Spamhaus DROP** | Spamhaus | IPv4, IPv6, and ASN DROP intelligence normalized as CIDR and ASN indicators. | Hourly |
 | **OSV.dev** | OSV API | Targeted vulnerability enrichment for packages registered in the Watchlist. | Slow: 6 hours |
-| **OpenPhish** | OpenPhish | Active phishing URLs. Disabled until explicitly enabled after terms review. | Disabled by default; 6 hours when enabled |
+| **OpenPhish** | Official Community text feed | Active phishing URLs. No key is required; explicit terms acknowledgement is required in Feed Settings. | Disabled by default; 6 hours when enabled |
 
 Operational attribution, authentication, and usage notes are maintained in [SOURCES_LICENSES.md](SOURCES_LICENSES.md).
 
@@ -253,8 +253,7 @@ The installer copies the worker to a root-owned system location and runs it with
 | `UPDATE_REQUEST_PATH` | `/var/lib/dark-threat-radar/update.request.json` | Privilege-separated update request watched by systemd. |
 | `UPDATE_STATUS_PATH` | `/var/lib/dark-threat-radar/update-status.json` | Non-secret update progress and result file. |
 | `GITHUB_TOKEN` | `""` | Optional token that raises GitHub Advisory API rate limits. |
-| `ENABLE_OPENPHISH` | `false` | Enables OpenPhish only after the operator confirms applicable provider terms. |
-| `OPENPHISH_API_KEY` | `""` | Optional OpenPhish plan credential. |
+| `ENABLE_OPENPHISH` | `false` | Initial OpenPhish opt-in for unattended deployments. It can also be changed live in Feed Settings after terms confirmation. |
 | `RUNTIME_SECRETS_PATH` | `./.runtime-secrets.json` | Owner-only runtime credential store, excluded from Git. |
 
 ### Administrative access code
@@ -355,7 +354,7 @@ O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de amea�
 1. **Núcleo de vulnerabilidades e telemetria (5 min):** CISA KEV, NIST NVD, FIRST EPSS, SANS ISC DShield, MalwareBazaar, ransomware.live e notícias CTI.
 2. **IOCs rápidos (15 min):** ThreatFox, URLhaus, Feodo Tracker e SSLBL. ThreatFox e URLhaus exigem Auth-Key e podem ser configurados pelo painel administrativo.
 3. **Inteligência horária:** GitHub Advisory Database e Spamhaus DROP.
-4. **Enriquecimento lento (6 h):** OSV.dev e OpenPhish, sendo que o OpenPhish permanece desativado por padrão.
+4. **Enriquecimento lento (6 h):** OSV.dev e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
 
 Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
 

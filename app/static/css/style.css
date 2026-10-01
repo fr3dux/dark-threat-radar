@@ -2366,6 +2366,42 @@ main.main-content {
   font-size: 10.5px;
 }
 
+.integration-opt-in-note {
+  margin: -1px 0 10px;
+  padding: 8px 9px;
+  border-left: 2px solid var(--accent-yellow);
+  background: rgba(210, 153, 34, 0.06);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.integration-opt-in-note a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.integration-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 7px 0;
+  color: var(--text-secondary);
+  font-size: 9.5px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.integration-check-row input {
+  margin: 1px 0 0;
+  accent-color: var(--accent-cyan);
+}
+
+.openphish-apply-button {
+  margin-top: 10px;
+  width: 100%;
+}
+
 .integration-modal-footer {
   margin-top: 14px;
   color: var(--text-muted);

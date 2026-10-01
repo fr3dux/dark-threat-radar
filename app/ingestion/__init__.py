@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
-from app.config import ENABLE_OPENPHISH
+from app.credential_store import openphish_is_enabled
 from app.ingestion.cisa_kev import ingest_cisa_kev
 from app.ingestion.dshield import ingest_dshield
 from app.ingestion.epss import ingest_epss
@@ -78,7 +78,7 @@ async def run_hourly_ingestions() -> list[object]:
 
 async def run_slow_ingestions() -> list[object]:
     connectors: list[Connector] = [ingest_osv]
-    if ENABLE_OPENPHISH:
+    if openphish_is_enabled():
         connectors.append(ingest_openphish)
     return await _run_group("slow", connectors)
 

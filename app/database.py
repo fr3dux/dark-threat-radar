@@ -3,7 +3,8 @@ import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from app.config import DB_PATH, ENABLE_OPENPHISH
+from app.config import DB_PATH
+from app.credential_store import openphish_is_enabled
 
 @asynccontextmanager
 async def get_db():
@@ -335,7 +336,7 @@ async def init_db():
                 ) VALUES (?, ?, 'never_run', ?)
             """, (source_name, category, now_str))
 
-        if not ENABLE_OPENPHISH:
+        if not openphish_is_enabled():
             await conn.execute(
                 """UPDATE connector_health SET state='disabled',
                     last_error='Disabled by configuration', updated_at=?

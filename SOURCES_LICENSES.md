@@ -14,10 +14,10 @@ deployment.
 | GitHub Advisory Database | GitHub REST global advisories | Optional `GITHUB_TOKEN` | 1 hour | Use is subject to GitHub API terms and advisory data licensing. |
 | OSV.dev | package query API | None | 6 hours | Only Watchlist packages are queried; no arbitrary package sweep is performed. Review OSV data-source licenses. |
 | Spamhaus DROP | IPv4, IPv6 and ASN NDJSON feeds | None | 1 hour | Use and redistribution are subject to the Spamhaus data terms. |
-| OpenPhish | community URL feed | Optional plan key | Disabled | Enable only after confirming the selected OpenPhish plan permits the intended use. |
+| OpenPhish | official Community text feed | None | Disabled | Explicit opt-in through the administration panel after reviewing the provider terms; commercial use is not assumed. |
 
 Existing 1.7 sources remain unchanged: CISA KEV, NIST NVD, EPSS,
 MalwareBazaar, SANS ISC DShield, ransomware.live and the configured news feeds.
 
 Provider response bodies and credentials must never be written to connector
-health records. User-Agent: `DarkThreatRadar/1.8.1`.
+health records. User-Agent: `DarkThreatRadar/1.9.2`.

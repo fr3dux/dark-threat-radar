@@ -74,6 +74,49 @@ def test_update_install_requires_admin_and_queues(client, monkeypatch):
     assert response.json() == {"status": "queued", "target_version": "1.9.1"}
 
 
+def test_openphish_admin_opt_in_requires_terms_and_reports_unauthenticated_feed(client, tmp_path, monkeypatch):
+    secret_path = tmp_path / ".runtime-secrets.json"
+    sync_calls = []
+
+    async def fake_sync(provider):
+        sync_calls.append(provider)
+
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "openphish-admin-code")
+    monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", secret_path)
+    monkeypatch.setattr(main_module, "sync_managed_integration", fake_sync)
+    headers = {"X-Admin-Token": "openphish-admin-code"}
+
+    rejected = client.put(
+        "/api/admin/integrations/openphish/settings",
+        headers=headers,
+        json={"enabled": True, "terms_accepted": False},
+    )
+    assert rejected.status_code == 422
+
+    enabled = client.put(
+        "/api/admin/integrations/openphish/settings",
+        headers=headers,
+        json={"enabled": True, "terms_accepted": True},
+    )
+    assert enabled.status_code == 200
+    assert enabled.json()["validation"] == "started"
+    assert sync_calls == ["openphish"]
+
+    settings = client.get("/api/admin/integrations", headers=headers)
+    openphish = next(item for item in settings.json()["items"] if item["provider"] == "openphish")
+    assert openphish["enabled"] is True
+    assert openphish["terms_accepted"] is True
+    assert openphish["configured"] is False
+
+    disabled = client.put(
+        "/api/admin/integrations/openphish/settings",
+        headers=headers,
+        json={"enabled": False, "terms_accepted": False},
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["state"] == "disabled"
+
+
 def test_api_status(client):
     """Test /api/status returns live feed states, sync lock, and version."""
     response = client.get("/api/status")

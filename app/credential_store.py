@@ -17,6 +17,9 @@ PROVIDER_ENV_VARS = {
     "urlhaus": "URLHAUS_AUTH_KEY",
 }
 
+OPENPHISH_ENABLED_KEY = "openphish_enabled"
+OPENPHISH_TERMS_KEY = "openphish_terms_accepted"
+
 _store_lock = threading.RLock()
 
 
@@ -44,6 +47,25 @@ def provider_secret_is_configured(provider: str) -> bool:
     return bool(get_provider_secret(provider))
 
 
+def openphish_is_enabled() -> bool:
+    """Return the live OpenPhish opt-in state without requiring a restart."""
+    with _store_lock:
+        stored = _read_store().get(OPENPHISH_ENABLED_KEY)
+    if stored is not None:
+        return stored.lower() == "true"
+    return os.getenv("ENABLE_OPENPHISH", "false").lower() in {"1", "true", "yes"}
+
+
+def openphish_terms_accepted() -> bool:
+    """Report whether the operator explicitly acknowledged provider terms."""
+    with _store_lock:
+        stored = _read_store().get(OPENPHISH_TERMS_KEY)
+    if stored is not None:
+        return stored.lower() == "true"
+    # Setting ENABLE_OPENPHISH outside the UI is itself an explicit operator opt-in.
+    return os.getenv("ENABLE_OPENPHISH", "false").lower() in {"1", "true", "yes"}
+
+
 def save_provider_secret(provider: str, api_key: str) -> None:
     if provider not in PROVIDER_ENV_VARS:
         raise ValueError("Unsupported credential provider")
@@ -67,6 +89,20 @@ def save_provider_secret(provider: str, api_key: str) -> None:
         finally:
             if temp_path.exists():
                 temp_path.unlink()
+
+
+def save_openphish_settings(
+    *, enabled: bool, terms_accepted: bool
+) -> None:
+    """Persist the explicit OpenPhish community-feed opt-in."""
+    if enabled and not terms_accepted:
+        raise ValueError("Confirm that the OpenPhish terms were reviewed before enabling the feed")
+
+    with _store_lock:
+        data = _read_store()
+        data[OPENPHISH_ENABLED_KEY] = "true" if enabled else "false"
+        data[OPENPHISH_TERMS_KEY] = "true" if terms_accepted else "false"
+        save_provider_secret_file(data)
 
 
 def delete_provider_secret(provider: str) -> None:

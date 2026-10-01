@@ -50,6 +50,11 @@ class IntegrationKeyUpdate(BaseModel):
     api_key: str = Field(..., min_length=1, max_length=512)
 
 
+class OpenPhishSettingsUpdate(BaseModel):
+    enabled: bool
+    terms_accepted: bool
+
+
 class StatusResponse(BaseModel):
     version: str
     feeds: List[FeedStatus]

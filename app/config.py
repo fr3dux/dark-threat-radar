@@ -23,7 +23,6 @@ THREATFOX_AUTH_KEY = os.getenv("THREATFOX_AUTH_KEY", "")
 URLHAUS_AUTH_KEY = os.getenv("URLHAUS_AUTH_KEY", "")
 SETTINGS_ADMIN_TOKEN = os.getenv("SETTINGS_ADMIN_TOKEN", "")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-OPENPHISH_API_KEY = os.getenv("OPENPHISH_API_KEY", "")
 
 # Release discovery is always read-only. One-click installation remains off
 # until the root-owned external updater has been explicitly installed.

@@ -1740,13 +1740,17 @@ function closeIntegrationSettings() {
     clearInterval(integrationSettingsPoll);
     integrationSettingsPoll = null;
   }
-  ['threatfox', 'urlhaus'].forEach(provider => {
+  ['threatfox', 'urlhaus', 'openphish'].forEach(provider => {
     const keyInput = document.getElementById(`integration-key-${provider}`);
     const saveButton = document.getElementById(`integration-save-${provider}`);
     const removeButton = document.getElementById(`integration-remove-${provider}`);
     if (keyInput) { keyInput.value = ''; keyInput.disabled = true; }
     if (saveButton) saveButton.disabled = true;
     if (removeButton) removeButton.disabled = true;
+  });
+  ['integration-enable-openphish', 'integration-terms-openphish'].forEach(id => {
+    const checkbox = document.getElementById(id);
+    if (checkbox) { checkbox.checked = false; checkbox.disabled = true; }
   });
   const tokenInput = document.getElementById('integration-admin-token');
   if (tokenInput) tokenInput.value = '';
@@ -1805,8 +1809,22 @@ async function loadIntegrationSettings(silent = false) {
     if (keyInput) keyInput.disabled = false;
     if (saveButton) saveButton.disabled = false;
     if (removeButton) removeButton.disabled = !item.configured;
+    if (item.provider === 'openphish') {
+      const enableCheckbox = document.getElementById('integration-enable-openphish');
+      const termsCheckbox = document.getElementById('integration-terms-openphish');
+      if (enableCheckbox) {
+        enableCheckbox.disabled = false;
+        enableCheckbox.checked = Boolean(item.enabled);
+      }
+      if (termsCheckbox) {
+        termsCheckbox.disabled = false;
+        termsCheckbox.checked = Boolean(item.terms_accepted);
+      }
+    }
     if (meta) {
-      const configuredText = item.configured ? 'KEY CONFIGURED' : 'NO KEY CONFIGURED';
+      const configuredText = item.provider === 'openphish'
+        ? 'COMMUNITY FEED / NO AUTH REQUIRED'
+        : (item.configured ? 'KEY CONFIGURED' : 'NO KEY CONFIGURED');
       const detail = state === 'healthy'
         ? `Last success: ${item.last_success || 'just now'}`
         : (item.last_error || 'Awaiting connector validation');
@@ -1846,6 +1864,53 @@ async function saveIntegrationKey(provider) {
     await parseIntegrationResponse(response);
     if (keyInput) keyInput.value = '';
     setIntegrationMessage(`${provider.toUpperCase()} key saved. Connector validation is running.`, 'ok');
+    await loadIntegrationSettings(true);
+    pollStatus();
+  } catch (error) {
+    setIntegrationMessage(error.message, 'error');
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
+async function saveOpenPhishSettings() {
+  const enableCheckbox = document.getElementById('integration-enable-openphish');
+  const termsCheckbox = document.getElementById('integration-terms-openphish');
+  const saveButton = document.getElementById('integration-save-openphish');
+  const enabled = Boolean(enableCheckbox?.checked);
+  const termsAccepted = Boolean(termsCheckbox?.checked);
+
+  if (!integrationAdminToken) {
+    setIntegrationMessage('Unlock administrative access first.', 'error');
+    return;
+  }
+  if (enabled && !termsAccepted) {
+    setIntegrationMessage('Review and confirm the OpenPhish provider terms before enabling.', 'error');
+    termsCheckbox?.focus();
+    return;
+  }
+
+  if (saveButton) saveButton.disabled = true;
+  setIntegrationMessage(`${enabled ? 'Enabling' : 'Disabling'} OPENPHISH...`);
+  try {
+    const response = await fetch('/api/admin/integrations/openphish/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': integrationAdminToken
+      },
+      body: JSON.stringify({
+        enabled,
+        terms_accepted: termsAccepted
+      })
+    });
+    await parseIntegrationResponse(response);
+    setIntegrationMessage(
+      enabled
+        ? 'OPENPHISH enabled. Feed validation is running.'
+        : 'OPENPHISH disabled. Existing indicators remain available for historical analysis.',
+      'ok'
+    );
     await loadIntegrationSettings(true);
     pollStatus();
   } catch (error) {

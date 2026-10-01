@@ -15,7 +15,10 @@ from fastapi.templating import Jinja2Templates
 from app.config import HOST, PORT, BASE_DIR, SETTINGS_ADMIN_TOKEN
 from app.credential_store import (
     delete_provider_secret,
+    openphish_is_enabled,
+    openphish_terms_accepted,
     provider_secret_is_configured,
+    save_openphish_settings,
     save_provider_secret,
 )
 from app.version import __version__, __app_name__, __description__, get_version_info
@@ -32,6 +35,7 @@ from app.schemas import (
     ArtifactResponse,
     ErrorResponse,
     IntegrationKeyUpdate,
+    OpenPhishSettingsUpdate,
 )
 from app.database import (
     init_db,
@@ -201,6 +205,7 @@ async def api_connectors():
 MANAGED_INTEGRATIONS = {
     "threatfox": {"name": "ThreatFox", "category": "Malware & IOCs"},
     "urlhaus": {"name": "URLhaus", "category": "Malware & IOCs"},
+    "openphish": {"name": "OpenPhish", "category": "Phishing"},
 }
 
 
@@ -219,6 +224,9 @@ async def sync_managed_integration(provider: str) -> None:
     elif provider == "urlhaus":
         from app.ingestion.urlhaus import ingest_urlhaus
         await ingest_urlhaus()
+    elif provider == "openphish":
+        from app.ingestion.openphish import ingest_openphish
+        await ingest_openphish()
 
 
 @app.get("/api/admin/integrations", tags=["Administration"])
@@ -234,12 +242,59 @@ async def api_admin_integrations(
         items.append({
             "provider": provider,
             "name": metadata["name"],
-            "configured": provider_secret_is_configured(provider),
+            "configured": provider_secret_is_configured(provider) if provider != "openphish" else False,
+            "enabled": openphish_is_enabled() if provider == "openphish" else True,
+            "terms_accepted": openphish_terms_accepted() if provider == "openphish" else None,
             "state": connector.get("state", "never_run"),
             "last_success": connector.get("last_success"),
             "last_error": connector.get("last_error"),
         })
     return {"items": items}
+
+
+@app.put("/api/admin/integrations/openphish/settings", tags=["Administration"])
+async def api_save_openphish_settings(
+    payload: OpenPhishSettingsUpdate,
+    background_tasks: BackgroundTasks,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    """Explicitly opt into OpenPhish and validate its Community feed."""
+    require_settings_admin(x_admin_token)
+    try:
+        save_openphish_settings(
+            enabled=payload.enabled,
+            terms_accepted=payload.terms_accepted,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if payload.enabled:
+        await update_connector_health(
+            "openphish",
+            "Phishing",
+            "never_run",
+            last_error="Configuration saved; feed validation is pending",
+        )
+        background_tasks.add_task(sync_managed_integration, "openphish")
+        state = "never_run"
+        validation = "started"
+    else:
+        await update_connector_health(
+            "openphish",
+            "Phishing",
+            "disabled",
+            last_error="Disabled by administrator",
+        )
+        state = "disabled"
+        validation = "disabled"
+    return {
+        "provider": "openphish",
+        "configured": False,
+        "enabled": payload.enabled,
+        "terms_accepted": payload.terms_accepted,
+        "state": state,
+        "validation": validation,
+    }
 
 
 @app.put("/api/admin/integrations/{provider}", tags=["Administration"])
@@ -254,6 +309,8 @@ async def api_save_integration_key(
     metadata = MANAGED_INTEGRATIONS.get(provider)
     if not metadata:
         raise HTTPException(status_code=404, detail="Unsupported integration")
+    if provider == "openphish":
+        raise HTTPException(status_code=409, detail="Use the OpenPhish settings endpoint")
     try:
         save_provider_secret(provider, payload.api_key)
     except ValueError as exc:
@@ -279,6 +336,8 @@ async def api_delete_integration_key(
     metadata = MANAGED_INTEGRATIONS.get(provider)
     if not metadata:
         raise HTTPException(status_code=404, detail="Unsupported integration")
+    if provider == "openphish":
+        raise HTTPException(status_code=409, detail="OpenPhish does not use an API key")
     delete_provider_secret(provider)
     await update_connector_health(
         provider,

@@ -234,7 +234,7 @@ def main() -> int:
             test_env = os.environ.copy()
             for secret_name in (
                 "THREATFOX_AUTH_KEY", "URLHAUS_AUTH_KEY", "MB_API_KEY",
-                "NVD_API_KEY", "GITHUB_TOKEN", "OPENPHISH_API_KEY",
+                "NVD_API_KEY", "GITHUB_TOKEN",
             ):
                 test_env.pop(secret_name, None)
             test_env.update({

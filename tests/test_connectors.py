@@ -6,6 +6,7 @@ import stat
 from app import database
 from app import credential_store
 from app.ingestion import _run_group
+from app import ingestion
 from app.ingestion import threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
@@ -81,6 +82,51 @@ def test_runtime_credentials_are_owner_only_and_never_require_restart(tmp_path, 
 
     credential_store.delete_provider_secret("threatfox")
     assert credential_store.get_provider_secret("threatfox") == ""
+
+
+def test_openphish_runtime_opt_in_is_persistent(tmp_path, monkeypatch):
+    secret_path = tmp_path / ".runtime-secrets.json"
+    monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", secret_path)
+    monkeypatch.delenv("ENABLE_OPENPHISH", raising=False)
+
+    assert credential_store.openphish_is_enabled() is False
+    credential_store.save_openphish_settings(
+        enabled=True,
+        terms_accepted=True,
+    )
+
+    assert credential_store.openphish_is_enabled() is True
+    assert credential_store.openphish_terms_accepted() is True
+    assert stat.S_IMODE(secret_path.stat().st_mode) == 0o600
+
+
+def test_openphish_cannot_be_enabled_without_terms_confirmation(tmp_path, monkeypatch):
+    monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", tmp_path / "secrets.json")
+    try:
+        credential_store.save_openphish_settings(enabled=True, terms_accepted=False)
+    except ValueError as exc:
+        assert "terms" in str(exc).lower()
+    else:
+        raise AssertionError("OpenPhish must remain opt-in")
+
+
+def test_slow_group_reads_live_openphish_setting(monkeypatch):
+    calls = []
+
+    async def fake_osv():
+        calls.append("osv")
+        return 1
+
+    async def fake_openphish():
+        calls.append("openphish")
+        return 1
+
+    monkeypatch.setattr(ingestion, "ingest_osv", fake_osv)
+    monkeypatch.setattr(ingestion, "ingest_openphish", fake_openphish)
+    monkeypatch.setattr(ingestion, "openphish_is_enabled", lambda: True)
+
+    asyncio.run(ingestion.run_slow_ingestions())
+    assert calls == ["osv", "openphish"]
 
 
 def test_rejected_threatfox_key_is_error_not_auth_required(monkeypatch):

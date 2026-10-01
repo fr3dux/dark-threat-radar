@@ -57,7 +57,7 @@
               {% endfor %}
             </div>
             <div class="dropdown-footer mono">
-              <button type="button" class="btn btn-sm integration-settings-trigger" onclick="openIntegrationSettings()">⚙ API KEYS</button>
+              <button type="button" class="btn btn-sm integration-settings-trigger" onclick="openIntegrationSettings()">⚙ FEED SETTINGS</button>
               <span>LIVE HEALTH · UPDATED EVERY 15S</span>
             </div>
           </div>
@@ -971,8 +971,8 @@
     <section class="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-modal-title">
       <div class="integration-modal-header">
         <div>
-          <div class="mono integration-modal-kicker">ADMINISTRATION // SERVER-SIDE SECRETS</div>
-          <h2 class="mono" id="integration-modal-title">CTI API KEY SETTINGS</h2>
+          <div class="mono integration-modal-kicker">ADMINISTRATION // CONNECTORS &amp; SERVER-SIDE SECRETS</div>
+          <h2 class="mono" id="integration-modal-title">CTI FEED SETTINGS</h2>
         </div>
         <button type="button" class="drawer-close mono" onclick="closeIntegrationSettings()">ESC [X]</button>
       </div>
@@ -1021,10 +1021,34 @@
             </div>
             <div class="integration-provider-meta mono" id="integration-meta-urlhaus">Not authenticated</div>
           </article>
+
+          <article class="integration-provider-card openphish-provider-card" data-provider="openphish">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">OPENPHISH</strong>
+                <span class="integration-provider-description">Active phishing URLs from the official Community feed</span>
+              </div>
+              <span class="connector-state disabled mono" id="integration-state-openphish">DISABLED</span>
+            </div>
+            <div class="integration-opt-in-note">
+              OpenPhish is opt-in because this public CTI deployment stores and presents provider indicators. Review the
+              <a href="https://openphish.com/terms.html" target="_blank" rel="noopener">OpenPhish terms</a> for your intended use before enabling it.
+            </div>
+            <label class="integration-check-row mono">
+              <input type="checkbox" id="integration-enable-openphish" disabled>
+              ENABLE OPENPHISH INGESTION
+            </label>
+            <label class="integration-check-row mono">
+              <input type="checkbox" id="integration-terms-openphish" disabled>
+              I CONFIRM THAT I REVIEWED THE PROVIDER TERMS FOR THIS DEPLOYMENT
+            </label>
+            <button type="button" class="btn btn-primary openphish-apply-button" id="integration-save-openphish" onclick="saveOpenPhishSettings()" disabled>APPLY &amp; TEST FEED</button>
+            <div class="integration-provider-meta mono" id="integration-meta-openphish">Feed disabled by configuration</div>
+          </article>
         </div>
 
         <div class="integration-modal-footer mono">
-          Auth-Keys are issued by the <a href="https://auth.abuse.ch/" target="_blank" rel="noopener">abuse.ch Authentication Portal</a>.
+          ThreatFox and URLhaus keys are issued by the <a href="https://auth.abuse.ch/" target="_blank" rel="noopener">abuse.ch Authentication Portal</a>. OpenPhish Community does not require a key.
         </div>
       </div>
     </section>
