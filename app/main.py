@@ -872,9 +872,11 @@ async def api_artifact(artifact_type: str, identifier: str):
             data = dict(row)
             if data.get("raw_json"):
                 try:
-                    data["raw_json"] = json.loads(data["raw_json"])
+                    data["parsed_raw"] = json.loads(data["raw_json"])
                 except Exception:
-                    pass
+                    data["parsed_raw"] = data["raw_json"]
+            return {"type": "ransomware", "identifier": identifier, "data": data}
+
         elif artifact_type == "news":
             cur = await conn.execute("SELECT * FROM cti_news WHERE id = ?;", (identifier,))
             row = await cur.fetchone()

@@ -3,6 +3,9 @@ Validates endpoints, schema consistency, versioning, migrations, and error handl
 """
 
 import asyncio
+from contextlib import asynccontextmanager
+
+import aiosqlite
 import pytest
 from fastapi.testclient import TestClient
 
@@ -135,6 +138,48 @@ def test_artifact_invalid_port(client):
     assert "error" in data
     assert "Invalid port number" in data["error"]
     assert data["status_code"] == 400
+
+
+def test_artifact_ransomware_returns_record_and_parsed_payload(client, monkeypatch):
+    """Ransomware inspection must return a complete artifact instead of HTTP 500."""
+
+    @asynccontextmanager
+    async def ransomware_test_db():
+        conn = await aiosqlite.connect(":memory:")
+        conn.row_factory = aiosqlite.Row
+        await conn.execute(
+            """
+            CREATE TABLE ransomware_victims (
+                id TEXT PRIMARY KEY,
+                victim_name TEXT NOT NULL,
+                group_name TEXT NOT NULL,
+                country TEXT,
+                raw_json TEXT
+            )
+            """
+        )
+        await conn.execute(
+            """INSERT INTO ransomware_victims
+               (id, victim_name, group_name, country, raw_json)
+               VALUES (?, ?, ?, ?, ?)""",
+            ("victim-test-id", "Example Corp", "example-group", "BR", '{"source":"ransomware.live"}'),
+        )
+        await conn.commit()
+        try:
+            yield conn
+        finally:
+            await conn.close()
+
+    monkeypatch.setattr(main_module, "get_db", ransomware_test_db)
+    response = client.get("/api/artifact/ransomware/victim-test-id")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["type"] == "ransomware"
+    assert payload["identifier"] == "victim-test-id"
+    assert payload["data"]["victim_name"] == "Example Corp"
+    assert payload["data"]["parsed_raw"] == {"source": "ransomware.live"}
+    assert isinstance(payload["data"]["raw_json"], str)
 
 
 def test_index_page_version_injection(client):

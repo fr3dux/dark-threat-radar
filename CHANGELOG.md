@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.8] - 2026-10-01
+
+### Fixed
+- **Ransomware Artifact Inspector**: Restored the missing API response for ransomware victim records, eliminating the HTTP 500 error when opening a recent extortion disclosure.
+- **Ransomware Detail Rendering**: Added victim, threat actor, country, domain, dates, description, safe public pivots, and resilient raw-payload rendering to the lateral inspector.
+- **Regression Coverage**: Added a dedicated API test that verifies ransomware artifacts and parsed source payloads are returned successfully.
+
 ## [1.8.7] - 2026-10-01
 
 ### Added

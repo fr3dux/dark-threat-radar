@@ -680,6 +680,37 @@ async function openArtifact(type, identifier) {
         <a class="external-link" href="https://www.speedguide.net/port.php?port=${d.port}" target="_blank" rel="noopener">SpeedGuide Port DB &rarr;</a>
       `;
 
+    } else if (type === 'ransomware') {
+      const publicRecordUrl = safeHttpUrl(d.url);
+      const claimUrl = safeHttpUrl(d.claim_url);
+      const screenshotUrl = safeHttpUrl(d.screenshot);
+      propsHtml = `
+        <div class="drawer-section">
+          <div class="drawer-section-title">RANSOMWARE EXTORTION DISCLOSURE</div>
+          <div class="property-list">
+            <span class="property-key">VICTIM</span><span class="property-value font-bold">${escapeHtml(d.victim_name || 'Unknown')}</span>
+            <span class="property-key">THREAT ACTOR</span><span class="property-value"><span class="badge badge-ransomware mono font-bold">${escapeHtml((d.group_name || 'UNKNOWN').toUpperCase())}</span></span>
+            <span class="property-key">COUNTRY</span><span class="property-value mono">${escapeHtml(d.country || 'N/A')}</span>
+            <span class="property-key">DOMAIN / ACTIVITY</span><span class="property-value mono">${escapeHtml(d.domain || d.activity || 'N/A')}</span>
+            <span class="property-key">DISCOVERED</span><span class="property-value mono text-muted">${escapeHtml(d.discovered || 'N/A')}</span>
+            <span class="property-key">ATTACK DATE</span><span class="property-value mono text-muted">${escapeHtml(d.attackdate || 'N/A')}</span>
+          </div>
+        </div>
+        ${d.description ? `
+          <div class="drawer-section">
+            <div class="drawer-section-title">DISCLOSURE DETAILS</div>
+            <div style="font-size: 12px; line-height: 1.5; color: var(--text-secondary);">${escapeHtml(d.description)}</div>
+          </div>
+        ` : ''}
+      `;
+
+      actionsHtml = `
+        ${publicRecordUrl ? `<a class="external-link" href="${escapeHtml(publicRecordUrl)}" target="_blank" rel="noopener">Ransomware.live Record &rarr;</a>` : ''}
+        ${claimUrl ? `<a class="external-link" href="${escapeHtml(claimUrl)}" target="_blank" rel="noopener">Public Claim Source &rarr;</a>` : ''}
+        ${screenshotUrl ? `<a class="external-link" href="${escapeHtml(screenshotUrl)}" target="_blank" rel="noopener">Evidence Screenshot &rarr;</a>` : ''}
+        ${!publicRecordUrl && !claimUrl && !screenshotUrl ? '<span class="mono text-muted">No public pivot URL supplied by the source.</span>' : ''}
+      `;
+
     } else if (type === 'news') {
       propsHtml = `
         <div class="drawer-section">
@@ -703,7 +734,19 @@ async function openArtifact(type, identifier) {
       `;
     }
 
-    const rawJsonStr = d.raw_json ? JSON.stringify(d.parsed_raw || JSON.parse(d.raw_json), null, 2) : JSON.stringify(d, null, 2);
+    let rawRecord = d;
+    if (d.parsed_raw !== undefined) {
+      rawRecord = d.parsed_raw;
+    } else if (typeof d.raw_json === 'string' && d.raw_json) {
+      try {
+        rawRecord = JSON.parse(d.raw_json);
+      } catch (_err) {
+        rawRecord = d.raw_json;
+      }
+    } else if (d.raw_json && typeof d.raw_json === 'object') {
+      rawRecord = d.raw_json;
+    }
+    const rawJsonStr = JSON.stringify(rawRecord, null, 2) || String(rawRecord);
 
     content.innerHTML = `
       ${propsHtml}
@@ -900,6 +943,16 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function safeHttpUrl(value) {
+  if (!value) return '';
+  try {
+    const parsed = new URL(String(value), window.location.origin);
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+  } catch (_err) {
+    return '';
+  }
 }
 
 
