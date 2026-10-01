@@ -6,7 +6,7 @@ DB_PATH = Path(os.getenv("DB_PATH", BASE_DIR / "threat_radar.db"))
 RUNTIME_SECRETS_PATH = Path(os.getenv("RUNTIME_SECRETS_PATH", BASE_DIR / ".runtime-secrets.json"))
 LOCAL_NEWS_FILE = Path(os.getenv("LOCAL_NEWS_FILE", "/root/news_history.json" if os.path.exists("/root/news_history.json") else BASE_DIR / "news_history.json"))
 
-HOST = os.getenv("HOST", "0.0.0.0")
+HOST = os.getenv("HOST", "0.0.0.0")  # nosec B104 - container/server binding is operator-configurable
 PORT = int(os.getenv("PORT", "9220"))
 
 # Core connector interval in seconds (default 5 minutes)

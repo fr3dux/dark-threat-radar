@@ -395,9 +395,10 @@ async def api_iocs(
         where += " AND n.active = ?"
         params.append(int(active))
     async with get_db() as conn:
-        cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM normalized_iocs n {where}", params)
+        # `where` contains only server-authored clauses; all user values remain bound.
+        cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM normalized_iocs n {where}", params)  # nosec B608
         total = (await cursor.fetchone())["count"]
-        cursor = await conn.execute(
+        cursor = await conn.execute(  # nosec B608 - fixed clauses with bound values
             f"""SELECT n.*,
                        (SELECT COUNT(*) FROM ioc_sources s
                         WHERE s.ioc_id=n.id AND s.active=1) AS source_count,
@@ -461,9 +462,10 @@ async def api_vendor_advisories(
         where += " AND UPPER(severity)=UPPER(?)"
         params.append(severity)
     async with get_db() as conn:
-        cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM vendor_advisories {where}", params)
+        # `where` contains only server-authored clauses; all user values remain bound.
+        cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM vendor_advisories {where}", params)  # nosec B608
         total = (await cursor.fetchone())["count"]
-        cursor = await conn.execute(
+        cursor = await conn.execute(  # nosec B608 - fixed clauses with bound values
             f"SELECT * FROM vendor_advisories {where} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
             [*params, limit, offset],
         )
