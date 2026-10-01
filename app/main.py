@@ -386,7 +386,7 @@ async def api_iocs(
         term = f"%{q}%"
         params.extend([term, term, term])
     if indicator_type:
-        where += " AND n.indicator_type = ?"
+        where += " AND LOWER(n.indicator_type) = LOWER(?)"
         params.append(indicator_type)
     if source:
         where += " AND EXISTS (SELECT 1 FROM ioc_sources s WHERE s.ioc_id=n.id AND s.source_name=? AND s.active=1)"

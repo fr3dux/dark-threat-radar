@@ -636,14 +636,14 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         total_active_iocs = row["count"] if row else 0
 
         cur = await conn.execute(
-            "SELECT COUNT(*) AS count FROM normalized_iocs WHERE active=1 AND indicator_type IN ('ipv4', 'ipv6');"
+            "SELECT COUNT(*) AS count FROM normalized_iocs WHERE active=1 AND indicator_type IN ('IPv4', 'IPv6');"
         )
         row = await cur.fetchone()
         total_malicious_ips = row["count"] if row else 0
 
         cur = await conn.execute(
             """SELECT COUNT(*) AS count FROM normalized_iocs
-               WHERE active=1 AND indicator_type='url'
+               WHERE active=1 AND indicator_type='URL'
                  AND (LOWER(threat_type) LIKE '%phish%' OR source_name IN ('phishtank', 'openphish'));"""
         )
         row = await cur.fetchone()
