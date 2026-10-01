@@ -13,7 +13,11 @@ services:
       - SYNC_INTERVAL_SECONDS=${SYNC_INTERVAL_SECONDS:-300}
       - NVD_API_KEY=${NVD_API_KEY:-}
       - MB_API_KEY=${MB_API_KEY:-}
+      - THREATFOX_AUTH_KEY=${THREATFOX_AUTH_KEY:-}
+      - URLHAUS_AUTH_KEY=${URLHAUS_AUTH_KEY:-}
+      - SETTINGS_ADMIN_TOKEN=${SETTINGS_ADMIN_TOKEN:?Run python3 scripts/setup_admin.py first}
       - DB_PATH=/app/data/threat_radar.db
+      - RUNTIME_SECRETS_PATH=/app/data/.runtime-secrets.json
     volumes:
       - threat-radar-data:/app/data
     healthcheck:

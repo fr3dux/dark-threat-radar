@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.7] - 2026-10-01
+
+### Added
+- **Per-Installation Admin Onboarding**: Added a setup command that generates a unique cryptographically random administrative access code for every clone and stores it only in the local, Git-ignored `.env` file.
+
+### Fixed
+- **Native Environment Loading**: The standalone launcher now loads `.env` and stops with a clear setup instruction when administrative access has not been initialized.
+- **Docker Secret Persistence**: Docker Compose now passes the administrator and abuse.ch credentials explicitly and persists web-managed ThreatFox and URLhaus keys in the application data volume.
+
 ## [1.8.6] - 2026-10-01
 
 ### Added

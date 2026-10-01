@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.8.6-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.8.7-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-23%2F23%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-42%2F42%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -41,7 +41,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - **Leak Check Credential Scanner:** Interactive validation of compromised email addresses (XposedOrNot Community DB) and passwords via the NIST SP 800-63B compliant K-Anonymity SHA-1 protocol (Have I Been Pwned / Cloudflare).
 - **EPSS Scoring Correlation:** Enriches all vulnerability records with FIRST.org Exploit Prediction Scoring System (EPSS) probabilities and percentiles alongside CVSS scores.
 - **Industrial SOC Aesthetic:** Sober, dense, high-contrast analyst-grade interface with side-by-side symmetrical card pairs, lateral drawer inspection, compact single-row menu, and dark theme.
-- **Enterprise-Grade Versioning:** Strict Semantic Versioning (SemVer), schema migration tracking (`schema_migrations`), and automated `pytest` validation suite (23/23 tests passing).
+- **Enterprise-Grade Versioning:** Strict Semantic Versioning (SemVer), schema migration tracking (`schema_migrations`), and an automated `pytest` validation suite.
 
 ---
 
@@ -142,8 +142,8 @@ Ensure Docker and Docker Compose are installed:
 git clone https://github.com/fr3dux/dark-threat-radar.git
 cd dark-threat-radar
 
-# Copy environment variables template
-cp .env.example .env
+# Generate this installation's unique admin access code
+python3 scripts/setup_admin.py
 
 # Build and launch in detached mode
 docker compose up -d
@@ -168,6 +168,9 @@ cd dark-threat-radar
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
+
+# Generate this installation's unique admin access code
+./venv/bin/python scripts/setup_admin.py
 ```
 
 ### 2. Run Standalone
@@ -193,6 +196,7 @@ RestartSec=5
 Environment=PORT=9220
 Environment=HOST=0.0.0.0
 Environment=SYNC_INTERVAL_SECONDS=300
+EnvironmentFile=-/opt/dark-threat-radar/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -220,8 +224,14 @@ sudo systemctl status threat-radar.service
 | `NVD_API_KEY` | `""` | Optional NIST NVD 2.0 API Key for higher rate limits. |
 | `THREATFOX_AUTH_KEY` | `""` | Initial ThreatFox Auth-Key; can also be managed securely from the web panel. |
 | `URLHAUS_AUTH_KEY` | `""` | Initial URLhaus Auth-Key; can also be managed securely from the web panel. |
-| `SETTINGS_ADMIN_TOKEN` | `""` | Required administrative access code for web-based secret management. |
+| `SETTINGS_ADMIN_TOKEN` | Generated during setup | Unique per-installation administrative access code for web-based secret management. |
 | `RUNTIME_SECRETS_PATH` | `./.runtime-secrets.json` | Owner-only runtime credential store, excluded from Git. |
+
+### Administrative access code
+
+Run `python3 scripts/setup_admin.py` once after cloning. The command creates `.env` with owner-only permissions, generates a cryptographically random code, and displays it once so it can be saved in a password manager. Neither `.env` nor the runtime API key store is committed to Git, so every clone receives a different code.
+
+If the code is lost, the server owner can replace `SETTINGS_ADMIN_TOKEN` in `.env` with a new long random value and restart the application. Existing ThreatFox and URLhaus keys remain in the local runtime secret store. Docker installations persist that store in the `threat-radar-data` volume.
 
 ---
 
@@ -273,7 +283,9 @@ Test coverage includes:
 
 - **Zero Secrets Tracked:** Git history contains no API tokens, private keys, or passwords.
 - **Database & Cache Isolation:** Database (`*.db`, `*.db-wal`), virtual environments (`venv/`), bytecode caches (`__pycache__/`), and logs are strictly ignored by `.gitignore`.
-- **Non-Root Docker Execution:** Docker container runs under an unprivileged `appuser` (UID 10001).
+- **Per-Installation Administration:** The setup utility generates a unique administrator code locally; no shared or default administrator credential exists in the repository.
+- **Restricted Secret Files:** `.env` and the runtime API key store use owner-only permissions and are excluded from Git.
+- **Non-Root Docker Execution:** Docker container runs under an unprivileged `threatradar` user (UID 10001).
 
 ---
 
