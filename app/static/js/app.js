@@ -22,6 +22,9 @@ const cveState = { page: 1, limit: 50, total: 0 };
 const ransomwareState = { page: 1, limit: 50, total: 0 };
 const malwareState = { page: 1, limit: 50, total: 0 };
 const newsState = { page: 1, limit: 20, total: 0 };
+const iocState = { page: 1, limit: 50, total: 0 };
+const attackState = { page: 1, limit: 50, total: 0 };
+let intelMode = 'iocs';
 
 // Initial bootstrap
 document.addEventListener('DOMContentLoaded', () => {
@@ -251,6 +254,8 @@ function switchTab(panelId, btnElement) {
   const malwareFilters = document.getElementById('malware-filters');
   const newsFilters = document.getElementById('news-filters');
   const ransomwareFilters = document.getElementById('ransomware-filters');
+  const iocFilters = document.getElementById('ioc-filters');
+  const attackFilters = document.getElementById('attack-filters');
   const metricsStrip = document.querySelector('.metrics-strip');
 
   // The executive KPI strip belongs to the dashboard. Hiding it in explorer
@@ -265,6 +270,8 @@ function switchTab(panelId, btnElement) {
     malwareFilters.style.display = (panelId === 'panel-malware') ? 'flex' : 'none';
     newsFilters.style.display = (panelId === 'panel-news') ? 'flex' : 'none';
     if (ransomwareFilters) ransomwareFilters.style.display = (panelId === 'panel-ransomware') ? 'flex' : 'none';
+    if (iocFilters) iocFilters.style.display = (panelId === 'panel-intel' && intelMode === 'iocs') ? 'flex' : 'none';
+    if (attackFilters) attackFilters.style.display = (panelId === 'panel-intel' && intelMode === 'attack') ? 'flex' : 'none';
   }
 
   // Lazy load data on tab switch if not already populated
@@ -276,6 +283,8 @@ function switchTab(panelId, btnElement) {
     loadRansomware();
   } else if (panelId === 'panel-cves') {
     loadCves();
+  } else if (panelId === 'panel-intel') {
+    if (intelMode === 'attack') loadAttackKnowledge(); else loadIocs();
   } else if (panelId === 'panel-malware') {
     loadMalware();
   } else if (panelId === 'panel-dshield') {
@@ -314,6 +323,12 @@ function goToTabWithFilter(panelId, filters) {
     if (filters.type) document.getElementById('filter-malware-type').value = filters.type;
     else document.getElementById('filter-malware-type').value = 'all';
     malwareState.page = 1;
+  } else if (panelId === 'panel-intel') {
+    if (filters.type) document.getElementById('filter-ioc-type').value = filters.type;
+    else if (!filters.keepType) document.getElementById('filter-ioc-type').value = 'all';
+    if (filters.source) document.getElementById('filter-ioc-source').value = filters.source;
+    else if (!filters.keepSource) document.getElementById('filter-ioc-source').value = 'all';
+    iocState.page = 1;
   } else if (panelId === 'panel-news') {
     if (filters.source) document.getElementById('filter-news-source').value = filters.source;
     else document.getElementById('filter-news-source').value = 'all';
@@ -333,6 +348,14 @@ function debounceSearch() {
     } else if (currentTab === 'panel-malware') {
       malwareState.page = 1;
       loadMalware();
+    } else if (currentTab === 'panel-intel') {
+      if (intelMode === 'attack') {
+        attackState.page = 1;
+        loadAttackKnowledge();
+      } else {
+        iocState.page = 1;
+        loadIocs();
+      }
     } else if (currentTab === 'panel-dshield') {
       loadDshield();
     } else if (currentTab === 'panel-news') {
@@ -341,6 +364,119 @@ function debounceSearch() {
     }
   }, 250);
 }
+
+// ==================== CORRELATED IOC & ATT&CK EXPLORER ====================
+
+function showIntelMode(mode) {
+  intelMode = mode === 'attack' ? 'attack' : 'iocs';
+  const iocView = document.getElementById('intel-ioc-view');
+  const attackView = document.getElementById('intel-attack-view');
+  const iocButton = document.getElementById('intel-mode-iocs');
+  const attackButton = document.getElementById('intel-mode-attack');
+  const iocFilters = document.getElementById('ioc-filters');
+  const attackFilters = document.getElementById('attack-filters');
+  if (iocView) iocView.style.display = intelMode === 'iocs' ? 'block' : 'none';
+  if (attackView) attackView.style.display = intelMode === 'attack' ? 'block' : 'none';
+  iocButton?.classList.toggle('active', intelMode === 'iocs');
+  attackButton?.classList.toggle('active', intelMode === 'attack');
+  if (currentTab === 'panel-intel') {
+    if (iocFilters) iocFilters.style.display = intelMode === 'iocs' ? 'flex' : 'none';
+    if (attackFilters) attackFilters.style.display = intelMode === 'attack' ? 'flex' : 'none';
+    if (intelMode === 'attack') loadAttackKnowledge(); else loadIocs();
+  }
+}
+
+async function loadIocs() {
+  const tbody = document.getElementById('ioc-tbody');
+  if (!tbody) return;
+  const q = document.getElementById('global-search')?.value.trim() || '';
+  const type = document.getElementById('filter-ioc-type')?.value || 'all';
+  const source = document.getElementById('filter-ioc-source')?.value || 'all';
+  const offset = (iocState.page - 1) * iocState.limit;
+  const params = new URLSearchParams({ limit: iocState.limit, offset, active: 'true' });
+  if (q) params.set('q', q);
+  if (type !== 'all') params.set('indicator_type', type);
+  if (source !== 'all') params.set('source', source);
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-row">Querying normalized public intelligence...</td></tr>';
+  try {
+    const response = await fetch(`/api/iocs?${params}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    iocState.total = data.total;
+    const pages = Math.max(1, Math.ceil(data.total / iocState.limit));
+    if (iocState.page > pages) { iocState.page = pages; return loadIocs(); }
+    tbody.innerHTML = data.items.length ? data.items.map(item => {
+      const sources = (item.sources || item.source_name || '').split(',').map(value => value.trim()).filter(Boolean);
+      return `<tr class="clickable-row" data-artifact-type="ioc" data-artifact-id="${escapeHtml(item.id)}">
+        <td><span class="badge badge-filetype mono">${escapeHtml((item.indicator_type || '').toUpperCase())}</span></td>
+        <td><div class="mono font-bold intel-table-value">${escapeHtml(item.normalized_value)}</div><div class="mono text-muted">${escapeHtml(item.malware_family || '')}</div></td>
+        <td>${escapeHtml(item.threat_type || 'indicator')}</td>
+        <td><span class="badge ${Number(item.confidence) >= 80 ? 'badge-crit' : 'badge-warn'} mono">${Number(item.confidence) || 0}%</span></td>
+        <td><div class="source-chip-list">${sources.slice(0, 3).map(name => `<span class="source-chip mono">${escapeHtml(name.replaceAll('_', ' '))}</span>`).join('')}${sources.length > 3 ? `<span class="source-chip mono">+${sources.length - 3}</span>` : ''}</div></td>
+        <td class="mono text-muted">${escapeHtml((item.last_seen || '').replace('T', ' ').slice(0, 19))}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="loading-row">No active indicators match these filters.</td></tr>';
+    const start = data.total ? offset + 1 : 0;
+    const end = Math.min(offset + data.items.length, data.total);
+    document.getElementById('ioc-page-info').textContent = `Showing ${start.toLocaleString()} - ${end.toLocaleString()} of ${data.total.toLocaleString()} IOCs`;
+    document.getElementById('ioc-page-num').textContent = `PAGE ${iocState.page} / ${pages}`;
+    document.getElementById('ioc-btn-prev').disabled = iocState.page <= 1;
+    document.getElementById('ioc-btn-next').disabled = iocState.page >= pages;
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading-row crit">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function changeIocPageSize(value) { iocState.limit = Number(value) || 50; iocState.page = 1; loadIocs(); }
+function iocPrevPage() { if (iocState.page > 1) { iocState.page--; loadIocs(); } }
+function iocNextPage() { if (iocState.page * iocState.limit < iocState.total) { iocState.page++; loadIocs(); } }
+
+function parseJsonArray(value) {
+  try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; }
+  catch (_) { return []; }
+}
+
+async function loadAttackKnowledge() {
+  const tbody = document.getElementById('attack-tbody');
+  if (!tbody) return;
+  const q = document.getElementById('global-search')?.value.trim() || '';
+  const type = document.getElementById('filter-attack-type')?.value || 'all';
+  const offset = (attackState.page - 1) * attackState.limit;
+  const params = new URLSearchParams({ limit: attackState.limit, offset });
+  if (q) params.set('q', q);
+  if (type !== 'all') params.set('object_type', type);
+  tbody.innerHTML = '<tr><td colspan="5" class="loading-row">Querying MITRE ATT&CK knowledge...</td></tr>';
+  try {
+    const response = await fetch(`/api/attack-knowledge?${params}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    attackState.total = data.total;
+    const pages = Math.max(1, Math.ceil(data.total / attackState.limit));
+    if (attackState.page > pages) { attackState.page = pages; return loadAttackKnowledge(); }
+    tbody.innerHTML = data.items.length ? data.items.map(item => {
+      const context = [...parseJsonArray(item.tactics), ...parseJsonArray(item.platforms)].slice(0, 4);
+      const description = String(item.description || '').replace(/\s+/g, ' ').slice(0, 240);
+      return `<tr class="clickable-row" data-artifact-type="attack" data-artifact-id="${escapeHtml(item.id)}">
+        <td><span class="badge badge-filetype mono">${escapeHtml((item.object_type || '').replaceAll('-', ' ').toUpperCase())}</span></td>
+        <td class="mono info font-bold">${escapeHtml(item.external_id || 'N/A')}</td>
+        <td class="font-bold">${escapeHtml(item.name)}</td><td>${escapeHtml(description)}${description.length >= 240 ? '…' : ''}</td>
+        <td><div class="source-chip-list">${context.map(value => `<span class="source-chip mono">${escapeHtml(value)}</span>`).join('')}</div></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="5" class="loading-row">No ATT&CK objects match these filters.</td></tr>';
+    const start = data.total ? offset + 1 : 0;
+    const end = Math.min(offset + data.items.length, data.total);
+    document.getElementById('attack-page-info').textContent = `Showing ${start.toLocaleString()} - ${end.toLocaleString()} of ${data.total.toLocaleString()} ATT&CK objects`;
+    document.getElementById('attack-page-num').textContent = `PAGE ${attackState.page} / ${pages}`;
+    document.getElementById('attack-btn-prev').disabled = attackState.page <= 1;
+    document.getElementById('attack-btn-next').disabled = attackState.page >= pages;
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="5" class="loading-row crit">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function changeAttackPageSize(value) { attackState.limit = Number(value) || 50; attackState.page = 1; loadAttackKnowledge(); }
+function attackPrevPage() { if (attackState.page > 1) { attackState.page--; loadAttackKnowledge(); } }
+function attackNextPage() { if (attackState.page * attackState.limit < attackState.total) { attackState.page++; loadAttackKnowledge(); } }
 
 // ==================== CVE EXPLORER ====================
 
@@ -788,6 +924,54 @@ async function openArtifact(type, identifier) {
         <a class="external-link" href="https://www.exploit-db.com/search?cve=${encodeURIComponent(d.cve_id.replace('CVE-', ''))}" target="_blank" rel="noopener">Exploit-DB &rarr;</a>
       `;
 
+    } else if (type === 'ioc') {
+      const observations = Array.isArray(d.source_observations) ? d.source_observations : [];
+      propsHtml = `
+        <div class="drawer-section"><div class="drawer-section-title">NORMALIZED INDICATOR</div><div class="property-list">
+          <span class="property-key">TYPE</span><span class="property-value mono">${escapeHtml((d.indicator_type || '').toUpperCase())}</span>
+          <span class="property-key">VALUE</span><span class="property-value mono font-bold info">${escapeHtml(d.normalized_value)}</span>
+          <span class="property-key">THREAT</span><span class="property-value">${escapeHtml(d.threat_type || 'indicator')}</span>
+          <span class="property-key">CONFIDENCE</span><span class="property-value mono font-bold">${Number(d.confidence) || 0}% · ${escapeHtml(d.severity || '')}</span>
+          <span class="property-key">MALWARE FAMILY</span><span class="property-value">${escapeHtml(d.malware_family || 'N/A')}</span>
+          <span class="property-key">FIRST / LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.first_seen || 'N/A')}<br>${escapeHtml(d.last_seen || 'N/A')}</span>
+        </div></div>
+        <div class="drawer-section"><div class="drawer-section-title">SOURCE CORRELATION (${observations.length})</div>
+          <div class="source-observation-list">${observations.map(source => `<div class="source-observation">
+            <div><strong class="mono">${escapeHtml((source.source_name || '').replaceAll('_', ' ').toUpperCase())}</strong> <span class="badge ${source.active ? 'badge-kev' : 'badge-filetype'}">${source.active ? 'ACTIVE' : 'EXPIRED'}</span></div>
+            <div class="mono text-muted">Confidence ${Number(source.confidence) || 0}% · Last seen ${escapeHtml(source.last_seen || 'N/A')}</div>
+          </div>`).join('') || '<div class="text-muted">No source observations available.</div>'}</div>
+        </div>`;
+      const referenceUrl = safeHttpUrl(d.reference_url);
+      actionsHtml = `${referenceUrl ? `<a class="external-link" href="${escapeHtml(referenceUrl)}" target="_blank" rel="noopener">Provider Reference &rarr;</a>` : ''}
+        <a class="external-link" href="https://www.virustotal.com/gui/search/${encodeURIComponent(d.normalized_value || '')}" target="_blank" rel="noopener">VirusTotal Search &rarr;</a>`;
+
+    } else if (type === 'attack') {
+      const aliases = Array.isArray(d.parsed_aliases) ? d.parsed_aliases : [];
+      const tactics = Array.isArray(d.parsed_tactics) ? d.parsed_tactics : [];
+      const platforms = Array.isArray(d.parsed_platforms) ? d.parsed_platforms : [];
+      propsHtml = `<div class="drawer-section"><div class="drawer-section-title">MITRE ATT&amp;CK KNOWLEDGE</div><div class="property-list">
+        <span class="property-key">ATT&amp;CK ID</span><span class="property-value mono font-bold info">${escapeHtml(d.external_id || 'N/A')}</span>
+        <span class="property-key">OBJECT TYPE</span><span class="property-value">${escapeHtml((d.object_type || '').replaceAll('-', ' ').toUpperCase())}</span>
+        <span class="property-key">NAME</span><span class="property-value font-bold">${escapeHtml(d.name)}</span>
+        <span class="property-key">ALIASES</span><span class="property-value">${escapeHtml(aliases.join(', ') || 'N/A')}</span>
+        <span class="property-key">TACTICS</span><span class="property-value">${escapeHtml(tactics.join(', ') || 'N/A')}</span>
+        <span class="property-key">PLATFORMS</span><span class="property-value">${escapeHtml(platforms.join(', ') || 'N/A')}</span>
+      </div></div><div class="drawer-section"><div class="drawer-section-title">DESCRIPTION</div><div class="drawer-long-text">${escapeHtml(d.description || 'No description available.')}</div></div>`;
+      const attackUrl = safeHttpUrl(d.reference_url);
+      actionsHtml = attackUrl ? `<a class="external-link" href="${escapeHtml(attackUrl)}" target="_blank" rel="noopener">MITRE ATT&amp;CK &rarr;</a>` : '';
+
+    } else if (type === 'advisory') {
+      propsHtml = `<div class="drawer-section"><div class="drawer-section-title">OFFICIAL VENDOR ADVISORY</div><div class="property-list">
+        <span class="property-key">VENDOR</span><span class="property-value font-bold">${escapeHtml(d.vendor)}</span>
+        <span class="property-key">PRODUCT</span><span class="property-value">${escapeHtml(d.product || 'N/A')}</span>
+        <span class="property-key">CVE / ADVISORY</span><span class="property-value mono info">${escapeHtml(d.cve_ids || d.advisory_id)}</span>
+        <span class="property-key">SEVERITY</span><span class="property-value"><span class="badge badge-warn">${escapeHtml(d.severity || 'UNKNOWN')}</span></span>
+        <span class="property-key">TITLE</span><span class="property-value">${escapeHtml(d.title)}</span>
+        <span class="property-key">PUBLISHED</span><span class="property-value mono text-muted">${escapeHtml(d.published_date || 'N/A')}</span>
+      </div></div>`;
+      const advisoryUrl = safeHttpUrl(d.reference_url);
+      actionsHtml = advisoryUrl ? `<a class="external-link" href="${escapeHtml(advisoryUrl)}" target="_blank" rel="noopener">Official Vendor Advisory &rarr;</a>` : '';
+
     } else if (type === 'malware') {
       propsHtml = `
         <div class="drawer-section">
@@ -1039,20 +1223,17 @@ async function pollStatus() {
       const elCrit = document.getElementById('stat-total-critical');
       if (elCrit) elCrit.textContent = s.total_critical_cves;
 
-      const elRw = document.getElementById('stat-total-ransomware');
-      if (elRw) elRw.textContent = s.total_ransomware;
-
-      const elMal = document.getElementById('stat-total-malware');
-      if (elMal) elMal.textContent = s.total_malware;
-
-      const elIps = document.getElementById('stat-total-ips');
-      if (elIps) elIps.textContent = s.total_dshield_ips;
-
-      const elPorts = document.getElementById('stat-total-ports');
-      if (elPorts) elPorts.textContent = s.total_dshield_ports;
-
-      const elNews = document.getElementById('stat-total-news');
-      if (elNews) elNews.textContent = s.total_news;
+      const metricMap = {
+        'stat-total-iocs': s.total_active_iocs,
+        'stat-correlated-iocs': s.total_correlated_iocs,
+        'stat-malicious-ips': s.total_malicious_ips,
+        'stat-vendor-advisories': s.total_vendor_advisories,
+        'stat-attack-objects': s.total_attack_objects,
+      };
+      Object.entries(metricMap).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = Number(value || 0).toLocaleString();
+      });
 
       // Mirror the dashboard's public DShield Top Targeted Ports widget.
       renderMapTopTargetedPorts(s.top_ports);
@@ -1063,6 +1244,9 @@ async function pollStatus() {
 
       const tcMal = document.getElementById('tab-count-malware');
       if (tcMal) tcMal.textContent = s.total_malware;
+
+      const tcIocs = document.getElementById('tab-count-iocs');
+      if (tcIocs) tcIocs.textContent = s.total_active_iocs;
 
       const tcDsh = document.getElementById('tab-count-dshield');
       if (tcDsh) tcDsh.textContent = s.total_dshield_ips + s.total_dshield_ports;
@@ -1715,6 +1899,8 @@ async function loadWatchlist() {
       tbody.innerHTML = '<tr><td colspan="5" class="loading-row">No active KEV or Critical vulnerabilities matching your watchlist.</td></tr>';
     } else {
       tbody.innerHTML = data.active_alerts.map(function(cve) {
+        const artifactType = cve.advisory_artifact_id ? 'advisory' : 'cve';
+        const artifactId = cve.advisory_artifact_id || cve.cve_id;
         const cvssBadge = (cve.cvss_score >= 9.0)
           ? '<span class="badge badge-crit font-bold">' + cve.cvss_score + ' CRITICAL</span>'
           : '<span class="badge badge-warn font-bold">' + (cve.cvss_score || 'N/A') + ' HIGH</span>';
@@ -1736,7 +1922,7 @@ async function loadWatchlist() {
           '</td>' +
           '<td class="mono">' + dueBadge + '</td>' +
           '<td>' +
-            '<button class="btn btn-sm" data-artifact-type="cve" data-artifact-id="' + escapeHtml(cve.cve_id) + '">INSPECT</button>' +
+            '<button class="btn btn-sm" data-artifact-type="' + artifactType + '" data-artifact-id="' + escapeHtml(artifactId) + '">INSPECT</button>' +
           '</td>' +
         '</tr>';
       }).join('');

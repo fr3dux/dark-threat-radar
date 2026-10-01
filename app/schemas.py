@@ -171,6 +171,12 @@ class DashboardStats(BaseModel):
     total_dshield_ips: int = 0
     total_dshield_ports: int = 0
     total_news: int = 0
+    total_active_iocs: int = 0
+    total_malicious_ips: int = 0
+    total_phishing_urls: int = 0
+    total_correlated_iocs: int = 0
+    total_vendor_advisories: int = 0
+    total_attack_objects: int = 0
     cvss_distribution: CvssDistribution
     top_vendors: List[TopVendor] = []
     top_malware: List[TopMalware] = []
@@ -179,6 +185,8 @@ class DashboardStats(BaseModel):
     recent_critical_vendors: Optional[List[Dict[str, Any]]] = None
     recent_ransomware_victims: Optional[List[Dict[str, Any]]] = None
     recent_news: List[RecentNews] = []
+    recent_iocs: List[Dict[str, Any]] = []
+    top_ioc_types: List[Dict[str, Any]] = []
 
 
 class StatsResponse(BaseModel):

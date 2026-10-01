@@ -371,34 +371,40 @@ async def api_delete_integration_key(
 
 @app.get("/api/iocs", tags=["Intel"])
 async def api_iocs(
-    q: Optional[str] = Query(None),
-    indicator_type: Optional[str] = Query(None),
-    source: Optional[str] = Query(None),
+    q: Optional[str] = Query(None, max_length=300),
+    indicator_type: Optional[str] = Query(None, max_length=40),
+    source: Optional[str] = Query(None, max_length=80),
     active: Optional[bool] = Query(True),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """Search normalized and correlated indicators without changing the dashboard."""
-    query = "SELECT * FROM normalized_iocs WHERE 1=1"
+    """Search normalized indicators with live source attribution and correlation."""
+    where = "WHERE 1=1"
     params = []
     if q:
-        query += " AND (normalized_value LIKE ? OR malware_family LIKE ? OR threat_type LIKE ?)"
+        where += " AND (n.normalized_value LIKE ? OR n.malware_family LIKE ? OR n.threat_type LIKE ?)"
         term = f"%{q}%"
         params.extend([term, term, term])
     if indicator_type:
-        query += " AND indicator_type = ?"
+        where += " AND n.indicator_type = ?"
         params.append(indicator_type)
     if source:
-        query += " AND EXISTS (SELECT 1 FROM ioc_sources s WHERE s.ioc_id=normalized_iocs.id AND s.source_name=?)"
+        where += " AND EXISTS (SELECT 1 FROM ioc_sources s WHERE s.ioc_id=n.id AND s.source_name=? AND s.active=1)"
         params.append(source)
     if active is not None:
-        query += " AND active = ?"
+        where += " AND n.active = ?"
         params.append(int(active))
     async with get_db() as conn:
-        cursor = await conn.execute(query.replace("SELECT *", "SELECT COUNT(*) AS count"), params)
+        cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM normalized_iocs n {where}", params)
         total = (await cursor.fetchone())["count"]
         cursor = await conn.execute(
-            query + " ORDER BY confidence DESC, last_seen DESC LIMIT ? OFFSET ?",
+            f"""SELECT n.*,
+                       (SELECT COUNT(*) FROM ioc_sources s
+                        WHERE s.ioc_id=n.id AND s.active=1) AS source_count,
+                       (SELECT GROUP_CONCAT(s.source_name, ', ')
+                        FROM ioc_sources s WHERE s.ioc_id=n.id AND s.active=1) AS sources
+                FROM normalized_iocs n {where}
+                ORDER BY n.confidence DESC, n.last_seen DESC LIMIT ? OFFSET ?""",
             [*params, limit, offset],
         )
         items = [dict(row) for row in await cursor.fetchall()]
@@ -427,6 +433,38 @@ async def api_attack_knowledge(
         total = (await cursor.fetchone())["count"]
         cursor = await conn.execute(
             query + " ORDER BY object_type, name LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        )
+        items = [dict(row) for row in await cursor.fetchall()]
+    return {"total": total, "limit": limit, "offset": offset, "items": items}
+
+
+@app.get("/api/vendor-advisories", tags=["Vulnerabilities"])
+async def api_vendor_advisories(
+    q: Optional[str] = Query(None, max_length=200),
+    vendor: Optional[str] = Query(None, max_length=100),
+    severity: Optional[str] = Query(None, max_length=20),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Search official Microsoft MSRC and Red Hat vendor advisories."""
+    where = "WHERE 1=1"
+    params = []
+    if q:
+        where += " AND (title LIKE ? OR cve_ids LIKE ? OR product LIKE ? OR advisory_id LIKE ?)"
+        term = f"%{q}%"
+        params.extend([term, term, term, term])
+    if vendor:
+        where += " AND LOWER(vendor)=LOWER(?)"
+        params.append(vendor)
+    if severity:
+        where += " AND UPPER(severity)=UPPER(?)"
+        params.append(severity)
+    async with get_db() as conn:
+        cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM vendor_advisories {where}", params)
+        total = (await cursor.fetchone())["count"]
+        cursor = await conn.execute(
+            f"SELECT * FROM vendor_advisories {where} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
             [*params, limit, offset],
         )
         items = [dict(row) for row in await cursor.fetchall()]
@@ -869,6 +907,50 @@ async def api_get_watchlist():
                     r["required_action"] = f"Apply latest vendor security patch or upgrade {r.get('product') or val} to non-vulnerable release."
                 matched_cves.append(r)
 
+            # Official MSRC and Red Hat advisories supplement the CISA/NVD
+            # catalog so monitored products benefit from the expanded feeds.
+            if itype == "cve":
+                a_cur = await conn.execute(
+                    """SELECT * FROM vendor_advisories
+                       WHERE UPPER(cve_ids)=UPPER(?) OR UPPER(cve_ids) LIKE UPPER(?)
+                       ORDER BY updated_at DESC LIMIT 15;""",
+                    (val, f"%{val}%"),
+                )
+            elif itype == "vendor":
+                a_cur = await conn.execute(
+                    """SELECT * FROM vendor_advisories
+                       WHERE vendor LIKE ? OR title LIKE ?
+                       ORDER BY updated_at DESC LIMIT 15;""",
+                    (f"%{val}%", f"%{val}%"),
+                )
+            else:
+                a_cur = await conn.execute(
+                    """SELECT * FROM vendor_advisories
+                       WHERE product LIKE ? OR title LIKE ?
+                       ORDER BY updated_at DESC LIMIT 15;""",
+                    (f"%{val}%", f"%{val}%"),
+                )
+            for advisory in await a_cur.fetchall():
+                advisory = dict(advisory)
+                matched_cves.append({
+                    "cve_id": advisory.get("cve_ids") or advisory.get("advisory_id"),
+                    "vendor_project": advisory.get("vendor"),
+                    "product": advisory.get("product"),
+                    "vulnerability_name": advisory.get("title"),
+                    "cvss_score": None,
+                    "cvss_severity": advisory.get("severity"),
+                    "source": "msrc_csaf" if advisory.get("vendor") == "Microsoft" else "redhat_security",
+                    "required_action": "Review and apply the remediation in the official vendor advisory.",
+                    "due_date": None,
+                    "known_ransomware_campaign_use": "Unknown",
+                    "short_description": advisory.get("title"),
+                    "date_added": advisory.get("published_date"),
+                    "epss_score": None,
+                    "reference_url": advisory.get("reference_url"),
+                    "advisory_artifact_id": advisory.get("id"),
+                    "matched_watchlist_item": item,
+                })
+
     # Deduplicate matched CVEs by cve_id
     seen = set()
     unique_cves = []
@@ -1010,6 +1092,54 @@ async def api_artifact(artifact_type: str, identifier: str):
                 raise HTTPException(status_code=404, detail=f"News item {identifier} not found")
             data = dict(row)
             return {"type": "news", "identifier": identifier, "data": data}
+
+        elif artifact_type == "ioc":
+            cur = await conn.execute("SELECT * FROM normalized_iocs WHERE id = ?;", (identifier,))
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"IOC {identifier} not found")
+            data = dict(row)
+            cur = await conn.execute(
+                """SELECT source_name, source_id, first_seen, last_seen, confidence,
+                          expires_at, active, raw_metadata
+                   FROM ioc_sources WHERE ioc_id=?
+                   ORDER BY active DESC, confidence DESC, source_name;""",
+                (identifier,),
+            )
+            data["source_observations"] = [dict(item) for item in await cur.fetchall()]
+            if data.get("raw_metadata"):
+                try:
+                    data["parsed_raw"] = json.loads(data["raw_metadata"])
+                except (TypeError, json.JSONDecodeError):
+                    data["parsed_raw"] = data["raw_metadata"]
+            return {"type": "ioc", "identifier": identifier, "data": data}
+
+        elif artifact_type == "attack":
+            cur = await conn.execute("SELECT * FROM attack_knowledge WHERE id = ?;", (identifier,))
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"ATT&CK object {identifier} not found")
+            data = dict(row)
+            for key in ("aliases", "platforms", "tactics", "raw_json"):
+                if data.get(key):
+                    try:
+                        data[f"parsed_{key}"] = json.loads(data[key])
+                    except (TypeError, json.JSONDecodeError):
+                        data[f"parsed_{key}"] = data[key]
+            return {"type": "attack", "identifier": identifier, "data": data}
+
+        elif artifact_type == "advisory":
+            cur = await conn.execute("SELECT * FROM vendor_advisories WHERE id = ?;", (identifier,))
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Vendor advisory {identifier} not found")
+            data = dict(row)
+            if data.get("raw_json"):
+                try:
+                    data["parsed_raw"] = json.loads(data["raw_json"])
+                except (TypeError, json.JSONDecodeError):
+                    data["parsed_raw"] = data["raw_json"]
+            return {"type": "advisory", "identifier": identifier, "data": data}
 
         else:
             raise HTTPException(status_code=400, detail=f"Unknown artifact type: {artifact_type}")

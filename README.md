@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.10.0-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.11.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-60%2F60%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-61%2F61%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -36,6 +36,8 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 
 - **Provider-Aware Autonomous Ingestion:** `APScheduler` runs isolated connector groups at provider-appropriate intervals: core intelligence every 5 minutes, fast IOC feeds every 15 minutes, hourly feeds every hour, and slower enrichment every 6 hours.
 - **Normalized IOC Correlation:** IPs, CIDRs, ASNs, domains, URLs, hashes, TLS certificates, JA3 fingerprints, CVEs, GHSAs, and packages are normalized, deduplicated, confidence-scored, and correlated across their contributing sources.
+- **Analyst IOC Explorer:** Search and filter active indicators by type or provider, inspect confidence and lifecycle, and see every public source that independently observed the artifact.
+- **MITRE ATT&CK Knowledge:** Browse locally synchronized techniques, threat groups, malware, tools, campaigns, tactics, and platforms from the same intelligence workspace.
 - **Global Internet Activity Map:** 60 FPS HTML5 Canvas vector radar featuring real cartographic coastlines (287 country polygons) with ballistic laser trajectories connecting real SANS ISC DShield scanner IPs to targeted global ports.
 - **Critical Vendor Threat Spotlight:** Current visibility into high-impact vulnerabilities and actively exploited CISA KEV entries published or updated in recent weeks.
 - **Asset Watchlist and Official Remediation:** Register internal vendors, operating systems, or specific CVEs to cross-reference against CISA KEV and NVD feeds, automatically delivering required mitigation directives and official patch due dates.
@@ -307,6 +309,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/stats` | Aggregated dashboard statistics (CVSS distribution, vendors, malware, ransomware). |
 | `GET` | `/api/iocs` | Search normalized IOCs by value, type, source, and active state. |
 | `GET` | `/api/attack-knowledge` | Query the local MITRE ATT&CK knowledge base by text and STIX object type. |
+| `GET` | `/api/vendor-advisories` | Query official Microsoft MSRC and Red Hat advisories. |
 | `GET` | `/api/cves` | Query CVEs with filters (`q`, `severity`, `source`, `has_ransomware`, `limit`, `offset`). |
 | `GET` | `/api/malware` | Query malware samples (`q`, `file_type`, `signature`, `limit`, `offset`). |
 | `GET` | `/api/dshield` | SANS DShield telemetry (INFOCON, top attacking IPs, top scanned ports). |
@@ -339,7 +342,7 @@ Dark Threat Radar includes a `pytest` regression suite for critical API endpoint
 
 Test coverage includes:
 - Semantic version injection verification (`test_api_version`, `test_index_page_version_injection`)
-- All primary API query endpoints (`/api/stats`, `/api/cves`, `/api/malware`, `/api/dshield`, `/api/ransomware`, `/api/attacks/live`)
+- All primary API query endpoints (`/api/stats`, `/api/cves`, `/api/iocs`, `/api/attack-knowledge`, `/api/vendor-advisories`, `/api/malware`, `/api/dshield`, `/api/ransomware`, `/api/attacks/live`)
 - Connector status, normalized IOC search, and managed-provider administrative flows
 - Provider parsers and failure isolation for the expanded connector set
 - IOC normalization, deterministic IDs, confidence scoring, and multi-source correlation

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-10-01
+
+### Added
+- **Analyst IOC Explorer**: Adds a searchable, paginated interface for normalized IPs, domains, URLs, hashes, CVEs, CIDRs, and ASNs with provider, type, confidence, lifecycle, and source-correlation context.
+- **MITRE ATT&CK Browser**: Adds a second intelligence view for techniques, groups, malware, tools, campaigns, tactics, aliases, and platforms.
+- **Official Vendor Advisory API**: Exposes Microsoft MSRC and Red Hat Security advisories through `/api/vendor-advisories` and includes their matches in Watchlist remediation results.
+- **Deep Intelligence Inspection**: Adds lateral inspection for IOCs, ATT&CK objects, and official vendor advisories with safe public pivots.
+
+### Changed
+- **Actionable Dashboard Metrics**: Replaces legacy single-provider counters with Active IOCs, Correlated IOCs, Malicious IPs, Vendor Advisories, and ATT&CK Objects.
+- **Visible Feed Value**: Adds compact High-Confidence IOC Activity and Public Intelligence Coverage widgets directly below the global activity map.
+- **Live Source Attribution**: IOC results now identify every currently active contributing source instead of exposing only the first provider.
+
+### Security
+- **Bounded Intelligence Queries**: New public explorer filters enforce length and pagination limits and continue to use parameterized database queries and escaped rendering.
+
 ## [1.10.0] - 2026-10-01
 
 ### Added

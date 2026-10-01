@@ -140,6 +140,10 @@ def test_api_stats(client):
     assert "total_cves" in data["stats"]
     assert "cvss_distribution" in data["stats"]
     assert "infocon" in data["stats"]
+    assert "total_active_iocs" in data["stats"]
+    assert "total_correlated_iocs" in data["stats"]
+    assert "total_vendor_advisories" in data["stats"]
+    assert "total_attack_objects" in data["stats"]
     assert "feeds" in data
     assert "sync" in data
 
@@ -163,6 +167,17 @@ def test_api_malware(client):
     assert "total" in data
     assert data["limit"] == 10
     assert isinstance(data["items"], list)
+
+
+def test_public_intelligence_explorer_endpoints(client):
+    for endpoint in (
+        "/api/iocs?limit=10&active=true",
+        "/api/attack-knowledge?limit=10",
+        "/api/vendor-advisories?limit=10",
+    ):
+        response = client.get(endpoint)
+        assert response.status_code == 200
+        assert {"total", "limit", "offset", "items"} <= set(response.json())
 
 
 def test_api_dshield(client):
@@ -269,6 +284,8 @@ def test_index_page_version_injection(client):
     assert 'id="update-available-pill"' in html
     assert 'id="infocon-badge"' not in html
     assert 'id="infocon-val"' in html
+    assert 'id="panel-intel"' in html
+    assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     # Footer
     assert f"Dark Threat Radar v{__version__} // SOC Engine //" in html
     assert 'class="app-footer"' in html

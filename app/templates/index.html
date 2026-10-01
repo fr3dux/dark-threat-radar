@@ -83,6 +83,9 @@
       <button class="tab-btn" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
         <span class="tab-icon">⛨</span> CVES <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
       </button>
+      <button class="tab-btn" id="tab-intel" data-target="panel-intel" onclick="switchTab('panel-intel', this)">
+        <span class="tab-icon">⌾</span> IOCS <span class="tab-count mono" id="tab-count-iocs">{{ stats.total_active_iocs }}</span>
+      </button>
       <button class="tab-btn" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
         <span class="tab-icon">☣</span> MALWARE <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
       </button>
@@ -121,29 +124,29 @@
       <div class="metric-sub mono">Immediate patch priority</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">RANSOMWARE CVES</div>
-      <div class="metric-val mono warn" id="stat-total-ransomware">{{ stats.total_ransomware }}</div>
-      <div class="metric-sub mono">Confirmed extortion use</div>
+      <div class="metric-label">ACTIVE IOCS</div>
+      <div class="metric-val mono warn" id="stat-total-iocs">{{ stats.total_active_iocs }}</div>
+      <div class="metric-sub mono">Cross-provider indicators</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">MALWARE SAMPLES</div>
-      <div class="metric-val mono info" id="stat-total-malware">{{ stats.total_malware }}</div>
-      <div class="metric-sub mono">MalwareBazaar indicators</div>
+      <div class="metric-label">CORRELATED IOCS</div>
+      <div class="metric-val mono info" id="stat-correlated-iocs">{{ stats.total_correlated_iocs }}</div>
+      <div class="metric-sub mono">Confirmed by 2+ sources</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">ATTACKER IPS</div>
-      <div class="metric-val mono cyan" id="stat-total-ips">{{ stats.total_dshield_ips }}</div>
-      <div class="metric-sub mono">Top active scanner IPs</div>
+      <div class="metric-label">MALICIOUS IPS</div>
+      <div class="metric-val mono cyan" id="stat-malicious-ips">{{ stats.total_malicious_ips }}</div>
+      <div class="metric-sub mono">Normalized public intelligence</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">TARGETED PORTS</div>
-      <div class="metric-val mono orange" id="stat-total-ports">{{ stats.total_dshield_ports }}</div>
-      <div class="metric-sub mono">SANS ISC port telemetry</div>
+      <div class="metric-label">VENDOR ADVISORIES</div>
+      <div class="metric-val mono orange" id="stat-vendor-advisories">{{ stats.total_vendor_advisories }}</div>
+      <div class="metric-sub mono">Microsoft MSRC + Red Hat</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">CTI ALERTS</div>
-      <div class="metric-val mono" id="stat-total-news">{{ stats.total_news }}</div>
-      <div class="metric-sub mono">Aggregated intel feeds</div>
+      <div class="metric-label">ATT&amp;CK OBJECTS</div>
+      <div class="metric-val mono" id="stat-attack-objects">{{ stats.total_attack_objects }}</div>
+      <div class="metric-sub mono">Techniques, groups and tools</div>
     </div>
   </section>
 
@@ -194,6 +197,40 @@
         <option value="25">25 per page</option>
         <option value="50" selected>50 per page</option>
         <option value="100">100 per page</option>
+      </select>
+    </div>
+
+    <div class="filter-group" id="ioc-filters" style="display: none;">
+      <select id="filter-ioc-type" class="filter-select" onchange="iocState.page=1; loadIocs();">
+        <option value="all">IOC Type: All</option>
+        <option value="ipv4">IPv4</option><option value="ipv6">IPv6</option>
+        <option value="domain">Domain</option><option value="hostname">Hostname</option>
+        <option value="url">URL</option><option value="sha256">SHA256</option>
+        <option value="sha1">SHA1</option><option value="md5">MD5</option>
+        <option value="cve">CVE</option><option value="cidr">CIDR</option><option value="asn">ASN</option>
+      </select>
+      <select id="filter-ioc-source" class="filter-select" onchange="iocState.page=1; loadIocs();">
+        <option value="all">Source: All</option>
+        <option value="blocklist_de">blocklist.de</option><option value="circl_misp">CIRCL MISP</option>
+        <option value="threatfox">ThreatFox</option><option value="urlhaus">URLhaus</option>
+        <option value="feodo_tracker">Feodo Tracker</option><option value="sslbl">SSLBL</option>
+        <option value="spamhaus_drop">Spamhaus DROP</option><option value="openphish">OpenPhish</option>
+        <option value="alienvault_otx">AlienVault OTX</option><option value="phishtank">PhishTank</option>
+        <option value="abuseipdb">AbuseIPDB</option>
+      </select>
+      <select id="filter-ioc-pagesize" class="filter-select" onchange="changeIocPageSize(this.value)">
+        <option value="25">25 per page</option><option value="50" selected>50 per page</option><option value="100">100 per page</option>
+      </select>
+    </div>
+
+    <div class="filter-group" id="attack-filters" style="display: none;">
+      <select id="filter-attack-type" class="filter-select" onchange="attackState.page=1; loadAttackKnowledge();">
+        <option value="all">ATT&amp;CK Type: All</option>
+        <option value="attack-pattern">Techniques</option><option value="intrusion-set">Threat Groups</option>
+        <option value="malware">Malware</option><option value="tool">Tools</option><option value="campaign">Campaigns</option>
+      </select>
+      <select id="filter-attack-pagesize" class="filter-select" onchange="changeAttackPageSize(this.value)">
+        <option value="25">25 per page</option><option value="50" selected>50 per page</option><option value="100">100 per page</option>
       </select>
     </div>
 
@@ -280,6 +317,41 @@
                   <div class="stream-item-placeholder">Loading DShield port telemetry...</div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid intelligence-overview-grid">
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet cyan">●</span> HIGH-CONFIDENCE IOC ACTIVITY</span>
+            <button class="dash-action-btn" onclick="showIntelMode('iocs'); goToTabWithFilter('panel-intel', {})">IOC EXPLORER &rarr;</button>
+          </div>
+          <div class="dash-card-body compact-intel-list" id="dash-recent-iocs">
+            {% for ioc in stats.recent_iocs %}
+            <div class="intel-activity-row" data-artifact-type="ioc" data-artifact-id="{{ ioc.id }}">
+              <span class="badge badge-filetype mono">{{ ioc.indicator_type | upper }}</span>
+              <span class="intel-value mono">{{ ioc.normalized_value }}</span>
+              <span class="intel-sources mono">{{ ioc.source_count }} SRC · {{ ioc.confidence }}%</span>
+            </div>
+            {% else %}<div class="stream-item-placeholder">Awaiting normalized IOC intelligence...</div>{% endfor %}
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet purple">●</span> PUBLIC INTELLIGENCE COVERAGE</span>
+            <button class="dash-action-btn" onclick="showIntelMode('attack'); goToTabWithFilter('panel-intel', {})">ATT&amp;CK KNOWLEDGE &rarr;</button>
+          </div>
+          <div class="dash-card-body">
+            <div class="ioc-type-grid">
+              {% for item in stats.top_ioc_types %}
+              <div class="ioc-type-stat" onclick="showIntelMode('iocs'); goToTabWithFilter('panel-intel', {type: '{{ item.indicator_type }}'})">
+                <span class="mono">{{ item.indicator_type | upper }}</span><strong class="mono">{{ "{:,}".format(item.count) }}</strong>
+              </div>
+              {% endfor %}
+              <div class="ioc-type-stat accent"><span class="mono">PHISHING URLS</span><strong class="mono">{{ "{:,}".format(stats.total_phishing_urls) }}</strong></div>
+              <div class="ioc-type-stat accent"><span class="mono">ATT&amp;CK KB</span><strong class="mono">{{ "{:,}".format(stats.total_attack_objects) }}</strong></div>
             </div>
           </div>
         </div>
@@ -595,6 +667,47 @@
 
       </div>
 
+    </div>
+
+    <!-- ========================================== -->
+    <!-- IOC & MITRE ATT&CK INTELLIGENCE EXPLORER  -->
+    <!-- ========================================== -->
+    <div id="panel-intel" class="view-panel">
+      <div class="intel-mode-switch">
+        <button class="btn btn-sm active" id="intel-mode-iocs" onclick="showIntelMode('iocs')">NORMALIZED IOCS</button>
+        <button class="btn btn-sm" id="intel-mode-attack" onclick="showIntelMode('attack')">MITRE ATT&amp;CK KNOWLEDGE</button>
+        <span class="mono text-muted">SOURCE-AWARE CORRELATION // PUBLIC CTI</span>
+      </div>
+
+      <div id="intel-ioc-view">
+        <div class="pagination-bar">
+          <div class="pagination-info mono" id="ioc-page-info">Showing 0 - 0 of 0 IOCs</div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm" id="ioc-btn-prev" onclick="iocPrevPage()">&larr; PREVIOUS</button>
+            <span class="page-number-display mono" id="ioc-page-num">PAGE 1 / 1</span>
+            <button class="btn btn-sm" id="ioc-btn-next" onclick="iocNextPage()">NEXT &rarr;</button>
+          </div>
+        </div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+          <th style="width:95px;">TYPE</th><th>INDICATOR</th><th style="width:150px;">THREAT</th>
+          <th style="width:105px;">CONFIDENCE</th><th style="width:190px;">SOURCES</th><th style="width:155px;">LAST SEEN</th>
+        </tr></thead><tbody id="ioc-tbody"><tr><td colspan="6" class="loading-row">Loading correlated IOC intelligence...</td></tr></tbody></table></div>
+      </div>
+
+      <div id="intel-attack-view" style="display:none;">
+        <div class="pagination-bar">
+          <div class="pagination-info mono" id="attack-page-info">Showing 0 - 0 of 0 ATT&amp;CK objects</div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm" id="attack-btn-prev" onclick="attackPrevPage()">&larr; PREVIOUS</button>
+            <span class="page-number-display mono" id="attack-page-num">PAGE 1 / 1</span>
+            <button class="btn btn-sm" id="attack-btn-next" onclick="attackNextPage()">NEXT &rarr;</button>
+          </div>
+        </div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+          <th style="width:150px;">OBJECT TYPE</th><th style="width:130px;">ATT&amp;CK ID</th><th style="width:260px;">NAME</th>
+          <th>DESCRIPTION</th><th style="width:180px;">TACTICS / PLATFORMS</th>
+        </tr></thead><tbody id="attack-tbody"><tr><td colspan="5" class="loading-row">Loading MITRE ATT&amp;CK knowledge...</td></tr></tbody></table></div>
+      </div>
     </div>
 
     <!-- ========================================== -->

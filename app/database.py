@@ -630,6 +630,63 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         """)
         recent_news = [dict(r) for r in await cur.fetchall()]
 
+        # Cross-provider IOC and knowledge metrics used by the analyst dashboard.
+        cur = await conn.execute("SELECT COUNT(*) AS count FROM normalized_iocs WHERE active=1;")
+        row = await cur.fetchone()
+        total_active_iocs = row["count"] if row else 0
+
+        cur = await conn.execute(
+            "SELECT COUNT(*) AS count FROM normalized_iocs WHERE active=1 AND indicator_type IN ('ipv4', 'ipv6');"
+        )
+        row = await cur.fetchone()
+        total_malicious_ips = row["count"] if row else 0
+
+        cur = await conn.execute(
+            """SELECT COUNT(*) AS count FROM normalized_iocs
+               WHERE active=1 AND indicator_type='url'
+                 AND (LOWER(threat_type) LIKE '%phish%' OR source_name IN ('phishtank', 'openphish'));"""
+        )
+        row = await cur.fetchone()
+        total_phishing_urls = row["count"] if row else 0
+
+        cur = await conn.execute(
+            """SELECT COUNT(*) AS count FROM normalized_iocs n
+               WHERE n.active=1 AND (
+                   SELECT COUNT(*) FROM ioc_sources s
+                   WHERE s.ioc_id=n.id AND s.active=1
+               ) >= 2;"""
+        )
+        row = await cur.fetchone()
+        total_correlated_iocs = row["count"] if row else 0
+
+        cur = await conn.execute("SELECT COUNT(*) AS count FROM vendor_advisories;")
+        row = await cur.fetchone()
+        total_vendor_advisories = row["count"] if row else 0
+
+        cur = await conn.execute("SELECT COUNT(*) AS count FROM attack_knowledge WHERE revoked=0;")
+        row = await cur.fetchone()
+        total_attack_objects = row["count"] if row else 0
+
+        cur = await conn.execute(
+            """SELECT n.id, n.indicator_type, n.normalized_value, n.threat_type,
+                      n.confidence, n.severity, n.last_seen,
+                      (SELECT COUNT(*) FROM ioc_sources s
+                       WHERE s.ioc_id=n.id AND s.active=1) AS source_count,
+                      (SELECT GROUP_CONCAT(s.source_name, ', ')
+                       FROM ioc_sources s WHERE s.ioc_id=n.id AND s.active=1) AS sources
+               FROM normalized_iocs n
+               WHERE n.active=1
+               ORDER BY n.confidence DESC, n.last_seen DESC LIMIT 6;"""
+        )
+        recent_iocs = [dict(r) for r in await cur.fetchall()]
+
+        cur = await conn.execute(
+            """SELECT indicator_type, COUNT(*) AS count
+               FROM normalized_iocs WHERE active=1
+               GROUP BY indicator_type ORDER BY count DESC LIMIT 6;"""
+        )
+        top_ioc_types = [dict(r) for r in await cur.fetchall()]
+
         # Total Ransomware Victims
         cur = await conn.execute("SELECT COUNT(*) as count FROM ransomware_victims;")
         row = await cur.fetchone()
@@ -702,6 +759,12 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "total_dshield_ips": total_dshield_ips,
             "total_dshield_ports": total_dshield_ports,
             "total_news": total_news,
+            "total_active_iocs": total_active_iocs,
+            "total_malicious_ips": total_malicious_ips,
+            "total_phishing_urls": total_phishing_urls,
+            "total_correlated_iocs": total_correlated_iocs,
+            "total_vendor_advisories": total_vendor_advisories,
+            "total_attack_objects": total_attack_objects,
             "total_ransomware_victims": total_ransomware_victims,
             "total_brazil_victims": total_brazil_victims,
             "top_ransomware_groups": top_ransomware_groups,
@@ -710,5 +773,7 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "top_malware": top_malware,
             "recent_kevs": recent_kevs,
             "top_ports": top_ports,
-            "recent_news": recent_news
+            "recent_news": recent_news,
+            "recent_iocs": recent_iocs,
+            "top_ioc_types": top_ioc_types
         }
