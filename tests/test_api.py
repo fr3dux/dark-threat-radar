@@ -266,6 +266,9 @@ def test_index_page_version_injection(client):
     # Header badge
     assert f"v{__version__}" in html
     assert 'class="version-badge"' in html
+    assert 'id="update-available-pill"' in html
+    assert 'id="infocon-badge"' not in html
+    assert 'id="infocon-val"' in html
     # Footer
     assert f"Dark Threat Radar v{__version__} // SOC Engine //" in html
     assert 'class="app-footer"' in html

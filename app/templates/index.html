@@ -18,12 +18,11 @@
 
       <!-- Right: Aligned Status Indicators & Documentation -->
       <div class="header-actions">
-        <!-- SANS INFOCON Badge -->
-        {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
-        <div id="infocon-badge" class="infocon-badge infocon-{{ infocon_status }}" title="SANS Internet Storm Center INFOCON Status">
-          <span class="pulse-indicator"></span>
-          INFOCON: <span id="infocon-val">{{ infocon_status | upper }}</span>
-        </div>
+        <!-- Persistent application update state -->
+        <button type="button" class="update-status-pill is-checking" id="update-available-pill" onclick="openUpdateModal()" aria-live="polite" title="Checking the official stable release channel">
+          <span class="status-indicator-dot"></span>
+          <span class="mono font-bold" id="update-pill-text">CHECKING UPDATES</span>
+        </button>
 
         <!-- Consolidated Expandable Feeds Indicator -->
         <div class="feeds-dropdown-wrapper">
@@ -68,11 +67,6 @@
           <span class="status-indicator-dot pulse-sync"></span>
           <span class="mono font-bold">SCHEDULED SYNC</span>
         </div>
-
-        <button type="button" class="update-available-pill" id="update-available-pill" onclick="openUpdateModal()" hidden>
-          <span class="status-indicator-dot"></span>
-          <span class="mono font-bold" id="update-pill-text">UPDATE AVAILABLE</span>
-        </button>
 
         <!-- Interactive API Documentation -->
         <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation (Swagger/OpenAPI)">API DOCS</a>
@@ -254,8 +248,9 @@
                   <span class="hud-val mono" id="hud-attack-rate">~1,420 <small>probes/min</small></span>
                 </div>
                 <div class="map-hud-stat">
+                  {% set infocon_status = (stats.infocon.status or 'unknown') | lower %}
                   <span class="hud-label">INFOCON STATUS</span>
-                  <span class="hud-val mono ok">GREEN</span>
+                  <span class="hud-val mono {{ 'ok' if infocon_status == 'green' else ('warn' if infocon_status in ['yellow', 'orange'] else ('crit' if infocon_status == 'red' else '')) }}" id="infocon-val">{{ infocon_status | upper }}</span>
                 </div>
                 <div class="map-hud-stat">
                   <span class="hud-label">CARTOGRAPHY</span>

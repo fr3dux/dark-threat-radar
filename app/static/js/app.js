@@ -108,8 +108,28 @@ function renderUpdateStatus(data) {
   const state = data.update_state || 'idle';
   const active = updateStateIsActive(state);
 
-  if (pill) pill.hidden = !(data.update_available || active);
-  if (pillText) pillText.textContent = active ? `UPDATING ${data.update_target_version || ''}`.trim() : `UPDATE v${data.latest_version}`;
+  if (pill) {
+    pill.className = 'update-status-pill';
+    if (data.check_error) {
+      pill.classList.add('is-error');
+      pill.title = 'The stable release channel could not be checked';
+    } else if (active) {
+      pill.classList.add('is-active');
+      pill.title = 'A validated system update is in progress';
+    } else if (data.update_available) {
+      pill.classList.add('is-available');
+      pill.title = `Dark Threat Radar v${data.latest_version} is available`;
+    } else {
+      pill.classList.add('is-current');
+      pill.title = `Dark Threat Radar v${data.current_version} is up to date`;
+    }
+  }
+  if (pillText) {
+    if (data.check_error) pillText.textContent = 'UPDATE STATUS UNKNOWN';
+    else if (active) pillText.textContent = `UPDATING v${data.update_target_version || data.latest_version || ''}`.trim();
+    else if (data.update_available) pillText.textContent = `UPDATE v${data.latest_version} AVAILABLE`;
+    else pillText.textContent = 'SYSTEM UPDATED';
+  }
   if (current) current.textContent = `v${data.current_version}`;
   if (latest) latest.textContent = `v${data.latest_version}`;
   if (operation) operation.textContent = state.replaceAll('_', ' ').toUpperCase();
@@ -997,13 +1017,12 @@ async function pollStatus() {
     if (!res.ok) return false;
     const data = await res.json();
 
-    // Update infocon badge
+    // Keep the INFOCON state live inside the map HUD.
     if (data.stats && data.stats.infocon) {
       const status = (data.stats.infocon.status || 'unknown').toLowerCase();
-      const badge = document.getElementById('infocon-badge');
       const val = document.getElementById('infocon-val');
-      if (badge && val) {
-        badge.className = `infocon-badge infocon-${status}`;
+      if (val) {
+        val.className = `hud-val mono ${status === 'green' ? 'ok' : (['yellow', 'orange'].includes(status) ? 'warn' : (status === 'red' ? 'crit' : ''))}`.trim();
         val.textContent = status.toUpperCase();
       }
     }
