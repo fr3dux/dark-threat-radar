@@ -398,13 +398,14 @@ async def api_iocs(
         # `where` contains only server-authored clauses; all user values remain bound.
         cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM normalized_iocs n {where}", params)  # nosec B608
         total = (await cursor.fetchone())["count"]
-        ioc_select_query = (  # nosec B608 -- clauses are fixed; values use bound parameters
-                """SELECT n.*,
-                       (SELECT COUNT(*) FROM ioc_sources s
-                        WHERE s.ioc_id=n.id AND s.active=1) AS source_count,
-                       (SELECT GROUP_CONCAT(s.source_name, ', ')
-                        FROM ioc_sources s WHERE s.ioc_id=n.id AND s.active=1) AS sources
-                FROM normalized_iocs n """ + where +
+        # Every clause is server-authored; all request values use bound parameters.
+        ioc_select_query = (
+                "SELECT n.*, "  # nosec B608
+                "(SELECT COUNT(*) FROM ioc_sources s "
+                "WHERE s.ioc_id=n.id AND s.active=1) AS source_count, "
+                "(SELECT GROUP_CONCAT(s.source_name, ', ') "
+                "FROM ioc_sources s WHERE s.ioc_id=n.id AND s.active=1) AS sources "
+                "FROM normalized_iocs n " + where +
                 " ORDER BY n.confidence DESC, n.last_seen DESC LIMIT ? OFFSET ?"
         )
         cursor = await conn.execute(
@@ -468,8 +469,9 @@ async def api_vendor_advisories(
         # `where` contains only server-authored clauses; all user values remain bound.
         cursor = await conn.execute(f"SELECT COUNT(*) AS count FROM vendor_advisories {where}", params)  # nosec B608
         total = (await cursor.fetchone())["count"]
-        advisory_query = (  # nosec B608 -- clauses are fixed; values use bound parameters
-            "SELECT * FROM vendor_advisories " + where +
+        # Every clause is server-authored; all request values use bound parameters.
+        advisory_query = (
+            "SELECT * FROM vendor_advisories " + where +  # nosec B608
             " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
         )
         cursor = await conn.execute(
