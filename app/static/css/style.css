@@ -1912,6 +1912,32 @@ main.main-content {
 
 .brand-title {
   font-size: 15px;
+  gap: 9px;
+}
+
+.brand-name {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding-left: 12px;
+  color: #f6f8fa;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.085em;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 14px rgba(57, 197, 207, 0.24);
+}
+
+.brand-name::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 17px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, var(--accent-blue), var(--accent-cyan));
+  box-shadow: 0 0 9px rgba(57, 197, 207, 0.6);
 }
 
 .auto-sync-badge {
@@ -2626,6 +2652,16 @@ main.main-content {
 
   .brand-title {
     font-size: 13px;
+  }
+
+  .brand-name {
+    padding-left: 9px;
+    font-size: 15px;
+    letter-spacing: 0.055em;
+  }
+
+  .brand-name::before {
+    height: 14px;
   }
 
   .update-status-pill,
