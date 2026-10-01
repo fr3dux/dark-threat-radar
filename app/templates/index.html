@@ -324,6 +324,80 @@
         </div>
       </div>
 
+      <!-- Priority intelligence: latest cybersecurity news is intentionally the
+           first surface below the global activity map. -->
+      <div class="spotlight-grid priority-spotlights">
+
+        <!-- Spotlight 1: CTI News Spotlight (Top 5 Recent Intelligence Advisories) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet cyan">●</span> CTI INTEL SPOTLIGHT: LATEST ADVISORIES</span>
+              <span class="badge badge-nvd">LIVE FEEDS</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VIEW ALL ADVISORIES &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 8px 12px;">
+            <div class="spotlight-news-list" id="dash-news-list">
+              {% for news in stats.recent_news %}
+              <div class="spotlight-news-item" data-artifact-type="news" data-artifact-id="{{ news.id }}">
+                <div class="spotlight-news-header">
+                  <span class="badge badge-filetype mono">{{ news.source }}</span>
+                  <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(26) }}</span>
+                </div>
+                <div class="spotlight-news-title">{{ news.title }}</div>
+                {% if news.snippet %}
+                <div class="spotlight-news-snippet">{{ news.snippet | truncate(110) }}</div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Spotlight 2: KEV Spotlight (Top 5 Recent Exploited Vulnerabilities) -->
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <div class="header-with-badge">
+              <span class="dash-card-title"><span class="widget-bullet crit">●</span> KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD</span>
+              <span class="badge badge-kev">CISA KEV</span>
+            </div>
+            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VIEW ALL OS KEVS &rarr;</button>
+          </div>
+          <div class="dash-card-body" style="padding: 0;">
+            <table class="spotlight-table">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">CVE ID</th>
+                  <th style="width: 170px;">VENDOR / PRODUCT</th>
+                  <th>VULNERABILITY DESCRIPTION</th>
+                  <th style="width: 100px;">DATE ADDED</th>
+                  <th style="width: 100px;">RANSOMWARE</th>
+                </tr>
+              </thead>
+              <tbody id="dash-kevs-tbody">
+                {% for kev in stats.recent_kevs %}
+                <tr class="clickable-row" data-artifact-type="cve" data-artifact-id="{{ kev.cve_id }}">
+                  <td class="mono font-bold" style="color: var(--accent-blue);">{{ kev.cve_id }}</td>
+                  <td class="font-bold">{{ (kev.vendor_project or '') + ' ' + (kev.product or '') }}</td>
+                  <td class="vuln-cell" title="{{ kev.vulnerability_name or '' }}">{{ (kev.vulnerability_name or '') | truncate(75) }}</td>
+                  <td class="mono text-muted">{{ kev.date_added }}</td>
+                  <td>
+                    {% if kev.known_ransomware_campaign_use == 'Known' %}
+                    <span class="badge badge-ransomware">KNOWN</span>
+                    {% else %}
+                    <span class="mono text-muted">-</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
       <div class="dashboard-grid">
         
         <!-- Widget: Vendors with Critical CVEs (Recent Weeks) -->
@@ -553,79 +627,6 @@
                   <div class="mono" style="color: var(--accent-orange); font-weight: 700;">{{ "{:,}".format(p.records) }} records</div>
                   <div class="mono text-muted" style="font-size: 11px;">{{ "{:,}".format(p.count) }} attacker IPs &bull; {{ p.targets }} targets</div>
                 </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Spotlights Grid (Recent KEVs & Intelligence News) -->
-      <div class="spotlight-grid">
-        
-        <!-- Spotlight 1: KEV Spotlight (Top 5 Recent Exploited Vulnerabilities) -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet crit">●</span> KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD</span>
-              <span class="badge badge-kev">CISA KEV</span>
-            </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-cves', {source: 'cisa_kev'})">VIEW ALL OS KEVS &rarr;</button>
-          </div>
-          <div class="dash-card-body" style="padding: 0;">
-            <table class="spotlight-table">
-              <thead>
-                <tr>
-                  <th style="width: 140px;">CVE ID</th>
-                  <th style="width: 170px;">VENDOR / PRODUCT</th>
-                  <th>VULNERABILITY DESCRIPTION</th>
-                  <th style="width: 100px;">DATE ADDED</th>
-                  <th style="width: 100px;">RANSOMWARE</th>
-                </tr>
-              </thead>
-              <tbody id="dash-kevs-tbody">
-                {% for kev in stats.recent_kevs %}
-                <tr class="clickable-row" data-artifact-type="cve" data-artifact-id="{{ kev.cve_id }}">
-                  <td class="mono font-bold" style="color: var(--accent-blue);">{{ kev.cve_id }}</td>
-                  <td class="font-bold">{{ (kev.vendor_project or '') + ' ' + (kev.product or '') }}</td>
-                  <td class="vuln-cell" title="{{ kev.vulnerability_name or '' }}">{{ (kev.vulnerability_name or '') | truncate(75) }}</td>
-                  <td class="mono text-muted">{{ kev.date_added }}</td>
-                  <td>
-                    {% if kev.known_ransomware_campaign_use == 'Known' %}
-                    <span class="badge badge-ransomware">KNOWN</span>
-                    {% else %}
-                    <span class="mono text-muted">-</span>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Spotlight 2: CTI News Spotlight (Top 5 Recent Intelligence Advisories) -->
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet cyan">●</span> CTI INTEL SPOTLIGHT: LATEST ADVISORIES</span>
-              <span class="badge badge-nvd">LIVE FEEDS</span>
-            </div>
-            <button class="dash-action-btn" onclick="goToTabWithFilter('panel-news', {})">VIEW ALL ADVISORIES &rarr;</button>
-          </div>
-          <div class="dash-card-body" style="padding: 8px 12px;">
-            <div class="spotlight-news-list" id="dash-news-list">
-              {% for news in stats.recent_news %}
-              <div class="spotlight-news-item" data-artifact-type="news" data-artifact-id="{{ news.id }}">
-                <div class="spotlight-news-header">
-                  <span class="badge badge-filetype mono">{{ news.source }}</span>
-                  <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(26) }}</span>
-                </div>
-                <div class="spotlight-news-title">{{ news.title }}</div>
-                {% if news.snippet %}
-                <div class="spotlight-news-snippet">{{ news.snippet | truncate(110) }}</div>
-                {% endif %}
               </div>
               {% endfor %}
             </div>

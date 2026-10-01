@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.2] - 2026-10-01
+
+### Changed
+- **News-First Dashboard**: Moves CTI Intel Spotlight directly below the global activity map and places it first in the spotlight row, keeping the latest cybersecurity news among the dashboard's highest-priority surfaces.
+- **Operational Context**: Keeps the CISA KEV spotlight beside current news so analysts can immediately connect reporting with vulnerabilities actively exploited in the wild.
+
 ## [1.11.1] - 2026-10-01
 
 ### Changed

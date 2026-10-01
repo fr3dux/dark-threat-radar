@@ -706,6 +706,10 @@ main.main-content {
   gap: 14px;
 }
 
+.priority-spotlights {
+  margin-bottom: 14px;
+}
+
 @media (max-width: 1100px) {
   .spotlight-grid {
     grid-template-columns: 1fr;
