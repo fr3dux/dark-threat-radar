@@ -18,6 +18,15 @@ from app.ingestion.spamhaus_drop import ingest_spamhaus_drop
 from app.ingestion.sslbl import ingest_sslbl
 from app.ingestion.threatfox import ingest_threatfox
 from app.ingestion.urlhaus import ingest_urlhaus
+from app.ingestion.abuseipdb import ingest_abuseipdb
+from app.ingestion.alienvault_otx import ingest_alienvault_otx
+from app.ingestion.blocklist_de import ingest_blocklist_de
+from app.ingestion.circl_misp import ingest_circl_misp
+from app.ingestion.common import expire_stale_iocs
+from app.ingestion.mitre_attack import ingest_mitre_attack
+from app.ingestion.msrc_csaf import ingest_msrc_csaf
+from app.ingestion.phishtank import ingest_phishtank
+from app.ingestion.redhat_security import ingest_redhat_security
 
 logger = logging.getLogger("ingestion")
 Connector = Callable[[], Awaitable[int]]
@@ -73,6 +82,15 @@ async def run_fast_ioc_ingestions() -> list[object]:
 async def run_hourly_ingestions() -> list[object]:
     results = await _run_group("hourly-github", [ingest_github_advisories])
     results.extend(await _run_group("hourly-spamhaus", [ingest_spamhaus_drop]))
+    for name, connector in (
+        ("hourly-otx", ingest_alienvault_otx),
+        ("hourly-phishtank", ingest_phishtank),
+        ("hourly-abuseipdb", ingest_abuseipdb),
+        ("hourly-blocklist", ingest_blocklist_de),
+        ("hourly-msrc", ingest_msrc_csaf),
+        ("hourly-redhat", ingest_redhat_security),
+    ):
+        results.extend(await _run_group(name, [connector]))
     return results
 
 
@@ -80,7 +98,11 @@ async def run_slow_ingestions() -> list[object]:
     connectors: list[Connector] = [ingest_osv]
     if openphish_is_enabled():
         connectors.append(ingest_openphish)
-    return await _run_group("slow", connectors)
+    results = await _run_group("slow", connectors)
+    results.extend(await _run_group("slow-circl", [ingest_circl_misp]))
+    results.extend(await _run_group("slow-mitre", [ingest_mitre_attack]))
+    await expire_stale_iocs()
+    return results
 
 
 async def run_all_ingestions() -> list[object]:

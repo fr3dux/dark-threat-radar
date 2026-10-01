@@ -21,6 +21,9 @@ NVD_API_KEY = os.getenv("NVD_API_KEY", "")
 # Optional CTI provider credentials. Secrets are server-side only.
 THREATFOX_AUTH_KEY = os.getenv("THREATFOX_AUTH_KEY", "")
 URLHAUS_AUTH_KEY = os.getenv("URLHAUS_AUTH_KEY", "")
+OTX_API_KEY = os.getenv("OTX_API_KEY", "")
+PHISHTANK_API_KEY = os.getenv("PHISHTANK_API_KEY", "")
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
 SETTINGS_ADMIN_TOKEN = os.getenv("SETTINGS_ADMIN_TOKEN", "")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 

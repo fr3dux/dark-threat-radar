@@ -1843,7 +1843,7 @@ function closeIntegrationSettings() {
     clearInterval(integrationSettingsPoll);
     integrationSettingsPoll = null;
   }
-  ['threatfox', 'urlhaus', 'openphish'].forEach(provider => {
+  ['threatfox', 'urlhaus', 'alienvault_otx', 'phishtank', 'abuseipdb', 'openphish'].forEach(provider => {
     const keyInput = document.getElementById(`integration-key-${provider}`);
     const saveButton = document.getElementById(`integration-save-${provider}`);
     const removeButton = document.getElementById(`integration-remove-${provider}`);

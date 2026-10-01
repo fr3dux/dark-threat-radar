@@ -28,6 +28,7 @@ SCHEMA_MIGRATIONS = [
     ("1.6.0", "Add credential leak check validation and breach lookup endpoints"),
     ("1.7.0", "Add asset watchlist table and remediation tracking"),
     ("1.8.1", "Add normalized IOC correlation and connector health without changing the v1.7 dashboard"),
+    ("1.10.0", "Add source-aware IOC expiry and ATT&CK knowledge storage for expanded public CTI"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -49,6 +50,14 @@ async def apply_migrations(conn: aiosqlite.Connection):
         if "epss_percentile" not in cve_cols:
             await conn.execute("ALTER TABLE cve_records ADD COLUMN epss_percentile REAL;")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_cve_epss ON cve_records(epss_score DESC);")
+
+    cur = await conn.execute("PRAGMA table_info(ioc_sources);")
+    source_cols = [row[1] for row in await cur.fetchall()]
+    if source_cols:
+        if "expires_at" not in source_cols:
+            await conn.execute("ALTER TABLE ioc_sources ADD COLUMN expires_at TEXT;")
+        if "active" not in source_cols:
+            await conn.execute("ALTER TABLE ioc_sources ADD COLUMN active INTEGER NOT NULL DEFAULT 1;")
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     for version, description in SCHEMA_MIGRATIONS:
@@ -309,6 +318,26 @@ async def init_db():
             ON vendor_advisories(vendor);
         CREATE INDEX IF NOT EXISTS idx_vendor_advisories_product
             ON vendor_advisories(product);
+
+        CREATE TABLE IF NOT EXISTS attack_knowledge (
+            id TEXT PRIMARY KEY,
+            object_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            external_id TEXT,
+            aliases TEXT,
+            platforms TEXT,
+            tactics TEXT,
+            reference_url TEXT,
+            modified TEXT,
+            revoked INTEGER NOT NULL DEFAULT 0 CHECK(revoked IN (0, 1)),
+            raw_json TEXT,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_attack_knowledge_type
+            ON attack_knowledge(object_type, name);
+        CREATE INDEX IF NOT EXISTS idx_attack_knowledge_external
+            ON attack_knowledge(external_id);
         """)
 
         connector_sources = [
@@ -327,6 +356,14 @@ async def init_db():
             ("openphish", "Phishing"),
             ("ransomware_live", "Ransomware"),
             ("news_feed", "News"),
+            ("alienvault_otx", "Malware & IOCs"),
+            ("circl_misp", "Malware & IOCs"),
+            ("phishtank", "Phishing"),
+            ("abuseipdb", "Network Intelligence"),
+            ("blocklist_de", "Network Intelligence"),
+            ("msrc_csaf", "Vulnerabilities"),
+            ("redhat_security", "Vulnerabilities"),
+            ("mitre_attack", "Threat Knowledge"),
         ]
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         for source_name, category in connector_sources:
@@ -429,6 +466,8 @@ async def get_all_connector_health() -> List[Dict[str, Any]]:
         "cisa_kev", "nvd_cve", "epss", "github_advisories", "osv_dev",
         "malware_bazaar", "threatfox", "urlhaus", "dshield", "feodo_tracker",
         "sslbl", "spamhaus_drop", "openphish", "ransomware_live", "news_feed",
+        "alienvault_otx", "circl_misp", "phishtank", "abuseipdb",
+        "blocklist_de", "msrc_csaf", "redhat_security", "mitre_attack",
     }
     async with get_db() as conn:
         cursor = await conn.execute("""

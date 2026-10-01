@@ -1018,6 +1018,54 @@
             <div class="integration-provider-meta mono" id="integration-meta-urlhaus">Not authenticated</div>
           </article>
 
+          <article class="integration-provider-card" data-provider="alienvault_otx">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">ALIENVAULT OTX</strong>
+                <span class="integration-provider-description">Community pulses, campaigns, actors and multi-type IOCs</span>
+              </div>
+              <span class="connector-state auth_required mono" id="integration-state-alienvault_otx">LOCKED</span>
+            </div>
+            <div class="integration-input-row">
+              <input type="password" id="integration-key-alienvault_otx" class="search-input" autocomplete="new-password" placeholder="Paste the OTX API key" disabled>
+              <button type="button" class="btn btn-primary" id="integration-save-alienvault_otx" onclick="saveIntegrationKey('alienvault_otx')" disabled>SAVE &amp; TEST</button>
+              <button type="button" class="btn" id="integration-remove-alienvault_otx" onclick="removeIntegrationKey('alienvault_otx')" disabled>REMOVE</button>
+            </div>
+            <div class="integration-provider-meta mono" id="integration-meta-alienvault_otx">Not authenticated</div>
+          </article>
+
+          <article class="integration-provider-card" data-provider="phishtank">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">PHISHTANK</strong>
+                <span class="integration-provider-description">Community-verified active phishing URLs</span>
+              </div>
+              <span class="connector-state auth_required mono" id="integration-state-phishtank">LOCKED</span>
+            </div>
+            <div class="integration-input-row">
+              <input type="password" id="integration-key-phishtank" class="search-input" autocomplete="new-password" placeholder="Paste the PhishTank application key" disabled>
+              <button type="button" class="btn btn-primary" id="integration-save-phishtank" onclick="saveIntegrationKey('phishtank')" disabled>SAVE &amp; TEST</button>
+              <button type="button" class="btn" id="integration-remove-phishtank" onclick="removeIntegrationKey('phishtank')" disabled>REMOVE</button>
+            </div>
+            <div class="integration-provider-meta mono" id="integration-meta-phishtank">Not authenticated</div>
+          </article>
+
+          <article class="integration-provider-card" data-provider="abuseipdb">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">ABUSEIPDB</strong>
+                <span class="integration-provider-description">High-confidence abusive IP reputation</span>
+              </div>
+              <span class="connector-state auth_required mono" id="integration-state-abuseipdb">LOCKED</span>
+            </div>
+            <div class="integration-input-row">
+              <input type="password" id="integration-key-abuseipdb" class="search-input" autocomplete="new-password" placeholder="Paste the AbuseIPDB API key" disabled>
+              <button type="button" class="btn btn-primary" id="integration-save-abuseipdb" onclick="saveIntegrationKey('abuseipdb')" disabled>SAVE &amp; TEST</button>
+              <button type="button" class="btn" id="integration-remove-abuseipdb" onclick="removeIntegrationKey('abuseipdb')" disabled>REMOVE</button>
+            </div>
+            <div class="integration-provider-meta mono" id="integration-meta-abuseipdb">Not authenticated</div>
+          </article>
+
           <article class="integration-provider-card openphish-provider-card" data-provider="openphish">
             <div class="integration-provider-heading">
               <div>
@@ -1044,7 +1092,7 @@
         </div>
 
         <div class="integration-modal-footer mono">
-          ThreatFox and URLhaus keys are issued by the <a href="https://auth.abuse.ch/" target="_blank" rel="noopener">abuse.ch Authentication Portal</a>. OpenPhish Community does not require a key.
+          Keys are issued by each provider. Public connectors without credentials remain read-only and are listed in Source Health.
         </div>
       </div>
     </section>

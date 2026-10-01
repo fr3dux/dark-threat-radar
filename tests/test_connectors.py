@@ -66,7 +66,7 @@ def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):
         return connectors, versions
 
     connectors, versions = asyncio.run(verify())
-    assert len(connectors) == 15
+    assert len(connectors) == 23
     assert next(c for c in connectors if c["source_name"] == "openphish")["state"] == "disabled"
     assert sum(v["version"] == "1.8.1" for v in versions) == 1
 
@@ -121,12 +121,27 @@ def test_slow_group_reads_live_openphish_setting(monkeypatch):
         calls.append("openphish")
         return 1
 
+    async def fake_circl():
+        calls.append("circl")
+        return 1
+
+    async def fake_mitre():
+        calls.append("mitre")
+        return 1
+
+    async def fake_expire():
+        calls.append("expire")
+        return 0
+
     monkeypatch.setattr(ingestion, "ingest_osv", fake_osv)
     monkeypatch.setattr(ingestion, "ingest_openphish", fake_openphish)
+    monkeypatch.setattr(ingestion, "ingest_circl_misp", fake_circl)
+    monkeypatch.setattr(ingestion, "ingest_mitre_attack", fake_mitre)
+    monkeypatch.setattr(ingestion, "expire_stale_iocs", fake_expire)
     monkeypatch.setattr(ingestion, "openphish_is_enabled", lambda: True)
 
     asyncio.run(ingestion.run_slow_ingestions())
-    assert calls == ["osv", "openphish"]
+    assert calls == ["osv", "openphish", "circl", "mitre", "expire"]
 
 
 def test_rejected_threatfox_key_is_error_not_auth_required(monkeypatch):

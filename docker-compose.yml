@@ -23,6 +23,9 @@ services:
       - MB_API_KEY=${MB_API_KEY:-}
       - THREATFOX_AUTH_KEY=${THREATFOX_AUTH_KEY:-}
       - URLHAUS_AUTH_KEY=${URLHAUS_AUTH_KEY:-}
+      - OTX_API_KEY=${OTX_API_KEY:-}
+      - PHISHTANK_API_KEY=${PHISHTANK_API_KEY:-}
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY:-}
       - ENABLE_OPENPHISH=${ENABLE_OPENPHISH:-false}
       - SETTINGS_ADMIN_TOKEN=${SETTINGS_ADMIN_TOKEN:?Run python3 scripts/setup_admin.py first}
       - UPDATE_REPOSITORY=${UPDATE_REPOSITORY:-fr3dux/dark-threat-radar}

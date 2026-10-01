@@ -15,6 +15,9 @@ from app.config import RUNTIME_SECRETS_PATH
 PROVIDER_ENV_VARS = {
     "threatfox": "THREATFOX_AUTH_KEY",
     "urlhaus": "URLHAUS_AUTH_KEY",
+    "alienvault_otx": "OTX_API_KEY",
+    "phishtank": "PHISHTANK_API_KEY",
+    "abuseipdb": "ABUSEIPDB_API_KEY",
 }
 
 OPENPHISH_ENABLED_KEY = "openphish_enabled"

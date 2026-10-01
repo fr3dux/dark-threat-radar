@@ -227,6 +227,9 @@ MANAGED_INTEGRATIONS = {
     "threatfox": {"name": "ThreatFox", "category": "Malware & IOCs"},
     "urlhaus": {"name": "URLhaus", "category": "Malware & IOCs"},
     "openphish": {"name": "OpenPhish", "category": "Phishing"},
+    "alienvault_otx": {"name": "AlienVault OTX", "category": "Malware & IOCs"},
+    "phishtank": {"name": "PhishTank", "category": "Phishing"},
+    "abuseipdb": {"name": "AbuseIPDB", "category": "Network Intelligence"},
 }
 
 
@@ -240,6 +243,15 @@ async def sync_managed_integration(provider: str) -> None:
     elif provider == "openphish":
         from app.ingestion.openphish import ingest_openphish
         await ingest_openphish()
+    elif provider == "alienvault_otx":
+        from app.ingestion.alienvault_otx import ingest_alienvault_otx
+        await ingest_alienvault_otx()
+    elif provider == "phishtank":
+        from app.ingestion.phishtank import ingest_phishtank
+        await ingest_phishtank()
+    elif provider == "abuseipdb":
+        from app.ingestion.abuseipdb import ingest_abuseipdb
+        await ingest_abuseipdb()
 
 
 @app.get("/api/admin/integrations", tags=["Administration"])
@@ -387,6 +399,34 @@ async def api_iocs(
         total = (await cursor.fetchone())["count"]
         cursor = await conn.execute(
             query + " ORDER BY confidence DESC, last_seen DESC LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        )
+        items = [dict(row) for row in await cursor.fetchall()]
+    return {"total": total, "limit": limit, "offset": offset, "items": items}
+
+
+@app.get("/api/attack-knowledge", tags=["Intel"])
+async def api_attack_knowledge(
+    q: Optional[str] = Query(None, max_length=200),
+    object_type: Optional[str] = Query(None, max_length=40),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Search the locally synchronized MITRE ATT&CK knowledge base."""
+    query = "SELECT * FROM attack_knowledge WHERE revoked=0"
+    params = []
+    if q:
+        query += " AND (name LIKE ? OR external_id LIKE ? OR description LIKE ? OR aliases LIKE ?)"
+        term = f"%{q}%"
+        params.extend([term, term, term, term])
+    if object_type:
+        query += " AND object_type=?"
+        params.append(object_type)
+    async with get_db() as conn:
+        cursor = await conn.execute(query.replace("SELECT *", "SELECT COUNT(*) AS count"), params)
+        total = (await cursor.fetchone())["count"]
+        cursor = await conn.execute(
+            query + " ORDER BY object_type, name LIMIT ? OFFSET ?",
             [*params, limit, offset],
         )
         items = [dict(row) for row in await cursor.fetchall()]
