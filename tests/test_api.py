@@ -287,9 +287,11 @@ def test_index_page_version_injection(client):
     assert 'id="panel-intel"' in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
-    assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD")
-    assert html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD") < html.index("VENDORS W/ CRITICAL CVES")
-    assert html.index("VENDORS W/ CRITICAL CVES") < html.index("HIGH-CONFIDENCE IOC ACTIVITY")
+    assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT RANSOMWARE EXTORTIONS")
+    assert html.index("RECENT RANSOMWARE EXTORTIONS") < html.index("VENDORS W/ CRITICAL CVES")
+    assert html.index("VENDORS W/ CRITICAL CVES") < html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD")
+    assert html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD") < html.index("CVSS SEVERITY DISTRIBUTION")
+    assert html.index("CVSS SEVERITY DISTRIBUTION") < html.index("HIGH-CONFIDENCE IOC ACTIVITY")
     assert html.index("HIGH-CONFIDENCE IOC ACTIVITY") < html.index('id="panel-intel"')
     # Footer
     assert f"Dark Threat Radar v{__version__} // SOC Engine //" in html
