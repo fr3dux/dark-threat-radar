@@ -2526,6 +2526,7 @@ main.main-content {
 
 /* Cross-provider intelligence surfaces (v1.11) */
 .intelligence-overview-grid {
+  margin-top: 14px;
   margin-bottom: 16px;
 }
 

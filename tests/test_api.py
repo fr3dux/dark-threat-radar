@@ -286,6 +286,8 @@ def test_index_page_version_injection(client):
     assert 'id="infocon-val"' in html
     assert 'id="panel-intel"' in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
+    assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("HIGH-CONFIDENCE IOC ACTIVITY")
+    assert html.index("HIGH-CONFIDENCE IOC ACTIVITY") < html.index('id="panel-intel"')
     # Footer
     assert f"Dark Threat Radar v{__version__} // SOC Engine //" in html
     assert 'class="app-footer"' in html

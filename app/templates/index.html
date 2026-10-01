@@ -324,41 +324,6 @@
         </div>
       </div>
 
-      <div class="dashboard-grid intelligence-overview-grid">
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <span class="dash-card-title"><span class="widget-bullet cyan">●</span> HIGH-CONFIDENCE IOC ACTIVITY</span>
-            <button class="dash-action-btn" onclick="showIntelMode('iocs'); goToTabWithFilter('panel-intel', {})">IOC EXPLORER &rarr;</button>
-          </div>
-          <div class="dash-card-body compact-intel-list" id="dash-recent-iocs">
-            {% for ioc in stats.recent_iocs %}
-            <div class="intel-activity-row" data-artifact-type="ioc" data-artifact-id="{{ ioc.id }}">
-              <span class="badge badge-filetype mono">{{ ioc.indicator_type | upper }}</span>
-              <span class="intel-value mono">{{ ioc.normalized_value }}</span>
-              <span class="intel-sources mono">{{ ioc.source_count }} SRC · {{ ioc.confidence }}%</span>
-            </div>
-            {% else %}<div class="stream-item-placeholder">Awaiting normalized IOC intelligence...</div>{% endfor %}
-          </div>
-        </div>
-        <div class="dash-card">
-          <div class="dash-card-header">
-            <span class="dash-card-title"><span class="widget-bullet purple">●</span> PUBLIC INTELLIGENCE COVERAGE</span>
-            <button class="dash-action-btn" onclick="showIntelMode('attack'); goToTabWithFilter('panel-intel', {})">ATT&amp;CK KNOWLEDGE &rarr;</button>
-          </div>
-          <div class="dash-card-body">
-            <div class="ioc-type-grid">
-              {% for item in stats.top_ioc_types %}
-              <div class="ioc-type-stat" onclick="showIntelMode('iocs'); goToTabWithFilter('panel-intel', {type: '{{ item.indicator_type }}'})">
-                <span class="mono">{{ item.indicator_type | upper }}</span><strong class="mono">{{ "{:,}".format(item.count) }}</strong>
-              </div>
-              {% endfor %}
-              <div class="ioc-type-stat accent"><span class="mono">PHISHING URLS</span><strong class="mono">{{ "{:,}".format(stats.total_phishing_urls) }}</strong></div>
-              <div class="ioc-type-stat accent"><span class="mono">ATT&amp;CK KB</span><strong class="mono">{{ "{:,}".format(stats.total_attack_objects) }}</strong></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="dashboard-grid">
         
         <!-- Widget: Vendors with Critical CVEs (Recent Weeks) -->
@@ -667,6 +632,43 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- Cross-provider intelligence belongs at the end of the overview so the
+           primary operational panels remain immediately below the activity map. -->
+      <div class="dashboard-grid intelligence-overview-grid">
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet cyan">●</span> HIGH-CONFIDENCE IOC ACTIVITY</span>
+            <button class="dash-action-btn" onclick="showIntelMode('iocs'); goToTabWithFilter('panel-intel', {})">IOC EXPLORER &rarr;</button>
+          </div>
+          <div class="dash-card-body compact-intel-list" id="dash-recent-iocs">
+            {% for ioc in stats.recent_iocs %}
+            <div class="intel-activity-row" data-artifact-type="ioc" data-artifact-id="{{ ioc.id }}">
+              <span class="badge badge-filetype mono">{{ ioc.indicator_type | upper }}</span>
+              <span class="intel-value mono">{{ ioc.normalized_value }}</span>
+              <span class="intel-sources mono">{{ ioc.source_count }} SRC · {{ ioc.confidence }}%</span>
+            </div>
+            {% else %}<div class="stream-item-placeholder">Awaiting normalized IOC intelligence...</div>{% endfor %}
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-header">
+            <span class="dash-card-title"><span class="widget-bullet purple">●</span> PUBLIC INTELLIGENCE COVERAGE</span>
+            <button class="dash-action-btn" onclick="showIntelMode('attack'); goToTabWithFilter('panel-intel', {})">ATT&amp;CK KNOWLEDGE &rarr;</button>
+          </div>
+          <div class="dash-card-body">
+            <div class="ioc-type-grid">
+              {% for item in stats.top_ioc_types %}
+              <div class="ioc-type-stat" onclick="showIntelMode('iocs'); goToTabWithFilter('panel-intel', {type: '{{ item.indicator_type }}'})">
+                <span class="mono">{{ item.indicator_type | upper }}</span><strong class="mono">{{ "{:,}".format(item.count) }}</strong>
+              </div>
+              {% endfor %}
+              <div class="ioc-type-stat accent"><span class="mono">PHISHING URLS</span><strong class="mono">{{ "{:,}".format(stats.total_phishing_urls) }}</strong></div>
+              <div class="ioc-type-stat accent"><span class="mono">ATT&amp;CK KB</span><strong class="mono">{{ "{:,}".format(stats.total_attack_objects) }}</strong></div>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>
