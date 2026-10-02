@@ -46,3 +46,6 @@ ENABLE_OPENPHISH = os.getenv("ENABLE_OPENPHISH", "false").lower() in {"1", "true
 CTI_FAST_INTERVAL_SECONDS = max(900, int(os.getenv("CTI_FAST_INTERVAL_SECONDS", "900")))
 CTI_HOURLY_INTERVAL_SECONDS = max(3600, int(os.getenv("CTI_HOURLY_INTERVAL_SECONDS", "3600")))
 CTI_SLOW_INTERVAL_SECONDS = max(21600, int(os.getenv("CTI_SLOW_INTERVAL_SECONDS", "21600")))
+# AbuseIPDB's free blacklist endpoint permits only five calls per UTC day.
+# Default to one call per day and never permit a cadence faster than four/day.
+ABUSEIPDB_INTERVAL_SECONDS = max(21600, int(os.getenv("ABUSEIPDB_INTERVAL_SECONDS", "86400")))

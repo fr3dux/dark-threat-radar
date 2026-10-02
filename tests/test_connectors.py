@@ -8,7 +8,7 @@ from app import database
 from app import credential_store
 from app.ingestion import _run_group
 from app import ingestion
-from app.ingestion import threatfox, urlhaus
+from app.ingestion import abuseipdb, threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
@@ -228,3 +228,65 @@ def test_rejected_urlhaus_key_is_error_not_auth_required(monkeypatch):
 
     asyncio.run(urlhaus.ingest_urlhaus())
     assert states == ["failed"]
+
+
+def test_abuseipdb_persistent_quota_guard():
+    now = datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc)
+    recent_success = {
+        "state": "healthy",
+        "http_code": 200,
+        "last_attempt": "2026-10-02 11:00:00 UTC",
+        "rate_limit_info": "remaining=4; limit=5; reset=1790985600",
+    }
+    assert abuseipdb.request_is_due(recent_success, now) is False
+
+    old_success = dict(recent_success, last_attempt="2026-10-01 11:00:00 UTC")
+    assert abuseipdb.request_is_due(old_success, now) is True
+
+    limited = {
+        "state": "rate_limited",
+        "http_code": 429,
+        "last_attempt": "2026-10-02 10:00:00 UTC",
+        "rate_limit_info": f"remaining=0; limit=5; reset={int((now + timedelta(hours=2)).timestamp())}",
+    }
+    assert abuseipdb.request_is_due(limited, now) is False
+    limited["rate_limit_info"] = (
+        f"remaining=0; limit=5; reset={int((now - timedelta(minutes=1)).timestamp())}"
+    )
+    assert abuseipdb.request_is_due(limited, now) is True
+
+
+def test_abuseipdb_429_preserves_provider_reset(monkeypatch):
+    captured = {}
+
+    class LimitedResponse:
+        status_code = 429
+        headers = {
+            "x-ratelimit-remaining": "0",
+            "x-ratelimit-limit": "5",
+            "x-ratelimit-reset": "1790985600",
+            "retry-after": "3600",
+        }
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return None
+        async def get(self, *_args, **_kwargs): return LimitedResponse()
+
+    async def no_previous_health(_source):
+        return None
+
+    async def capture_state(_source, _category, state, **kwargs):
+        captured.update(state=state, **kwargs)
+
+    monkeypatch.setattr(abuseipdb, "get_provider_secret", lambda _provider: "test-key")
+    monkeypatch.setattr(abuseipdb, "get_connector_health", no_previous_health)
+    monkeypatch.setattr(abuseipdb.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(abuseipdb, "update_connector_health", capture_state)
+
+    asyncio.run(abuseipdb.ingest_abuseipdb())
+    assert captured["state"] == "rate_limited"
+    assert captured["http_code"] == 429
+    assert captured["rate_limit_info"] == (
+        "remaining=0; limit=5; reset=1790985600; retry_after=3600"
+    )

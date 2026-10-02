@@ -461,6 +461,16 @@ async def update_connector_health(
         ))
         await conn.commit()
 
+async def get_connector_health(source_name: str) -> Optional[Dict[str, Any]]:
+    """Return one connector state for provider-aware scheduling decisions."""
+    async with get_db() as conn:
+        cursor = await conn.execute(
+            "SELECT * FROM connector_health WHERE source_name = ?",
+            (source_name,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
 async def get_all_connector_health() -> List[Dict[str, Any]]:
     configured_sources = {
         "cisa_kev", "nvd_cve", "epss", "github_advisories", "osv_dev",

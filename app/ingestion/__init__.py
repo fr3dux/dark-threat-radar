@@ -85,13 +85,17 @@ async def run_hourly_ingestions() -> list[object]:
     for name, connector in (
         ("hourly-otx", ingest_alienvault_otx),
         ("hourly-phishtank", ingest_phishtank),
-        ("hourly-abuseipdb", ingest_abuseipdb),
         ("hourly-blocklist", ingest_blocklist_de),
         ("hourly-msrc", ingest_msrc_csaf),
         ("hourly-redhat", ingest_redhat_security),
     ):
         results.extend(await _run_group(name, [connector]))
     return results
+
+
+async def run_abuseipdb_ingestion() -> list[object]:
+    """Run the quota-sensitive AbuseIPDB blacklist connector independently."""
+    return await _run_group("daily-abuseipdb", [ingest_abuseipdb])
 
 
 async def run_slow_ingestions() -> list[object]:
@@ -112,6 +116,7 @@ async def run_all_ingestions() -> list[object]:
         run_core_ingestions,
         run_fast_ioc_ingestions,
         run_hourly_ingestions,
+        run_abuseipdb_ingestion,
         run_slow_ingestions,
     ):
         try:

@@ -17,7 +17,7 @@ deployment.
 | OpenPhish | official Community text feed | None | Disabled | Explicit opt-in through the administration panel after reviewing the provider terms; commercial use is not assumed. |
 | AlienVault OTX / LevelBlue | OTX DirectConnect pulses API | `OTX_API_KEY` | 1 hour | Requires an OTX account and API key. Pulse data remains attributable to its contributing authors; review current OTX terms before redistribution. |
 | PhishTank | verified-online JSON feed | `PHISHTANK_API_KEY` | 1 hour | Requires a free application key. Observe PhishTank attribution, download-frequency, and redistribution requirements. |
-| AbuseIPDB | v2 blacklist API | `ABUSEIPDB_API_KEY` | 1 hour | Requests only high-confidence entries. Free plans have daily quotas; review API and data-use terms. |
+| AbuseIPDB | v2 blacklist API | `ABUSEIPDB_API_KEY` | 24 hours | Requests only high-confidence entries. A persistent quota guard honors reset headers and prevents restarts or manual syncs from exhausting the Standard plan's five daily blacklist requests. |
 | blocklist.de | public `all.txt` attacker list | None | 1 hour | Indicators are treated as short-lived and expire after 49 hours. Preserve provider attribution and review current usage terms. |
 | Microsoft MSRC | public CVRF/CSAF v3 API | None | 1 hour | Public Microsoft security update metadata; linked documents and trademarks remain under their applicable terms. |
 | Red Hat Security Data | public CVE API | None | 1 hour | Public product-security metadata; preserve advisory links and review Red Hat API/data terms. |

@@ -6,6 +6,7 @@ from app.ingestion import (
     run_core_ingestions,
     run_fast_ioc_ingestions,
     run_hourly_ingestions,
+    run_abuseipdb_ingestion,
     run_slow_ingestions,
 )
 from app.config import (
@@ -13,6 +14,7 @@ from app.config import (
     CTI_FAST_INTERVAL_SECONDS,
     CTI_HOURLY_INTERVAL_SECONDS,
     CTI_SLOW_INTERVAL_SECONDS,
+    ABUSEIPDB_INTERVAL_SECONDS,
 )
 
 logger = logging.getLogger("scheduler")
@@ -23,6 +25,7 @@ _group_locks = {
     "core": asyncio.Lock(),
     "fast": asyncio.Lock(),
     "hourly": asyncio.Lock(),
+    "abuseipdb": asyncio.Lock(),
     "slow": asyncio.Lock(),
 }
 _scheduled_group_lock = asyncio.Lock()
@@ -114,13 +117,25 @@ def start_scheduler():
             coalesce=True,
             jitter=300,
         )
+        scheduler.add_job(
+            _run_group_locked,
+            "interval",
+            seconds=ABUSEIPDB_INTERVAL_SECONDS,
+            args=["abuseipdb", run_abuseipdb_ingestion],
+            id="cti_abuseipdb_sync",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            jitter=300,
+        )
         scheduler.start()
         logger.info(
-            "CTI scheduler started: core=%ss fast=%ss hourly=%ss slow=%ss",
+            "CTI scheduler started: core=%ss fast=%ss hourly=%ss slow=%ss abuseipdb=%ss",
             SYNC_INTERVAL_SECONDS,
             CTI_FAST_INTERVAL_SECONDS,
             CTI_HOURLY_INTERVAL_SECONDS,
             CTI_SLOW_INTERVAL_SECONDS,
+            ABUSEIPDB_INTERVAL_SECONDS,
         )
 
 def shutdown_scheduler():

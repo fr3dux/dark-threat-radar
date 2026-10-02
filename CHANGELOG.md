@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.5] - 2026-10-02
+
+### Fixed
+- **AbuseIPDB Daily Quota**: Moves the blacklist connector out of the hourly group and defaults it to one request per day, within the Standard plan's five-request allowance.
+- **Persistent Quota Guard**: Prevents application restarts and manual synchronization from repeating calls before the configured interval, while honoring AbuseIPDB's `X-RateLimit-Reset` response header after HTTP 429.
+- **Operational Visibility**: Preserves remaining, limit, reset, and retry metadata in connector health so rate-limited state remains explicit instead of appearing as a generic failure.
+
 ## [1.11.4] - 2026-10-01
 
 ### Changed

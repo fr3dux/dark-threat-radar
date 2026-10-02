@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.11.4-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.11.5-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-61%2F61%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-63%2F63%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -62,8 +62,8 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 │ CORE / 5m: CISA KEV, NVD, EPSS, DShield, MalwareBazaar,                │
 │            ransomware.live, CTI News                                   │
 │ FAST / 15m: ThreatFox, URLhaus, Feodo Tracker, SSLBL                   │
-│ HOURLY: GitHub, Spamhaus, OTX, PhishTank, AbuseIPDB, blocklist.de,     │
-│         Microsoft MSRC, Red Hat Security                               │
+│ HOURLY: GitHub, Spamhaus, OTX, PhishTank, blocklist.de, MSRC, Red Hat  │
+│ DAILY: AbuseIPDB (persistent quota guard; key required)                │
 │ SLOW / 6h: OSV.dev, CIRCL MISP, MITRE ATT&CK, OpenPhish (optional)     │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │ isolated connector groups
@@ -118,7 +118,7 @@ Dark Threat Radar tracks 23 public CTI connectors. OpenPhish remains disabled un
 | **Spamhaus DROP** | Spamhaus | IPv4, IPv6, and ASN DROP intelligence normalized as CIDR and ASN indicators. | Hourly |
 | **AlienVault OTX** | LevelBlue Open Threat Exchange | Subscribed public pulses with malicious IPs, domains, URLs, hashes, CVEs, and contextual threat metadata. | Hourly; key required |
 | **PhishTank** | Cisco Talos community | Verified, online phishing URLs with target brand metadata. | Hourly; key required |
-| **AbuseIPDB** | AbuseIPDB | High-confidence abusive IPs, country context, and abuse-report counts from the community blacklist. | Hourly; key required |
+| **AbuseIPDB** | AbuseIPDB | High-confidence abusive IPs, country context, and abuse-report counts from the community blacklist. A persistent guard prevents restarts or manual syncs from exhausting the provider quota. | Daily by default; key required |
 | **blocklist.de** | blocklist.de | Recently reported attacking IPv4 addresses with short-lived, source-aware indicator expiration. | Hourly |
 | **Microsoft MSRC** | Microsoft Security Response Center | Current Microsoft security update and CVE advisories from the public CVRF/CSAF service. | Hourly |
 | **Red Hat Security Data** | Red Hat Product Security | Recent Red Hat CVEs, severity, CVSS, CWE, and public advisory references. | Hourly |
@@ -279,8 +279,9 @@ The installer copies the worker to a root-owned system location and runs it with
 | `PORT` | `9220` | Listening HTTP port. |
 | `SYNC_INTERVAL_SECONDS` | `300` | Core connector interval: CISA, NVD, EPSS, DShield, MalwareBazaar, ransomware.live, and news. |
 | `CTI_FAST_INTERVAL_SECONDS` | `900` (minimum 900) | ThreatFox, URLhaus, Feodo Tracker, and SSLBL interval. |
-| `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub, Spamhaus, OTX, PhishTank, AbuseIPDB, blocklist.de, MSRC, and Red Hat interval. |
+| `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub, Spamhaus, OTX, PhishTank, blocklist.de, MSRC, and Red Hat interval. |
 | `CTI_SLOW_INTERVAL_SECONDS` | `21600` (minimum 21600) | OSV.dev, CIRCL MISP, MITRE ATT&CK, and, when enabled, OpenPhish interval. |
+| `ABUSEIPDB_INTERVAL_SECONDS` | `86400` (minimum 21600) | AbuseIPDB blacklist interval. The daily default stays within the Standard plan's five-request quota. |
 | `BASE_DIR` | `/opt/dark-threat-radar` (or repo root) | Absolute root directory of the application. |
 | `DB_PATH` | `./threat_radar.db` | Path to the SQLite database file. |
 | `LOCAL_NEWS_FILE` | `./news_history.json` | Path to optional local OSINT/news JSON cache. |
@@ -403,12 +404,13 @@ Test coverage includes:
 
 ## Resumo em Portugues
 
-O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de ameaças cibernéticas (CTI) e apoio a SOC. Desenvolvido em FastAPI com SQLite assíncrono, o sistema acompanha 23 conectores públicos em quatro grupos de agendamento:
+O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de ameaças cibernéticas (CTI) e apoio a SOC. Desenvolvido em FastAPI com SQLite assíncrono, o sistema acompanha 23 conectores públicos em cinco grupos de agendamento:
 
 1. **Núcleo de vulnerabilidades e telemetria (5 min):** CISA KEV, NIST NVD, FIRST EPSS, SANS ISC DShield, MalwareBazaar, ransomware.live e notícias CTI.
 2. **IOCs rápidos (15 min):** ThreatFox, URLhaus, Feodo Tracker e SSLBL. ThreatFox e URLhaus exigem Auth-Key e podem ser configurados pelo painel administrativo.
-3. **Inteligência horária:** GitHub Advisory Database, Spamhaus DROP, AlienVault OTX, PhishTank, AbuseIPDB, blocklist.de, Microsoft MSRC e Red Hat Security. OTX, PhishTank e AbuseIPDB exigem credenciais gratuitas e podem ser configurados pelo painel.
-4. **Enriquecimento lento (6 h):** OSV.dev, CIRCL MISP OSINT, MITRE ATT&CK e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
+3. **Inteligência horária:** GitHub Advisory Database, Spamhaus DROP, AlienVault OTX, PhishTank, blocklist.de, Microsoft MSRC e Red Hat Security. OTX e PhishTank exigem credenciais gratuitas e podem ser configurados pelo painel.
+4. **Reputação diária:** AbuseIPDB usa uma execução diária independente e uma trava persistente para respeitar a cota do plano gratuito, inclusive após reinícios ou sincronizações manuais.
+5. **Enriquecimento lento (6 h):** OSV.dev, CIRCL MISP OSINT, MITRE ATT&CK e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
 
 Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
 
