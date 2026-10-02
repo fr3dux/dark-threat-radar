@@ -1260,7 +1260,8 @@ async function pollStatus() {
       const healthy = data.connectors.filter(c => c.state === 'healthy').length;
       const needsKeys = data.connectors.filter(c => c.state === 'auth_required').length;
       const disabled = data.connectors.filter(c => c.state === 'disabled').length;
-      const failed = data.connectors.filter(c => ['failed', 'degraded', 'rate_limited'].includes(c.state)).length;
+      const attention = data.connectors.filter(c => ['degraded', 'rate_limited'].includes(c.state)).length;
+      const failed = data.connectors.filter(c => c.state === 'failed').length;
       const summary = document.getElementById('feed-summary-text');
       if (summary) summary.textContent = `${healthy}/${data.connectors.length} SOURCES HEALTHY`;
       const summaryButton = document.getElementById('feed-summary-btn');
@@ -1270,7 +1271,8 @@ async function pollStatus() {
         meta.innerHTML = `
           <span class="health-count healthy">${healthy} healthy</span>
           ${needsKeys ? `<span class="health-count attention">${needsKeys} need keys</span>` : ''}
-          ${failed ? `<span class="health-count failed">${failed} attention</span>` : ''}
+          ${attention ? `<span class="health-count attention">${attention} attention</span>` : ''}
+          ${failed ? `<span class="health-count failed">${failed} error</span>` : ''}
           ${disabled ? `<span class="health-count muted">${disabled} disabled</span>` : ''}
         `;
       }

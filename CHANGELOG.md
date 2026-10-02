@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.6] - 2026-10-02
+
+### Fixed
+- **Stable Source Health Severity**: Keeps `AUTH REQUIRED`, `RATE LIMITED`, and `DEGRADED` connector states in the amber attention tier during live polling, matching the initial server-rendered header.
+- **True Failure Signaling**: Reserves the red source-health indicator and error counter exclusively for connectors in the `FAILED` state.
+- **Consistent Health Counts**: Uses the same healthy, attention, authentication, disabled, and failure grouping before and after automatic dashboard refreshes.
+
 ## [1.11.5] - 2026-10-02
 
 ### Fixed

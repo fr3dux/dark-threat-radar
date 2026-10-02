@@ -29,7 +29,11 @@
           {% set healthy_connectors = connectors | selectattr('state', 'equalto', 'healthy') | list | length %}
           {% set auth_connectors = connectors | selectattr('state', 'equalto', 'auth_required') | list | length %}
           {% set disabled_connectors = connectors | selectattr('state', 'equalto', 'disabled') | list | length %}
-          <button type="button" class="feed-summary-pill" id="feed-summary-btn" data-health="{{ 'healthy' if healthy_connectors == (connectors | length) else 'attention' }}" aria-expanded="false" aria-controls="feeds-dropdown-menu" onclick="toggleFeedDropdown()">
+          {% set degraded_connectors = connectors | selectattr('state', 'equalto', 'degraded') | list | length %}
+          {% set limited_connectors = connectors | selectattr('state', 'equalto', 'rate_limited') | list | length %}
+          {% set failed_connectors = connectors | selectattr('state', 'equalto', 'failed') | list | length %}
+          {% set attention_connectors = degraded_connectors + limited_connectors %}
+          <button type="button" class="feed-summary-pill" id="feed-summary-btn" data-health="{{ 'failed' if failed_connectors else ('healthy' if healthy_connectors == (connectors | length) else 'attention') }}" aria-expanded="false" aria-controls="feeds-dropdown-menu" onclick="toggleFeedDropdown()">
             <span class="status-indicator-dot pulse-sync"></span>
             <span class="mono font-bold" id="feed-summary-text">{{ healthy_connectors }}/{{ connectors | length }} SOURCES HEALTHY</span>
             <span class="dropdown-arrow">▾</span>
@@ -40,6 +44,8 @@
               <div class="connector-health-meta mono" id="connector-health-meta">
                 <span class="health-count healthy">{{ healthy_connectors }} healthy</span>
                 {% if auth_connectors %}<span class="health-count attention">{{ auth_connectors }} need keys</span>{% endif %}
+                {% if attention_connectors %}<span class="health-count attention">{{ attention_connectors }} attention</span>{% endif %}
+                {% if failed_connectors %}<span class="health-count failed">{{ failed_connectors }} error</span>{% endif %}
                 {% if disabled_connectors %}<span class="health-count muted">{{ disabled_connectors }} disabled</span>{% endif %}
               </div>
             </div>

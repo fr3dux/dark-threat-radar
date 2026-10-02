@@ -300,6 +300,41 @@ def test_index_page_version_injection(client):
     assert '<a href="/docs"' in html
 
 
+def test_source_health_summary_uses_red_only_for_real_failures(client, monkeypatch):
+    def connector(source_name, state):
+        return {
+            "source_name": source_name,
+            "category": "Test Sources",
+            "state": state,
+            "last_error": None,
+            "last_success": None,
+        }
+
+    async def attention_connectors():
+        return [
+            connector("healthy_feed", "healthy"),
+            connector("abuseipdb", "rate_limited"),
+            connector("phishtank", "auth_required"),
+        ]
+
+    monkeypatch.setattr(main_module, "get_all_connector_health", attention_connectors)
+    attention_html = client.get("/").text
+    assert 'id="feed-summary-btn" data-health="attention"' in attention_html
+    assert '<span class="health-count attention">1 attention</span>' in attention_html
+    assert '<span class="health-count failed">' not in attention_html
+
+    async def failed_connectors():
+        return [
+            connector("healthy_feed", "healthy"),
+            connector("broken_feed", "failed"),
+        ]
+
+    monkeypatch.setattr(main_module, "get_all_connector_health", failed_connectors)
+    failed_html = client.get("/").text
+    assert 'id="feed-summary-btn" data-health="failed"' in failed_html
+    assert '<span class="health-count failed">1 error</span>' in failed_html
+
+
 def test_index_uses_dynamic_public_cti_port_ranking(client):
     """Map port ranking must mirror public DShield data, not fixed demo totals."""
     response = client.get("/")
