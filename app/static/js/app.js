@@ -7,7 +7,7 @@ let integrationAdminToken = '';
 let integrationSettingsPoll = null;
 let updateStatusData = null;
 let updateStatusPoll = null;
-let watchlistExposureCount = null;
+let watchlistUnreadCount = null;
 let watchlistData = { watchlist: [], exposure_alerts: [], active_alerts: [] };
 let watchlistScope = 'all';
 let watchlistView = 'all';
@@ -70,6 +70,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Dynamic CTI records use data attributes instead of inline JavaScript.
   document.addEventListener('click', (event) => {
+    const acknowledgeTarget = event.target.closest('[data-watchlist-ack-source][data-watchlist-ack-id]');
+    if (acknowledgeTarget) {
+      event.preventDefault();
+      acknowledgeWatchlistAlert(
+        acknowledgeTarget.dataset.watchlistAckSource,
+        acknowledgeTarget.dataset.watchlistAckId
+      );
+      return;
+    }
     const artifactTarget = event.target.closest('[data-artifact-type][data-artifact-id]');
     if (artifactTarget) {
       event.preventDefault();
@@ -1884,7 +1893,7 @@ async function runPasswordLeakCheck() {
 }
 
 
-// ==================== PERSONALIZED WATCHLIST (v1.12.1) ====================
+// ==================== PERSONALIZED WATCHLIST (v1.12.2) ====================
 
 function toggleWatchlistEditor(forceState) {
   const editor = document.getElementById('wl-editor');
@@ -1914,7 +1923,7 @@ function splitWatchlistCsv(value) {
 
 function watchlistCountsFor(item) {
   const exposure = (watchlistData.exposure_alerts || []).filter(alertItem =>
-    splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(item.id)
+    !Boolean(alertItem.acknowledged) && splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(item.id)
   ).length;
   const vulnerability = (watchlistData.active_alerts || []).filter(alertItem =>
     alertItem.matched_watchlist_item?.id === item.id
@@ -1929,19 +1938,25 @@ async function loadWatchlist() {
     watchlistData = await response.json();
 
     const exposureTotal = Number(watchlistData.total_exposure_alerts) || 0;
+    const unreadTotal = Number(watchlistData.total_unacknowledged_alerts) || 0;
     const vulnerabilityTotal = Number(watchlistData.total_vulnerability_alerts) || 0;
     const total = exposureTotal + vulnerabilityTotal;
     const metricItems = document.getElementById('wl-badge-count');
     const metricExposure = document.getElementById('wl-exposure-badge');
+    const metricExposureDetail = document.getElementById('wl-exposure-detail');
     const metricVuln = document.getElementById('wl-vulnerability-badge');
     const metricAll = document.getElementById('wl-alerts-badge');
     const tabCount = document.getElementById('tab-count-watchlist');
     if (metricItems) metricItems.textContent = watchlistData.total_items || 0;
     if (metricExposure) metricExposure.textContent = exposureTotal;
+    if (metricExposureDetail) metricExposureDetail.textContent = unreadTotal
+      ? `${unreadTotal} new · ${exposureTotal} total`
+      : `${exposureTotal} total · all reviewed`;
     if (metricVuln) metricVuln.textContent = vulnerabilityTotal;
     if (metricAll) metricAll.textContent = total;
-    if (tabCount) tabCount.textContent = exposureTotal;
-    setWatchlistAlertState(exposureTotal);
+    if (tabCount) tabCount.textContent = unreadTotal;
+    setWatchlistAlertState(unreadTotal);
+    renderWatchlistAlertBanner(unreadTotal);
     renderWatchlistWorkspace();
   } catch (error) {
     console.error('Error loading watchlist:', error);
@@ -2009,6 +2024,7 @@ function renderWatchlistWorkspace() {
   const exposureAlerts = (watchlistData.exposure_alerts || []).filter(alertItem =>
     !selectedWatchlistId || splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(selectedWatchlistId)
   );
+  const unreadExposureAlerts = exposureAlerts.filter(alertItem => !Boolean(alertItem.acknowledged));
   const vulnerabilityAlerts = (watchlistData.active_alerts || []).filter(alertItem =>
     !selectedWatchlistId || alertItem.matched_watchlist_item?.id === selectedWatchlistId
   ).sort((a, b) => {
@@ -2026,7 +2042,7 @@ function renderWatchlistWorkspace() {
     clearFilter.textContent = selected ? selected.value + ' ×' : 'SHOW ALL ×';
   }
 
-  const allCount = exposureAlerts.length + priorityVulnerabilities.length;
+  const allCount = unreadExposureAlerts.length + priorityVulnerabilities.length;
   const allCountEl = document.getElementById('wl-view-all-count');
   const exposureCountEl = document.getElementById('wl-view-exposure-count');
   const vulnCountEl = document.getElementById('wl-view-vuln-count');
@@ -2040,21 +2056,74 @@ function renderWatchlistWorkspace() {
   let content = '';
   if (watchlistView === 'exposure') content = exposureHtml;
   else if (watchlistView === 'vulnerability') content = vulnerabilityHtml;
-  else content = exposureHtml + priorityVulnerabilityHtml;
+  else content = unreadExposureAlerts.map(renderExposureSignal).join('') + priorityVulnerabilityHtml;
   signalList.innerHTML = content || '<div class="wl-empty-state"><strong>NO RELEVANT MATCHES</strong><span>Your Watchlist is active. New public intelligence will appear here automatically.</span></div>';
 }
 
 function renderExposureSignal(alertItem) {
   const matched = splitWatchlistCsv(alertItem.matched_values).join(' • ');
   const severity = String(alertItem.severity || 'HIGH').toUpperCase();
-  return '<article class="wl-signal-card exposure">' +
+  const acknowledged = Boolean(alertItem.acknowledged);
+  const lifecycleBadge = acknowledged
+    ? '<span class="badge wl-acknowledged-badge">ACKNOWLEDGED</span>'
+    : '<span class="badge wl-new-alert-badge">NEW ALERT</span>';
+  const action = acknowledged
+    ? '<div class="wl-signal-actions"><button class="btn btn-sm" data-artifact-type="' + escapeHtml(alertItem.source_type) + '" data-artifact-id="' + escapeHtml(alertItem.artifact_id) + '">INSPECT</button></div>'
+    : '<div class="wl-signal-actions"><button class="btn btn-sm" data-artifact-type="' + escapeHtml(alertItem.source_type) + '" data-artifact-id="' + escapeHtml(alertItem.artifact_id) + '">INSPECT</button>' +
+      '<button class="btn btn-sm wl-ack-button" data-watchlist-ack-source="' + escapeHtml(alertItem.source_type) + '" data-watchlist-ack-id="' + escapeHtml(alertItem.artifact_id) + '">ACKNOWLEDGE</button></div>';
+  return '<article class="wl-signal-card exposure' + (acknowledged ? ' acknowledged' : ' is-new') + '">' +
     '<div class="wl-signal-accent"></div><div class="wl-signal-content">' +
-      '<div class="wl-signal-meta"><span class="wl-signal-kind danger">PUBLIC EXPOSURE</span><span class="badge badge-crit">' + escapeHtml(severity) + '</span><span>' + escapeHtml(alertItem.source_name || 'Public CTI') + '</span><time>' + escapeHtml(formatWatchlistDate(alertItem.source_date || alertItem.detected_at)) + '</time></div>' +
+      '<div class="wl-signal-meta"><span class="wl-signal-kind danger">PUBLIC EXPOSURE</span>' + lifecycleBadge + '<span class="badge badge-crit">' + escapeHtml(severity) + '</span><span>' + escapeHtml(alertItem.source_name || 'Public CTI') + '</span><time>DETECTED ' + escapeHtml(formatWatchlistDate(alertItem.detected_at)) + '</time></div>' +
       '<h4>' + escapeHtml(alertItem.title || 'Public exposure detected') + '</h4>' +
       '<div class="wl-signal-match">MATCHED WATCHLIST: <strong>' + escapeHtml(matched || 'Monitored interest') + '</strong></div>' +
       '<p>' + escapeHtml(alertItem.evidence || 'The monitored interest was found in public threat intelligence.') + '</p>' +
-    '</div><button class="btn btn-sm wl-signal-action" data-artifact-type="' + escapeHtml(alertItem.source_type) + '" data-artifact-id="' + escapeHtml(alertItem.artifact_id) + '">INSPECT</button>' +
+      (acknowledged && alertItem.acknowledged_at ? '<small class="wl-ack-time mono">ACKNOWLEDGED ' + escapeHtml(formatWatchlistDate(alertItem.acknowledged_at)) + '</small>' : '') +
+    '</div>' + action +
   '</article>';
+}
+
+function renderWatchlistAlertBanner(unreadTotal) {
+  const banner = document.getElementById('wl-alert-banner');
+  const title = document.getElementById('wl-alert-banner-title');
+  const detail = document.getElementById('wl-alert-banner-detail');
+  if (!banner) return;
+  const newest = (watchlistData.exposure_alerts || []).find(alertItem => !Boolean(alertItem.acknowledged));
+  banner.hidden = unreadTotal < 1;
+  if (unreadTotal < 1 || !newest) return;
+  const matched = splitWatchlistCsv(newest.matched_values).join(' + ');
+  if (title) title.textContent = `${unreadTotal} unacknowledged ${unreadTotal === 1 ? 'incident' : 'incidents'} — ${newest.title || matched || 'Public exposure detected'}`;
+  if (detail) detail.textContent = `${newest.source_name || 'Public CTI'} · matched ${matched || 'a monitored interest'} · detected ${formatWatchlistDate(newest.detected_at)}`;
+}
+
+function showUnreadWatchlistAlerts() {
+  selectedWatchlistId = '';
+  watchlistView = 'all';
+  renderWatchlistWorkspace();
+  document.getElementById('wl-signal-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function acknowledgeWatchlistAlert(sourceType, artifactId) {
+  let adminToken = document.getElementById('wl-admin-token')?.value.trim() || integrationAdminToken;
+  if (!adminToken) {
+    adminToken = window.prompt('Enter the administrative access code to acknowledge this alert:') || '';
+  }
+  if (!adminToken) return;
+
+  try {
+    const response = await fetch('/api/watchlist/alerts/acknowledge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+      body: JSON.stringify({ source_type: sourceType, artifact_id: artifactId })
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    integrationAdminToken = adminToken;
+    await loadWatchlist();
+  } catch (error) {
+    alert('Could not acknowledge the Watchlist alert: ' + error.message);
+  }
 }
 
 function renderVulnerabilitySignal(cve) {
@@ -2215,12 +2284,12 @@ async function pollWatchlistAlerts() {
     const response = await fetch('/api/watchlist/summary', { cache: 'no-store' });
     if (!response.ok) return;
     const data = await response.json();
-    const total = Number(data.total_exposure_alerts) || 0;
-    if (watchlistExposureCount !== null && total > watchlistExposureCount) {
-      showWatchlistNotification(total - watchlistExposureCount);
+    const total = Number(data.total_unacknowledged_alerts) || 0;
+    if (watchlistUnreadCount !== null && total > watchlistUnreadCount) {
+      showWatchlistNotification(total - watchlistUnreadCount);
       if (currentTab === 'panel-watchlist') loadWatchlist();
     }
-    watchlistExposureCount = total;
+    watchlistUnreadCount = total;
     setWatchlistAlertState(total);
   } catch (error) {
     console.warn('Watchlist alert polling failed:', error);

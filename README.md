@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.12.1-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.12.2-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-64%2F64%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-70%2F70%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -148,7 +148,8 @@ The Watchlist module combines technical exposure management with organization mo
 - **Technical Targets:** Register Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler), or Specific CVE targets for vulnerability and remediation correlation.
 - **Organization Targets:** Register a Company, Brand, Domain, or Keyword to detect public mentions that may indicate data exposure, extortion, phishing infrastructure, or another security incident.
 - **Persistent Exposure Alerts:** Cross-references ransomware disclosures, CTI news, official vendor advisories, and normalized public IOCs after every ingestion cycle. Findings retain the matched evidence, source, severity, first detection time, and a direct artifact inspection action.
-- **Live Analyst Signaling:** The Watchlist tab is highlighted when exposure matches exist, checks for new findings every minute, and displays an in-dashboard notification when the count increases.
+- **Operational Alert Lifecycle:** New correlated incidents remain visibly unread in the Watchlist banner and navigation counter until an analyst acknowledges them with the administrative access code. Acknowledgement clears the active warning without deleting the evidence or incident history.
+- **Live Analyst Signaling:** The Watchlist tab is highlighted while unacknowledged exposure exists, checks for new findings every minute, and displays an in-dashboard notification when the unread count increases.
 - **Remediation Directives:** Technical matches continue to surface official required actions, mitigation deadlines, severity classifications, and direct links to patch advisories in a separate section.
 - **Personalized Workspace:** Groups monitored interests into Organizations & Domains and Technologies & CVEs, with per-interest status, search, category filters, and a single curated intelligence stream. The same incident is shown once even when both a company name and its domain match.
 
@@ -352,6 +353,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/attacks/live` | Real-time cyberattack trajectories with geographic coordinates for map rendering. |
 | `GET` | `/api/watchlist` | Retrieve registered targets, persistent organization-exposure alerts, and vulnerability remediation matches. |
 | `GET` | `/api/watchlist/summary` | Lightweight public-exposure alert counts for dashboard signaling. |
+| `POST`| `/api/watchlist/alerts/acknowledge` | Acknowledge one correlated public-exposure incident while retaining its history; requires `X-Admin-Token`. |
 | `POST`| `/api/watchlist` | Add a technical or organization target (`vendor`, `product`, `cve`, `company`, `brand`, `domain`, or `keyword`); requires `X-Admin-Token`. |
 | `DELETE`| `/api/watchlist/{id}` | Remove a target; requires `X-Admin-Token`. |
 | `POST`| `/api/leak-check/email` | Validate email exposure in known global data breaches (XposedOrNot). |

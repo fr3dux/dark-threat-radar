@@ -1005,7 +1005,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: WATCHLIST (v1.12.1) -->
+    <!-- TAB: WATCHLIST (v1.12.2) -->
     <!-- Personalized interests and relevant intelligence -->
     <!-- ========================================== -->
     <div id="panel-watchlist" class="view-panel">
@@ -1020,10 +1020,20 @@
         </div>
         <div class="wl-metric-strip">
           <div class="wl-metric"><span class="wl-metric-label">MONITORED</span><strong id="wl-badge-count">0</strong><small>interests</small></div>
-          <div class="wl-metric danger"><span class="wl-metric-label">EXPOSURE</span><strong id="wl-exposure-badge">0</strong><small>public incidents</small></div>
+          <div class="wl-metric danger"><span class="wl-metric-label">EXPOSURE</span><strong id="wl-exposure-badge">0</strong><small id="wl-exposure-detail">public incidents</small></div>
           <div class="wl-metric warning"><span class="wl-metric-label">VULNERABILITIES</span><strong id="wl-vulnerability-badge">0</strong><small>relevant matches</small></div>
           <div class="wl-metric info"><span class="wl-metric-label">INTELLIGENCE</span><strong id="wl-alerts-badge">0</strong><small>signals for you</small></div>
         </div>
+      </section>
+
+      <section class="wl-alert-banner" id="wl-alert-banner" hidden aria-live="polite">
+        <div class="wl-alert-pulse" aria-hidden="true"></div>
+        <div class="wl-alert-copy">
+          <span class="mono">NEW WATCHLIST ALERT</span>
+          <strong id="wl-alert-banner-title">A monitored interest was found in public threat intelligence.</strong>
+          <small id="wl-alert-banner-detail">Open the alert to review the evidence and acknowledge it.</small>
+        </div>
+        <button type="button" class="btn btn-primary font-bold" onclick="showUnreadWatchlistAlerts()">REVIEW ALERT</button>
       </section>
 
       <section class="wl-editor" id="wl-editor" hidden>

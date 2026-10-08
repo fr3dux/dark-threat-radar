@@ -112,6 +112,19 @@ class WatchlistCreate(BaseModel):
         return value
 
 
+class WatchlistAlertAcknowledge(BaseModel):
+    source_type: Literal["ransomware", "news", "advisory", "ioc"]
+    artifact_id: str = Field(..., min_length=1, max_length=500)
+
+    @field_validator("artifact_id")
+    @classmethod
+    def validate_artifact_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or any(ord(ch) < 32 for ch in normalized):
+            raise ValueError("A valid artifact identifier is required")
+        return normalized
+
+
 class StatusResponse(BaseModel):
     version: str
     feeds: List[FeedStatus]

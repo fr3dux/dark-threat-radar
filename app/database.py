@@ -32,6 +32,7 @@ SCHEMA_MIGRATIONS = [
     ("1.10.0", "Add source-aware IOC expiry and ATT&CK knowledge storage for expanded public CTI"),
     ("1.11.7", "Add normalized CTI news publication timestamps for chronological ordering"),
     ("1.12.0", "Add persistent organization exposure alerts to the Watchlist"),
+    ("1.12.2", "Add acknowledgement lifecycle for Watchlist exposure alerts"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -81,6 +82,11 @@ async def apply_migrations(conn: aiosqlite.Connection):
             "CREATE INDEX IF NOT EXISTS idx_news_published_at "
             "ON cti_news(published_at DESC);"
         )
+
+    cur = await conn.execute("PRAGMA table_info(watchlist_alerts);")
+    watchlist_alert_cols = [row[1] for row in await cur.fetchall()]
+    if watchlist_alert_cols and "acknowledged_at" not in watchlist_alert_cols:
+        await conn.execute("ALTER TABLE watchlist_alerts ADD COLUMN acknowledged_at TEXT;")
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     for version, description in SCHEMA_MIGRATIONS:
@@ -261,6 +267,7 @@ async def init_db():
             source_date TEXT,
             detected_at TEXT NOT NULL,
             last_seen TEXT NOT NULL,
+            acknowledged_at TEXT,
             UNIQUE(watchlist_id, source_type, artifact_id),
             FOREIGN KEY(watchlist_id) REFERENCES watchlist(id) ON DELETE CASCADE
         );

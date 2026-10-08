@@ -531,6 +531,89 @@ def test_api_watchlist_crud(client):
     assert del_res.status_code == 200
 
 
+def test_watchlist_correlated_alert_acknowledgement(client):
+    """One source incident matched by company and domain has one alert lifecycle."""
+    main_module.SETTINGS_ADMIN_TOKEN = "watchlist-ack-code"
+    headers = {"X-Admin-Token": "watchlist-ack-code"}
+
+    async def seed_correlated_incident():
+        async with main_module.get_db() as conn:
+            for item_id, item_type, value in (
+                ("wl-ack-company", "company", "Ack Example Corp"),
+                ("wl-ack-domain", "domain", "ack-example.invalid"),
+            ):
+                await conn.execute(
+                    """INSERT OR REPLACE INTO watchlist
+                       (id, item_type, value, notes, created_at) VALUES (?, ?, ?, ?, ?)""",
+                    (item_id, item_type, value, "Acknowledgement test", "2026-10-08T12:00:00+00:00"),
+                )
+                await conn.execute(
+                    """INSERT OR REPLACE INTO watchlist_alerts
+                       (id, watchlist_id, source_type, source_name, artifact_id, title,
+                        matched_value, matched_field, severity, evidence, source_date,
+                        detected_at, last_seen, acknowledged_at)
+                       VALUES (?, ?, 'ransomware', 'Ransomware.live', 'ack-artifact-1',
+                               'Ack Example Corp', ?, 'victim disclosure', 'CRITICAL',
+                               'Correlated acknowledgement test', '2026-10-08',
+                               '2026-10-08 12:00:00 UTC', '2026-10-08 12:00:00 UTC', NULL)""",
+                    (f"wla-ack-{item_type}", item_id, value),
+                )
+            await conn.commit()
+
+    async def cleanup():
+        async with main_module.get_db() as conn:
+            await conn.execute("DELETE FROM watchlist WHERE id IN ('wl-ack-company','wl-ack-domain')")
+            await conn.commit()
+
+    asyncio.run(seed_correlated_incident())
+    try:
+        before = client.get("/api/watchlist").json()
+        incident = next(
+            item for item in before["exposure_alerts"]
+            if item["artifact_id"] == "ack-artifact-1"
+        )
+        assert incident["acknowledged"] == 0
+        assert set(incident["matched_values"].split(",")) == {
+            "Ack Example Corp", "ack-example.invalid"
+        }
+
+        unauthenticated = client.post(
+            "/api/watchlist/alerts/acknowledge",
+            json={"source_type": "ransomware", "artifact_id": "ack-artifact-1"},
+        )
+        assert unauthenticated.status_code == 401
+
+        acknowledged = client.post(
+            "/api/watchlist/alerts/acknowledge",
+            headers=headers,
+            json={"source_type": "ransomware", "artifact_id": "ack-artifact-1"},
+        )
+        assert acknowledged.status_code == 200
+        assert acknowledged.json()["status"] == "acknowledged"
+
+        after = client.get("/api/watchlist").json()
+        incident = next(
+            item for item in after["exposure_alerts"]
+            if item["artifact_id"] == "ack-artifact-1"
+        )
+        assert incident["acknowledged"] == 1
+        assert incident["acknowledged_at"]
+    finally:
+        asyncio.run(cleanup())
+
+
+def test_schema_migration_1122(client):
+    async def check():
+        migrations = await get_schema_migrations()
+        versions = [migration["version"] for migration in migrations]
+        assert "1.12.2" in versions
+        async with main_module.get_db() as conn:
+            columns = await (await conn.execute("PRAGMA table_info(watchlist_alerts)")).fetchall()
+            assert "acknowledged_at" in {column[1] for column in columns}
+
+    asyncio.run(check())
+
+
 def test_watchlist_validation_and_stored_xss_is_rendered_inert(client):
     main_module.SETTINGS_ADMIN_TOKEN = "watchlist-xss-code"
     headers = {"X-Admin-Token": "watchlist-xss-code"}

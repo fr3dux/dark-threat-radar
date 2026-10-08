@@ -40,6 +40,7 @@ from app.schemas import (
     PasswordLeakCheckRequest,
     EmailLeakCheckRequest,
     WatchlistCreate,
+    WatchlistAlertAcknowledge,
 )
 from app.security import RequestBodyLimitMiddleware, security_middleware
 from app.database import (
@@ -898,7 +899,9 @@ async def api_get_watchlist():
                    MAX(a.reference_url) AS reference_url,
                    MAX(a.source_date) AS source_date,
                    MIN(a.detected_at) AS detected_at,
-                   MAX(a.last_seen) AS last_seen
+                   MAX(a.last_seen) AS last_seen,
+                   CASE WHEN COUNT(a.acknowledged_at)=COUNT(*) THEN 1 ELSE 0 END AS acknowledged,
+                   MAX(a.acknowledged_at) AS acknowledged_at
                FROM watchlist_alerts a
                JOIN watchlist w ON w.id = a.watchlist_id
                GROUP BY a.source_type, a.artifact_id
@@ -913,6 +916,14 @@ async def api_get_watchlist():
                )"""
         )).fetchone()
         total_exposure_alerts = int(exposure_count_row["total"] or 0)
+        unread_count_row = await (await conn.execute(
+            """SELECT COUNT(*) AS total FROM (
+                   SELECT source_type, artifact_id FROM watchlist_alerts
+                   GROUP BY source_type, artifact_id
+                   HAVING COUNT(acknowledged_at) < COUNT(*)
+               )"""
+        )).fetchone()
+        total_unacknowledged_alerts = int(unread_count_row["total"] or 0)
 
         # For each item, find matching CVEs and remediation data
         matched_cves = []
@@ -1016,6 +1027,7 @@ async def api_get_watchlist():
         "total_vulnerability_alerts": len(unique_cves),
         "exposure_alerts": exposure_alerts,
         "total_exposure_alerts": total_exposure_alerts,
+        "total_unacknowledged_alerts": total_unacknowledged_alerts,
         "total_alerts": len(unique_cves) + total_exposure_alerts,
     }
 
@@ -1026,16 +1038,51 @@ async def api_watchlist_summary():
     async with get_db() as conn:
         row = await (await conn.execute(
             """SELECT COUNT(*) AS total,
+                      SUM(CASE WHEN acknowledged=0 THEN 1 ELSE 0 END) AS unacknowledged,
                       SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) AS critical
                FROM (
-                   SELECT source_type, artifact_id, MAX(severity) AS severity
+                   SELECT source_type, artifact_id, MAX(severity) AS severity,
+                          CASE WHEN COUNT(acknowledged_at)=COUNT(*) THEN 1 ELSE 0 END AS acknowledged
                    FROM watchlist_alerts
                    GROUP BY source_type, artifact_id
                )"""
         )).fetchone()
     return {
         "total_exposure_alerts": int(row["total"] or 0),
+        "total_unacknowledged_alerts": int(row["unacknowledged"] or 0),
         "critical_exposure_alerts": int(row["critical"] or 0),
+    }
+
+
+@app.post("/api/watchlist/alerts/acknowledge", tags=["Watchlist"])
+async def api_acknowledge_watchlist_alert(
+    payload: WatchlistAlertAcknowledge,
+    _admin: None = Security(require_settings_admin),
+):
+    """Acknowledge every Watchlist match belonging to one public incident."""
+    from datetime import datetime, timezone
+
+    acknowledged_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    async with get_db() as conn:
+        cursor = await conn.execute(
+            """UPDATE watchlist_alerts SET acknowledged_at = ?
+               WHERE source_type = ? AND artifact_id = ? AND acknowledged_at IS NULL""",
+            (acknowledged_at, payload.source_type, payload.artifact_id),
+        )
+        await conn.commit()
+        existing = await (await conn.execute(
+            """SELECT MAX(acknowledged_at) AS acknowledged_at
+               FROM watchlist_alerts WHERE source_type=? AND artifact_id=?""",
+            (payload.source_type, payload.artifact_id),
+        )).fetchone()
+        if not existing or not existing["acknowledged_at"]:
+            raise HTTPException(status_code=404, detail="Watchlist alert not found")
+        acknowledged_at = existing["acknowledged_at"]
+    return {
+        "status": "acknowledged",
+        "source_type": payload.source_type,
+        "artifact_id": payload.artifact_id,
+        "acknowledged_at": acknowledged_at,
     }
 
 

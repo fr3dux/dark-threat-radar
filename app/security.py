@@ -134,6 +134,8 @@ def _rate_limit_scope(request: Request) -> str | None:
         return "leak_check"
     if path == "/api/watchlist" and method == "POST":
         return "watchlist_write"
+    if path == "/api/watchlist/alerts/acknowledge" and method == "POST":
+        return "watchlist_write"
     if path.startswith("/api/watchlist/") and method == "DELETE":
         return "watchlist_write"
     return None
