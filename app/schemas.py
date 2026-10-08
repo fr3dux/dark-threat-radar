@@ -76,7 +76,7 @@ class EmailLeakCheckRequest(BaseModel):
 
 
 class WatchlistCreate(BaseModel):
-    item_type: Literal["vendor", "product", "cve"] = "vendor"
+    item_type: Literal["vendor", "product", "cve", "company", "brand", "domain", "keyword"] = "vendor"
     value: str = Field(..., min_length=1, max_length=200)
     notes: str = Field(default="", max_length=500)
 
@@ -93,6 +93,22 @@ class WatchlistCreate(BaseModel):
     def require_value(cls, value: str) -> str:
         if not value:
             raise ValueError("Value cannot be empty")
+        return value
+
+    @field_validator("value")
+    @classmethod
+    def validate_monitor_value(cls, value: str, info) -> str:
+        item_type = info.data.get("item_type")
+        if item_type in {"company", "brand", "keyword"} and len(value) < 2:
+            raise ValueError("Organization and keyword targets require at least two characters")
+        if item_type == "domain":
+            from app.watchlist_monitor import normalize_domain
+            normalized = normalize_domain(value)
+            if not normalized:
+                raise ValueError("A valid domain is required")
+            return normalized
+        if item_type == "cve":
+            return value.upper()
         return value
 
 

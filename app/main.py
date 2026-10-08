@@ -58,6 +58,7 @@ from app.scheduler import (
     get_sync_state
 )
 from app.updater import get_update_status, queue_latest_update
+from app.watchlist_monitor import EXPOSURE_TYPES, refresh_watchlist_alerts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -872,7 +873,7 @@ async def api_leak_check_email(req: EmailLeakCheckRequest):
 
 @app.get("/api/watchlist", tags=["Watchlist"])
 async def api_get_watchlist():
-    """Get monitored watchlist items and cross-reference with active KEV / NVD CVEs."""
+    """Get monitored assets, vulnerability matches, and public exposure alerts."""
     import aiosqlite
     from app.database import get_db
 
@@ -881,11 +882,27 @@ async def api_get_watchlist():
         cur = await conn.execute("SELECT * FROM watchlist ORDER BY created_at DESC;")
         items = [dict(r) for r in await cur.fetchall()]
 
+        alert_cur = await conn.execute(
+            """SELECT a.*, w.item_type AS watchlist_type, w.notes AS watchlist_notes
+               FROM watchlist_alerts a
+               JOIN watchlist w ON w.id = a.watchlist_id
+               ORDER BY COALESCE(a.source_date, a.detected_at) DESC, a.detected_at DESC
+               LIMIT 250"""
+        )
+        exposure_alerts = [dict(r) for r in await alert_cur.fetchall()]
+        exposure_count_row = await (await conn.execute(
+            "SELECT COUNT(*) AS total FROM watchlist_alerts"
+        )).fetchone()
+        total_exposure_alerts = int(exposure_count_row["total"] or 0)
+
         # For each item, find matching CVEs and remediation data
         matched_cves = []
         for item in items:
             val = item["value"].strip()
             itype = item["item_type"].strip().lower()
+
+            if itype in EXPOSURE_TYPES:
+                continue
 
             if itype == "cve":
                 c_cur = await conn.execute(
@@ -977,7 +994,25 @@ async def api_get_watchlist():
         "watchlist": items,
         "total_items": len(items),
         "active_alerts": unique_cves,
-        "total_alerts": len(unique_cves)
+        "total_vulnerability_alerts": len(unique_cves),
+        "exposure_alerts": exposure_alerts,
+        "total_exposure_alerts": total_exposure_alerts,
+        "total_alerts": len(unique_cves) + total_exposure_alerts,
+    }
+
+
+@app.get("/api/watchlist/summary", tags=["Watchlist"])
+async def api_watchlist_summary():
+    """Return lightweight counts for automatic Watchlist alert signaling."""
+    async with get_db() as conn:
+        row = await (await conn.execute(
+            """SELECT COUNT(*) AS total,
+                      SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) AS critical
+               FROM watchlist_alerts"""
+        )).fetchone()
+    return {
+        "total_exposure_alerts": int(row["total"] or 0),
+        "critical_exposure_alerts": int(row["critical"] or 0),
     }
 
 
@@ -1004,6 +1039,9 @@ async def api_add_watchlist(
             (item_id, itype, value, notes, now)
         )
         await conn.commit()
+
+    if itype in EXPOSURE_TYPES:
+        await refresh_watchlist_alerts(item_id)
 
     return {"status": "created", "id": item_id, "value": value, "item_type": itype}
 

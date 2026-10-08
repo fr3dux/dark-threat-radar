@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.11.7-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.12.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -144,10 +144,12 @@ Dark Threat Radar includes a hardware-accelerated 60 FPS HTML5 Canvas Cyberattac
 
 ## Watchlist and Remediation Radar
 
-The Watchlist module allows SOC analysts and engineers to monitor internal technologies and appliances:
-- **Target Types:** Register targets by Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler, Linux Kernel), or Specific CVE (e.g., CVE-2026-88772).
-- **Automated Correlation:** Real-time cross-referencing against ingested CISA KEV and NVD records.
-- **Remediation Directives:** Surfaces official required actions (ACTION REQUIRED), mitigation deadlines (DUE DATE), severity classifications, and direct links to patch advisories.
+The Watchlist module combines technical exposure management with organization monitoring:
+- **Technical Targets:** Register Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler), or Specific CVE targets for vulnerability and remediation correlation.
+- **Organization Targets:** Register a Company, Brand, Domain, or Keyword to detect public mentions that may indicate data exposure, extortion, phishing infrastructure, or another security incident.
+- **Persistent Exposure Alerts:** Cross-references ransomware disclosures, CTI news, official vendor advisories, and normalized public IOCs after every ingestion cycle. Findings retain the matched evidence, source, severity, first detection time, and a direct artifact inspection action.
+- **Live Analyst Signaling:** The Watchlist tab is highlighted when exposure matches exist, checks for new findings every minute, and displays an in-dashboard notification when the count increases.
+- **Remediation Directives:** Technical matches continue to surface official required actions, mitigation deadlines, severity classifications, and direct links to patch advisories in a separate section.
 
 ---
 
@@ -347,8 +349,9 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/dshield` | SANS DShield telemetry (INFOCON, top attacking IPs, top scanned ports). |
 | `GET` | `/api/ransomware` | Ransomware victim disclosures (`q`, `group`, `country`, `limit`, `offset`). |
 | `GET` | `/api/attacks/live` | Real-time cyberattack trajectories with geographic coordinates for map rendering. |
-| `GET` | `/api/watchlist` | Retrieve registered watchlist targets and cross-referenced KEV/NVD alerts. |
-| `POST`| `/api/watchlist` | Add a new target (`vendor`, `product`, or `cve`); requires `X-Admin-Token`. |
+| `GET` | `/api/watchlist` | Retrieve registered targets, persistent organization-exposure alerts, and vulnerability remediation matches. |
+| `GET` | `/api/watchlist/summary` | Lightweight public-exposure alert counts for dashboard signaling. |
+| `POST`| `/api/watchlist` | Add a technical or organization target (`vendor`, `product`, `cve`, `company`, `brand`, `domain`, or `keyword`); requires `X-Admin-Token`. |
 | `DELETE`| `/api/watchlist/{id}` | Remove a target; requires `X-Admin-Token`. |
 | `POST`| `/api/leak-check/email` | Validate email exposure in known global data breaches (XposedOrNot). |
 | `POST`| `/api/leak-check/password` | Validate password exposure via K-Anonymity SHA-1 range (Have I Been Pwned). |
@@ -378,10 +381,10 @@ Test coverage includes:
 - Connector status, normalized IOC search, and managed-provider administrative flows
 - Provider parsers and failure isolation for the expanded connector set
 - IOC normalization, deterministic IDs, confidence scoring, and multi-source correlation
-- Watchlist CRUD & correlation logic (`test_api_watchlist_crud`)
+- Watchlist CRUD, technical remediation correlation, domain boundary matching, and persistent cross-source organization exposure alerts
 - Leak check endpoints (`test_leak_check_password`, `test_leak_check_email`)
 - Input validation and 404/400 exception boundaries (`test_artifact_cve_not_found`, `test_artifact_invalid_type`)
-- Schema migration registration through source-aware IOC lifecycle and ATT&CK knowledge storage (`1.10.0`)
+- Schema migration registration through persistent Watchlist exposure alerts (`1.12.0`)
 - Per-installation administrator code generation and file-permission checks
 - Stable release discovery, authenticated update requests, and semantic-version validation
 - Stored-XSS regression protection, administrative write boundaries, request-size limits, and abuse throttling

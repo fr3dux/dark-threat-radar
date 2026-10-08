@@ -1005,8 +1005,8 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: WATCHLIST & REMEDIATION (v1.7.10)      -->
-    <!-- Custom Asset Tracking & Remediation Directives -->
+    <!-- TAB: WATCHLIST EXPOSURE & REMEDIATION (v1.12.0) -->
+    <!-- Organization exposure plus technical asset tracking -->
     <!-- ========================================== -->
     <div id="panel-watchlist" class="view-panel">
       <div class="dash-two-col-grid" style="grid-template-columns: 360px 1fr;">
@@ -1021,7 +1021,7 @@
           </div>
           <div class="dash-card-body">
             <p class="text-muted" style="font-size: 11.5px; margin-bottom: 12px;">
-              Register vendors, operating systems, software products, or specific CVEs to track in your environment.
+              Monitor technical assets and detect public exposure of organizations, brands, domains, or relevant terms.
             </p>
 
             <!-- Add Target Form -->
@@ -1031,8 +1031,12 @@
                   <option value="vendor">Vendor</option>
                   <option value="product">Product / OS</option>
                   <option value="cve">Specific CVE</option>
+                  <option value="company">Company</option>
+                  <option value="brand">Brand</option>
+                  <option value="domain">Domain</option>
+                  <option value="keyword">Keyword</option>
                 </select>
-                <input type="text" id="wl-val-input" class="search-input" maxlength="200" placeholder="e.g. Citrix, PAN-OS, CVE-2026-88772" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+                <input type="text" id="wl-val-input" class="search-input" maxlength="200" placeholder="e.g. Example Corp, example.com, Citrix" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
               </div>
               <input type="text" id="wl-notes-input" class="search-input" maxlength="500" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
               <input type="password" id="wl-admin-token" class="search-input" autocomplete="current-password" maxlength="256" placeholder="Administrative access code" style="width: 100%; margin-bottom: 8px;">
@@ -1046,16 +1050,42 @@
           </div>
         </div>
 
-        <!-- Right: Active Threat & Remediation Directives -->
+        <!-- Right: Exposure alerts and technical remediation -->
         <div class="dash-card">
           <div class="dash-card-header">
             <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet crit">●</span> ACTIVE THREATS & REMEDIATION DIRECTIVES</span>
+              <span class="dash-card-title"><span class="widget-bullet crit">●</span> WATCHLIST ALERT CENTER</span>
               <span class="badge badge-crit" id="wl-alerts-badge">0 MATCHES</span>
             </div>
           </div>
           <div class="dash-card-body">
-            <div class="table-container" style="max-height: calc(100vh - 220px); overflow-y: auto;">
+            <div class="wl-section-heading">
+              <span>ORGANIZATION EXPOSURE</span>
+              <span class="badge badge-crit" id="wl-exposure-badge">0 ALERTS</span>
+            </div>
+            <p class="text-muted wl-section-description">Matches found in public ransomware disclosures, CTI news, official advisories, and malicious IOC infrastructure.</p>
+            <div class="table-container wl-alert-table-container">
+              <table class="data-table" id="wl-exposure-table">
+                <thead>
+                  <tr>
+                    <th style="width: 120px;">MONITORED</th>
+                    <th style="width: 105px;">SOURCE</th>
+                    <th>PUBLIC EXPOSURE EVIDENCE</th>
+                    <th style="width: 125px;">DATE</th>
+                    <th style="width: 80px;">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="wl-exposure-tbody">
+                  <tr><td colspan="5" class="loading-row">No public exposure alerts detected.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="wl-section-heading wl-vulnerability-heading">
+              <span>VULNERABILITIES &amp; REMEDIATION</span>
+              <span class="badge badge-warn" id="wl-vulnerability-badge">0 MATCHES</span>
+            </div>
+            <div class="table-container wl-alert-table-container">
               <table class="data-table" id="wl-alerts-table">
                 <thead>
                   <tr>
@@ -1067,7 +1097,7 @@
                   </tr>
                 </thead>
                 <tbody id="wl-alerts-tbody">
-                  <tr><td colspan="5" class="loading-row">No active alerts. Add items to your watchlist to monitor vulnerabilities.</td></tr>
+                  <tr><td colspan="5" class="loading-row">No vulnerability matches detected.</td></tr>
                 </tbody>
               </table>
             </div>

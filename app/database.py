@@ -31,6 +31,7 @@ SCHEMA_MIGRATIONS = [
     ("1.8.1", "Add normalized IOC correlation and connector health without changing the v1.7 dashboard"),
     ("1.10.0", "Add source-aware IOC expiry and ATT&CK knowledge storage for expanded public CTI"),
     ("1.11.7", "Add normalized CTI news publication timestamps for chronological ordering"),
+    ("1.12.0", "Add persistent organization exposure alerts to the Watchlist"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -244,6 +245,29 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_watchlist_type ON watchlist(item_type);
         CREATE INDEX IF NOT EXISTS idx_watchlist_val ON watchlist(value);
+
+        CREATE TABLE IF NOT EXISTS watchlist_alerts (
+            id TEXT PRIMARY KEY,
+            watchlist_id TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            source_name TEXT NOT NULL,
+            artifact_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            matched_value TEXT NOT NULL,
+            matched_field TEXT,
+            severity TEXT NOT NULL DEFAULT 'HIGH',
+            evidence TEXT,
+            reference_url TEXT,
+            source_date TEXT,
+            detected_at TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            UNIQUE(watchlist_id, source_type, artifact_id),
+            FOREIGN KEY(watchlist_id) REFERENCES watchlist(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_watchlist_alerts_target
+            ON watchlist_alerts(watchlist_id, detected_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_watchlist_alerts_date
+            ON watchlist_alerts(source_date DESC, detected_at DESC);
 """)
 
         # Normalized threat indicators. The deterministic id is derived from

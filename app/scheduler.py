@@ -16,6 +16,7 @@ from app.config import (
     CTI_SLOW_INTERVAL_SECONDS,
     ABUSEIPDB_INTERVAL_SECONDS,
 )
+from app.watchlist_monitor import refresh_watchlist_alerts
 
 logger = logging.getLogger("scheduler")
 
@@ -43,6 +44,10 @@ async def _run_group_locked(name, callback):
     async with _scheduled_group_lock:
         async with lock:
             await callback()
+            try:
+                await refresh_watchlist_alerts()
+            except Exception:
+                logger.exception("Watchlist exposure correlation failed after %s ingestion", name)
 
 async def scheduled_sync_task():
     global _is_syncing
@@ -53,6 +58,7 @@ async def scheduled_sync_task():
         _is_syncing = True
         try:
             await run_all_ingestions()
+            await refresh_watchlist_alerts()
         finally:
             _is_syncing = False
 

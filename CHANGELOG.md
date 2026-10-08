@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-10-08
+
+### Added
+- **Organization Exposure Watchlist**: Adds Company, Brand, Domain, and Keyword targets alongside the existing Vendor, Product, and CVE monitoring.
+- **Cross-Source Exposure Correlation**: Detects monitored identities in ransomware disclosures, CTI news, official vendor advisories, and active normalized public IOCs.
+- **Persistent Alert Evidence**: Stores a stable alert with source, severity, matched field, evidence excerpt, source date, detection time, and original artifact reference.
+- **Live Watchlist Signaling**: Highlights the Watchlist tab and checks once per minute for new exposure findings, showing an in-dashboard notification when the alert count increases.
+
+### Changed
+- **Separated Analyst Workflows**: Splits organization-exposure alerts from vulnerability and remediation matches so public mentions are not confused with technical asset risk.
+
+### Security
+- **Boundary-Aware Matching**: Applies normalized word boundaries for organization terms and exact/subdomain boundaries for domains to reduce misleading partial matches.
+- **Protected Target Administration**: New Watchlist target types retain the existing administrative authentication, input validation, rate limiting, and escaped rendering controls.
+
 ## [1.11.7] - 2026-10-08
 
 ### Fixed

@@ -7,6 +7,7 @@ let integrationAdminToken = '';
 let integrationSettingsPoll = null;
 let updateStatusData = null;
 let updateStatusPoll = null;
+let watchlistExposureCount = null;
 const loadedAppVersion = document.body.dataset.version || '';
 
 function updateStickyNavigationOffset() {
@@ -58,6 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start periodic status check (every 15s)
   setInterval(pollStatus, 15000);
+  pollWatchlistAlerts();
+  setInterval(pollWatchlistAlerts, 60000);
   checkForUpdate();
   setInterval(() => checkForUpdate(), 21600000);
 
@@ -1860,27 +1863,35 @@ async function runPasswordLeakCheck() {
 }
 
 
-// ==================== WATCHLIST & REMEDIATION (v1.7.7) ====================
+// ==================== WATCHLIST EXPOSURE & REMEDIATION (v1.12.0) ====================
 
 async function loadWatchlist() {
   const container = document.getElementById('wl-items-container');
   const tbody = document.getElementById('wl-alerts-tbody');
+  const exposureTbody = document.getElementById('wl-exposure-tbody');
   const badgeCount = document.getElementById('wl-badge-count');
   const alertsBadge = document.getElementById('wl-alerts-badge');
+  const exposureBadge = document.getElementById('wl-exposure-badge');
+  const vulnerabilityBadge = document.getElementById('wl-vulnerability-badge');
   const tabCount = document.getElementById('tab-count-watchlist');
-  if (!container || !tbody) return;
+  if (!container || !tbody || !exposureTbody) return;
 
   try {
     const res = await fetch('/api/watchlist');
     const data = await res.json();
 
     if (badgeCount) badgeCount.textContent = (data.total_items || 0) + ' TARGETS';
+    const exposureTotal = data.total_exposure_alerts || 0;
+    const vulnerabilityTotal = data.total_vulnerability_alerts || 0;
     if (alertsBadge) alertsBadge.textContent = (data.total_alerts || 0) + ' MATCHES';
+    if (exposureBadge) exposureBadge.textContent = exposureTotal + ' ALERTS';
+    if (vulnerabilityBadge) vulnerabilityBadge.textContent = vulnerabilityTotal + ' MATCHES';
     if (tabCount) tabCount.textContent = data.total_alerts || 0;
+    setWatchlistAlertState(exposureTotal);
 
     // Render Monitored Targets
     if (!data.watchlist || data.watchlist.length === 0) {
-      container.innerHTML = '<div class="stream-item-placeholder">No monitored targets registered yet. Add vendors or products above.</div>';
+      container.innerHTML = '<div class="stream-item-placeholder">No monitored targets registered yet. Add an asset, company, brand, domain, or keyword above.</div>';
     } else {
       container.innerHTML = data.watchlist.map(function(item) {
         return '<div class="wl-item-card">' +
@@ -1893,6 +1904,26 @@ async function loadWatchlist() {
           '</div>' +
           '<button class="wl-delete-btn mono font-bold" data-watchlist-delete="' + escapeHtml(item.id) + '" title="Delete Target">✕</button>' +
         '</div>';
+      }).join('');
+    }
+
+    // Render persistent public-exposure findings.
+    if (!data.exposure_alerts || data.exposure_alerts.length === 0) {
+      exposureTbody.innerHTML = '<tr><td colspan="5" class="loading-row">No public exposure matches for monitored organizations or domains.</td></tr>';
+    } else {
+      exposureTbody.innerHTML = data.exposure_alerts.map(function(alertItem) {
+        const severityClass = alertItem.severity === 'CRITICAL' ? 'badge-crit' : 'badge-warn';
+        const artifactType = alertItem.source_type;
+        return '<tr class="clickable-row">' +
+          '<td><div class="mono font-bold wl-match-value">' + escapeHtml(alertItem.matched_value) + '</div>' +
+            '<span class="badge badge-filetype mono">' + escapeHtml((alertItem.watchlist_type || '').toUpperCase()) + '</span></td>' +
+          '<td><span class="badge ' + severityClass + '">' + escapeHtml(alertItem.severity || 'HIGH') + '</span>' +
+            '<div class="mono text-muted wl-source-name">' + escapeHtml(alertItem.source_name || '') + '</div></td>' +
+          '<td><div class="font-bold wl-alert-title">' + escapeHtml(alertItem.title || 'Public exposure match') + '</div>' +
+            '<div class="wl-alert-evidence">Matched in ' + escapeHtml(alertItem.matched_field || 'public intelligence') + ': ' + escapeHtml(alertItem.evidence || '') + '</div></td>' +
+          '<td class="mono text-muted">' + escapeHtml(formatWatchlistDate(alertItem.source_date || alertItem.detected_at)) + '</td>' +
+          '<td><button class="btn btn-sm" data-artifact-type="' + escapeHtml(artifactType) + '" data-artifact-id="' + escapeHtml(alertItem.artifact_id) + '">INSPECT</button></td>' +
+        '</tr>';
       }).join('');
     }
 
@@ -1934,6 +1965,56 @@ async function loadWatchlist() {
   }
 }
 
+function formatWatchlistDate(value) {
+  if (!value) return 'N/A';
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
+  return String(value).substring(0, 19);
+}
+
+function setWatchlistAlertState(total) {
+  const tab = document.getElementById('tab-watchlist');
+  const count = document.getElementById('tab-count-watchlist');
+  if (tab) tab.classList.toggle('has-exposure-alerts', total > 0);
+  if (count && currentTab !== 'panel-watchlist') count.textContent = total;
+}
+
+function showWatchlistNotification(newMatches) {
+  let notice = document.getElementById('watchlist-notification');
+  if (!notice) {
+    notice = document.createElement('button');
+    notice.id = 'watchlist-notification';
+    notice.type = 'button';
+    notice.className = 'watchlist-notification';
+    notice.addEventListener('click', function() {
+      const tab = document.getElementById('tab-watchlist');
+      if (tab) switchTab('panel-watchlist', tab);
+      notice.classList.remove('visible');
+    });
+    document.body.appendChild(notice);
+  }
+  notice.textContent = '⚠ WATCHLIST: ' + newMatches + ' NEW PUBLIC EXPOSURE ' + (newMatches === 1 ? 'MATCH' : 'MATCHES');
+  notice.classList.add('visible');
+  window.setTimeout(() => notice.classList.remove('visible'), 12000);
+}
+
+async function pollWatchlistAlerts() {
+  try {
+    const response = await fetch('/api/watchlist/summary', { cache: 'no-store' });
+    if (!response.ok) return;
+    const data = await response.json();
+    const total = Number(data.total_exposure_alerts) || 0;
+    if (watchlistExposureCount !== null && total > watchlistExposureCount) {
+      showWatchlistNotification(total - watchlistExposureCount);
+      if (currentTab === 'panel-watchlist') loadWatchlist();
+    }
+    watchlistExposureCount = total;
+    setWatchlistAlertState(total);
+  } catch (error) {
+    console.warn('Watchlist alert polling failed:', error);
+  }
+}
+
 async function addWatchlistItem() {
   const typeSelect = document.getElementById('wl-type-select');
   const valInput = document.getElementById('wl-val-input');
@@ -1946,7 +2027,7 @@ async function addWatchlistItem() {
   const adminToken = document.getElementById('wl-admin-token')?.value.trim() || integrationAdminToken;
 
   if (!value) {
-    alert('Please enter a vendor, product, or CVE to monitor.');
+    alert('Please enter an asset, organization, domain, or keyword to monitor.');
     return;
   }
   if (!adminToken) {
