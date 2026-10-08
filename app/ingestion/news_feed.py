@@ -9,6 +9,7 @@ import httpx
 import feedparser
 from app.database import get_db, update_feed_status
 from app.config import LOCAL_NEWS_FILE
+from app.news_dates import normalize_news_date
 
 logger = logging.getLogger("ingestion.news_feed")
 
@@ -46,6 +47,7 @@ async def ingest_news_feed() -> int:
                     if not title or not link:
                         continue
                     pub_date = item.get("date", "")
+                    published_at = normalize_news_date(pub_date)
                     # Deduce source from link
                     source = "Local CTI"
                     if "bleepingcomputer" in link:
@@ -62,14 +64,16 @@ async def ingest_news_feed() -> int:
                     news_id = hashlib.sha256(link.encode("utf-8")).hexdigest()[:16]
 
                     await conn.execute("""
-                        INSERT INTO cti_news (id, title, link, source, published_date, snippet, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO cti_news (
+                            id, title, link, source, published_date, published_at, snippet, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(id) DO UPDATE SET
                             title = excluded.title,
                             source = excluded.source,
                             published_date = excluded.published_date,
+                            published_at = COALESCE(excluded.published_at, cti_news.published_at),
                             updated_at = excluded.updated_at;
-                    """, (news_id, title, link, source, pub_date, "", now_str))
+                    """, (news_id, title, link, source, pub_date, published_at, "", now_str))
                     count += 1
             except Exception as e:
                 logger.warning(f"Failed parsing local news history: {e}")
@@ -88,19 +92,25 @@ async def ingest_news_feed() -> int:
                                 continue
 
                             published = entry.get("published", "") or entry.get("updated", "")
+                            published_at = normalize_news_date(published)
                             summary = clean_html(entry.get("summary", "") or entry.get("description", ""))
                             news_id = hashlib.sha256(link.encode("utf-8")).hexdigest()[:16]
 
                             await conn.execute("""
-                                INSERT INTO cti_news (id, title, link, source, published_date, snippet, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                INSERT INTO cti_news (
+                                    id, title, link, source, published_date, published_at, snippet, updated_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                                 ON CONFLICT(id) DO UPDATE SET
                                     title = excluded.title,
                                     source = excluded.source,
                                     published_date = excluded.published_date,
+                                    published_at = COALESCE(excluded.published_at, cti_news.published_at),
                                     snippet = excluded.snippet,
                                     updated_at = excluded.updated_at;
-                            """, (news_id, title, link, source_name, published, summary, now_str))
+                            """, (
+                                news_id, title, link, source_name, published,
+                                published_at, summary, now_str,
+                            ))
                             count += 1
                 except Exception as e:
                     logger.warning(f"Error fetching feed {source_name}: {e}")

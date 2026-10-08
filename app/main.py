@@ -623,7 +623,10 @@ async def api_news(
         row = await cur.fetchone()
         total = row["count"] if row else 0
 
-        query += " ORDER BY published_date DESC, updated_at DESC LIMIT ? OFFSET ?"
+        query += (
+            " ORDER BY COALESCE(published_at, updated_at) DESC, updated_at DESC"
+            " LIMIT ? OFFSET ?"
+        )
         params.extend([limit, offset])
 
         cur = await conn.execute(query, params)

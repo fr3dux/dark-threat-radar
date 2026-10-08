@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.7] - 2026-10-08
+
+### Fixed
+- **Chronological CTI News**: Normalizes RSS and local-news publication dates to UTC before sorting, preventing weekday text such as `Wed` from appearing newer than later `Thu` entries.
+- **Non-Destructive News Migration**: Preserves the original publication text for display while automatically backfilling a dedicated sortable timestamp for existing installations.
+- **Safe Date Fallback**: Keeps malformed or missing provider dates ingestible without allowing one feed entry to interrupt the news pipeline.
+
 ## [1.11.6] - 2026-10-02
 
 ### Fixed

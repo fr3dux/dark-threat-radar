@@ -4,6 +4,8 @@ import asyncio
 import stat
 from datetime import datetime, timedelta, timezone
 
+import aiosqlite
+
 from app import database
 from app import credential_store
 from app.ingestion import _run_group
@@ -14,6 +16,7 @@ from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
 from app.ingestion.common import IOCRecord, expire_stale_iocs, upsert_ioc_records
 from app.ingestion.normalization import TYPE_IPV4
+from app.news_dates import normalize_news_date
 
 
 def test_spamhaus_ndjson_parser():
@@ -72,6 +75,61 @@ def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):
     assert len(connectors) == 23
     assert next(c for c in connectors if c["source_name"] == "openphish")["state"] == "disabled"
     assert sum(v["version"] == "1.8.1" for v in versions) == 1
+
+
+def test_news_dates_sort_chronologically_across_weekdays():
+    wednesday = normalize_news_date("Wed, 30 Sep 2026 23:43:51 +0000")
+    thursday = normalize_news_date("Thu, 08 Oct 2026 09:00:00 +0000")
+    local_date = normalize_news_date("2026-10-07 09:00")
+    assert wednesday == "2026-09-30T23:43:51Z"
+    assert thursday == "2026-10-08T09:00:00Z"
+    assert local_date == "2026-10-07T09:00:00Z"
+    assert wednesday < local_date < thursday
+    assert normalize_news_date("provider-date-unavailable") is None
+
+
+def test_news_date_migration_backfills_legacy_rows(tmp_path, monkeypatch):
+    database_path = tmp_path / "legacy-news.db"
+    monkeypatch.setattr(database, "DB_PATH", database_path)
+
+    async def verify():
+        async with aiosqlite.connect(database_path) as conn:
+            await conn.execute("""
+                CREATE TABLE cti_news (
+                    id TEXT PRIMARY KEY, title TEXT NOT NULL, link TEXT NOT NULL,
+                    source TEXT NOT NULL, published_date TEXT, snippet TEXT, updated_at TEXT
+                )
+            """)
+            await conn.executemany(
+                "INSERT INTO cti_news VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("older", "Older", "https://example.test/older", "Test",
+                     "Wed, 30 Sep 2026 23:43:51 +0000", "", "2026-10-01 00:00:00 UTC"),
+                    ("newer", "Newer", "https://example.test/newer", "Test",
+                     "Thu, 08 Oct 2026 09:00:00 +0000", "", "2026-10-08 09:01:00 UTC"),
+                ],
+            )
+            await conn.commit()
+
+        await database.init_db()
+        async with database.get_db() as conn:
+            columns = [row[1] for row in await (await conn.execute(
+                "PRAGMA table_info(cti_news)"
+            )).fetchall()]
+            rows = await (await conn.execute(
+                "SELECT id, published_at FROM cti_news "
+                "ORDER BY COALESCE(published_at, updated_at) DESC"
+            )).fetchall()
+            migrations = await (await conn.execute(
+                "SELECT version FROM schema_migrations WHERE version='1.11.7'"
+            )).fetchall()
+        return columns, [(row["id"], row["published_at"]) for row in rows], migrations
+
+    columns, rows, migrations = asyncio.run(verify())
+    assert "published_at" in columns
+    assert [row[0] for row in rows] == ["newer", "older"]
+    assert rows[0][1] == "2026-10-08T09:00:00Z"
+    assert len(migrations) == 1
 
 
 def test_runtime_credentials_are_owner_only_and_never_require_restart(tmp_path, monkeypatch):

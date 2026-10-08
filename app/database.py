@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from app.config import DB_PATH
 from app.credential_store import openphish_is_enabled
+from app.news_dates import normalize_news_date
 
 @asynccontextmanager
 async def get_db():
@@ -29,6 +30,7 @@ SCHEMA_MIGRATIONS = [
     ("1.7.0", "Add asset watchlist table and remediation tracking"),
     ("1.8.1", "Add normalized IOC correlation and connector health without changing the v1.7 dashboard"),
     ("1.10.0", "Add source-aware IOC expiry and ATT&CK knowledge storage for expanded public CTI"),
+    ("1.11.7", "Add normalized CTI news publication timestamps for chronological ordering"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -58,6 +60,26 @@ async def apply_migrations(conn: aiosqlite.Connection):
             await conn.execute("ALTER TABLE ioc_sources ADD COLUMN expires_at TEXT;")
         if "active" not in source_cols:
             await conn.execute("ALTER TABLE ioc_sources ADD COLUMN active INTEGER NOT NULL DEFAULT 1;")
+
+    cur = await conn.execute("PRAGMA table_info(cti_news);")
+    news_cols = [row[1] for row in await cur.fetchall()]
+    if news_cols:
+        if "published_at" not in news_cols:
+            await conn.execute("ALTER TABLE cti_news ADD COLUMN published_at TEXT;")
+        cur = await conn.execute(
+            "SELECT id, published_date FROM cti_news WHERE published_at IS NULL;"
+        )
+        for row in await cur.fetchall():
+            normalized = normalize_news_date(row[1])
+            if normalized:
+                await conn.execute(
+                    "UPDATE cti_news SET published_at = ? WHERE id = ?;",
+                    (normalized, row[0]),
+                )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_news_published_at "
+            "ON cti_news(published_at DESC);"
+        )
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     for version, description in SCHEMA_MIGRATIONS:
@@ -186,6 +208,7 @@ async def init_db():
                 link TEXT NOT NULL,
                 source TEXT NOT NULL,
                 published_date TEXT,
+                published_at TEXT,
                 snippet TEXT,
                 updated_at TEXT
             );
@@ -635,7 +658,7 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         cur = await conn.execute("""
             SELECT id, title, source, published_date, link, snippet
             FROM cti_news 
-            ORDER BY published_date DESC, updated_at DESC 
+            ORDER BY COALESCE(published_at, updated_at) DESC, updated_at DESC
             LIMIT 5;
         """)
         recent_news = [dict(r) for r in await cur.fetchall()]
