@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.12.0-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.12.1-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -150,6 +150,7 @@ The Watchlist module combines technical exposure management with organization mo
 - **Persistent Exposure Alerts:** Cross-references ransomware disclosures, CTI news, official vendor advisories, and normalized public IOCs after every ingestion cycle. Findings retain the matched evidence, source, severity, first detection time, and a direct artifact inspection action.
 - **Live Analyst Signaling:** The Watchlist tab is highlighted when exposure matches exist, checks for new findings every minute, and displays an in-dashboard notification when the count increases.
 - **Remediation Directives:** Technical matches continue to surface official required actions, mitigation deadlines, severity classifications, and direct links to patch advisories in a separate section.
+- **Personalized Workspace:** Groups monitored interests into Organizations & Domains and Technologies & CVEs, with per-interest status, search, category filters, and a single curated intelligence stream. The same incident is shown once even when both a company name and its domain match.
 
 ---
 

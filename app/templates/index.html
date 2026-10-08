@@ -1005,18 +1005,86 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB: WATCHLIST EXPOSURE & REMEDIATION (v1.12.0) -->
-    <!-- Organization exposure plus technical asset tracking -->
+    <!-- TAB: WATCHLIST (v1.12.1) -->
+    <!-- Personalized interests and relevant intelligence -->
     <!-- ========================================== -->
     <div id="panel-watchlist" class="view-panel">
-      <div class="dash-two-col-grid" style="grid-template-columns: 360px 1fr;">
+      <section class="wl-overview-card">
+        <div class="wl-overview-copy">
+          <span class="wl-eyebrow mono">PERSONALIZED THREAT INTELLIGENCE</span>
+          <h2>WATCHLIST</h2>
+          <p>A clear view of the organizations, domains, vendors, products, and CVEs that matter to you.</p>
+        </div>
+        <div class="wl-overview-actions">
+          <button type="button" class="btn btn-primary font-bold" id="wl-toggle-editor" onclick="toggleWatchlistEditor()">+ ADD INTEREST</button>
+        </div>
+        <div class="wl-metric-strip">
+          <div class="wl-metric"><span class="wl-metric-label">MONITORED</span><strong id="wl-badge-count">0</strong><small>interests</small></div>
+          <div class="wl-metric danger"><span class="wl-metric-label">EXPOSURE</span><strong id="wl-exposure-badge">0</strong><small>public incidents</small></div>
+          <div class="wl-metric warning"><span class="wl-metric-label">VULNERABILITIES</span><strong id="wl-vulnerability-badge">0</strong><small>relevant matches</small></div>
+          <div class="wl-metric info"><span class="wl-metric-label">INTELLIGENCE</span><strong id="wl-alerts-badge">0</strong><small>signals for you</small></div>
+        </div>
+      </section>
+
+      <section class="wl-editor" id="wl-editor" hidden>
+        <div class="wl-editor-heading">
+          <div><span class="mono wl-eyebrow">NEW WATCHLIST INTEREST</span><p>Choose what the system should continuously correlate with public CTI.</p></div>
+          <button type="button" class="wl-editor-close" onclick="toggleWatchlistEditor(false)" aria-label="Close add interest form">✕</button>
+        </div>
+        <div class="wl-editor-grid">
+          <label><span>TYPE</span><select id="wl-type-select" class="filter-select">
+            <option value="company">Company / Client</option>
+            <option value="domain">Domain</option>
+            <option value="brand">Brand</option>
+            <option value="vendor">Security Vendor</option>
+            <option value="product">Product / OS</option>
+            <option value="cve">Specific CVE</option>
+            <option value="keyword">Keyword</option>
+          </select></label>
+          <label class="wl-editor-value"><span>NAME OR VALUE</span><input type="text" id="wl-val-input" class="search-input" maxlength="200" placeholder="e.g. CrowdStrike, Palo Alto Networks, client.com" onkeydown="if(event.key==='Enter') addWatchlistItem()"></label>
+          <label><span>CONTEXT</span><input type="text" id="wl-notes-input" class="search-input" maxlength="500" placeholder="e.g. Public client, EDR stack, Perimeter" onkeydown="if(event.key==='Enter') addWatchlistItem()"></label>
+          <label><span>ADMIN CODE</span><input type="password" id="wl-admin-token" class="search-input" autocomplete="current-password" maxlength="256" placeholder="Administrative access code"></label>
+          <button type="button" id="btn-add-wl" class="btn btn-primary font-bold wl-editor-submit" onclick="addWatchlistItem()">ADD TO WATCHLIST</button>
+        </div>
+      </section>
+
+      <div class="wl-workspace">
+        <aside class="wl-interests-panel">
+          <div class="wl-panel-heading">
+            <div><span class="mono wl-eyebrow">MY INTERESTS</span><h3>WHAT I MONITOR</h3></div>
+            <span class="badge badge-filetype mono" id="wl-interest-count">0</span>
+          </div>
+          <input type="search" id="wl-interest-search" class="search-input" placeholder="Filter my interests..." oninput="renderWatchlistWorkspace()">
+          <div class="wl-interest-filters" role="group" aria-label="Interest categories">
+            <button type="button" class="active" data-watchlist-scope="all">ALL</button>
+            <button type="button" data-watchlist-scope="organization">ORGANIZATIONS</button>
+            <button type="button" data-watchlist-scope="technology">TECHNOLOGY</button>
+          </div>
+          <div class="wl-items-list" id="wl-items-container"><div class="stream-item-placeholder">Loading your monitored interests...</div></div>
+        </aside>
+
+        <section class="wl-intelligence-panel">
+          <div class="wl-panel-heading wl-intelligence-heading">
+            <div><span class="mono wl-eyebrow">CURATED FOR YOUR WATCHLIST</span><h3>INTELLIGENCE FOR YOU</h3></div>
+            <button type="button" class="wl-clear-filter" id="wl-clear-filter" onclick="selectWatchlistInterest('')" hidden>SHOW ALL ×</button>
+          </div>
+          <div class="wl-view-tabs" role="tablist" aria-label="Watchlist intelligence views">
+            <button type="button" class="active" data-watchlist-view="all">PRIORITY <span id="wl-view-all-count">0</span></button>
+            <button type="button" data-watchlist-view="exposure">EXPOSURE <span id="wl-view-exposure-count">0</span></button>
+            <button type="button" data-watchlist-view="vulnerability">VULNERABILITIES <span id="wl-view-vuln-count">0</span></button>
+          </div>
+          <div class="wl-signal-list" id="wl-signal-list"><div class="stream-item-placeholder">Loading intelligence selected for you...</div></div>
+        </section>
+      </div>
+
+      <div class="wl-legacy-layout" hidden>
         
         <!-- Left: Watchlist Target Management -->
         <div class="dash-card">
           <div class="dash-card-header">
             <div class="header-with-badge">
               <span class="dash-card-title"><span class="widget-bullet blue">●</span> MONITORED ASSETS</span>
-              <span class="badge badge-filetype mono" id="wl-badge-count">0 TARGETS</span>
+              <span class="badge badge-filetype mono" id="legacy-wl-badge-count">0 TARGETS</span>
             </div>
           </div>
           <div class="dash-card-body">
@@ -1027,7 +1095,7 @@
             <!-- Add Target Form -->
             <div class="wl-form-box">
               <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                <select id="wl-type-select" class="filter-select" style="width: 110px;">
+                <select id="legacy-wl-type-select" class="filter-select" style="width: 110px;">
                   <option value="vendor">Vendor</option>
                   <option value="product">Product / OS</option>
                   <option value="cve">Specific CVE</option>
@@ -1036,15 +1104,15 @@
                   <option value="domain">Domain</option>
                   <option value="keyword">Keyword</option>
                 </select>
-                <input type="text" id="wl-val-input" class="search-input" maxlength="200" placeholder="e.g. Example Corp, example.com, Citrix" style="flex: 1;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
+                <input type="text" id="legacy-wl-val-input" class="search-input" maxlength="200" placeholder="e.g. Example Corp, example.com, Citrix" style="flex: 1;">
               </div>
-              <input type="text" id="wl-notes-input" class="search-input" maxlength="500" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;" onkeydown="if(event.key==='Enter') addWatchlistItem()">
-              <input type="password" id="wl-admin-token" class="search-input" autocomplete="current-password" maxlength="256" placeholder="Administrative access code" style="width: 100%; margin-bottom: 8px;">
-              <button type="button" id="btn-add-wl" class="btn btn-primary font-bold" style="width: 100%;" onclick="addWatchlistItem()">+ ADD TO WATCHLIST</button>
+              <input type="text" id="legacy-wl-notes-input" class="search-input" maxlength="500" placeholder="Optional internal notes (e.g. Edge Firewalls, Core DC)" style="width: 100%; margin-bottom: 8px;">
+              <input type="password" id="legacy-wl-admin-token" class="search-input" autocomplete="current-password" maxlength="256" placeholder="Administrative access code" style="width: 100%; margin-bottom: 8px;">
+              <button type="button" id="legacy-btn-add-wl" class="btn btn-primary font-bold" style="width: 100%;">+ ADD TO WATCHLIST</button>
             </div>
 
             <!-- List of Monitored Items -->
-            <div class="wl-items-list" id="wl-items-container" style="margin-top: 14px;">
+            <div class="wl-items-list" id="legacy-wl-items-container" style="margin-top: 14px;">
               <div class="stream-item-placeholder">Loading monitored targets...</div>
             </div>
           </div>
@@ -1055,17 +1123,17 @@
           <div class="dash-card-header">
             <div class="header-with-badge">
               <span class="dash-card-title"><span class="widget-bullet crit">●</span> WATCHLIST ALERT CENTER</span>
-              <span class="badge badge-crit" id="wl-alerts-badge">0 MATCHES</span>
+              <span class="badge badge-crit" id="legacy-wl-alerts-badge">0 MATCHES</span>
             </div>
           </div>
           <div class="dash-card-body">
             <div class="wl-section-heading">
               <span>ORGANIZATION EXPOSURE</span>
-              <span class="badge badge-crit" id="wl-exposure-badge">0 ALERTS</span>
+              <span class="badge badge-crit" id="legacy-wl-exposure-badge">0 ALERTS</span>
             </div>
             <p class="text-muted wl-section-description">Matches found in public ransomware disclosures, CTI news, official advisories, and malicious IOC infrastructure.</p>
             <div class="table-container wl-alert-table-container">
-              <table class="data-table" id="wl-exposure-table">
+              <table class="data-table" id="legacy-wl-exposure-table">
                 <thead>
                   <tr>
                     <th style="width: 120px;">MONITORED</th>
@@ -1075,7 +1143,7 @@
                     <th style="width: 80px;">ACTION</th>
                   </tr>
                 </thead>
-                <tbody id="wl-exposure-tbody">
+                <tbody id="legacy-wl-exposure-tbody">
                   <tr><td colspan="5" class="loading-row">No public exposure alerts detected.</td></tr>
                 </tbody>
               </table>
@@ -1083,10 +1151,10 @@
 
             <div class="wl-section-heading wl-vulnerability-heading">
               <span>VULNERABILITIES &amp; REMEDIATION</span>
-              <span class="badge badge-warn" id="wl-vulnerability-badge">0 MATCHES</span>
+              <span class="badge badge-warn" id="legacy-wl-vulnerability-badge">0 MATCHES</span>
             </div>
             <div class="table-container wl-alert-table-container">
-              <table class="data-table" id="wl-alerts-table">
+              <table class="data-table" id="legacy-wl-alerts-table">
                 <thead>
                   <tr>
                     <th style="width: 140px;">CVE / ASSET</th>
@@ -1096,7 +1164,7 @@
                     <th style="width: 80px;">ACTION</th>
                   </tr>
                 </thead>
-                <tbody id="wl-alerts-tbody">
+                <tbody id="legacy-wl-alerts-tbody">
                   <tr><td colspan="5" class="loading-row">No vulnerability matches detected.</td></tr>
                 </tbody>
               </table>

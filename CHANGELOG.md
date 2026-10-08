@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2026-10-08
+
+### Changed
+- **Watchlist Workspace Redesign**: Replaces the large administration form and dense technical tables with a compact Watchlist overview, grouped monitored interests, and one curated intelligence stream.
+- **Interest-Centric Navigation**: Groups companies, brands, domains, and keywords separately from vendors, products, and CVEs; selecting any interest immediately filters its relevant intelligence.
+- **Priority-First View**: Shows public exposure, CISA KEV, and critical CVEs first while keeping dedicated Exposure and Vulnerabilities views for deeper analysis.
+- **Progressive Administration**: Keeps the add-interest form collapsed until requested so daily analyst work remains the primary visual focus.
+
+### Fixed
+- **Duplicate Incident Presentation**: Consolidates one public incident matched by multiple Watchlist values, such as a company name and its domain, into a single alert with all matching interests identified.
+- **Responsive Signal Cards**: Replaces horizontally scrolling alert tables with readable cards that retain source, evidence, relevance, remediation, and inspection actions.
+
 ## [1.12.0] - 2026-10-08
 
 ### Added

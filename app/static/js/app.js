@@ -8,6 +8,10 @@ let integrationSettingsPoll = null;
 let updateStatusData = null;
 let updateStatusPoll = null;
 let watchlistExposureCount = null;
+let watchlistData = { watchlist: [], exposure_alerts: [], active_alerts: [] };
+let watchlistScope = 'all';
+let watchlistView = 'all';
+let selectedWatchlistId = '';
 const loadedAppVersion = document.body.dataset.version || '';
 
 function updateStickyNavigationOffset() {
@@ -82,6 +86,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filterTarget) {
       event.preventDefault();
       goToTabWithFilter(filterTarget.dataset.filterPanel, { query: filterTarget.dataset.filterQuery });
+      return;
+    }
+    const scopeTarget = event.target.closest('[data-watchlist-scope]');
+    if (scopeTarget) {
+      watchlistScope = scopeTarget.dataset.watchlistScope || 'all';
+      renderWatchlistWorkspace();
+      return;
+    }
+    const viewTarget = event.target.closest('[data-watchlist-view]');
+    if (viewTarget) {
+      watchlistView = viewTarget.dataset.watchlistView || 'all';
+      renderWatchlistWorkspace();
+      return;
+    }
+    const interestTarget = event.target.closest('[data-watchlist-interest]');
+    if (interestTarget && !event.target.closest('[data-watchlist-delete]')) {
+      selectWatchlistInterest(interestTarget.dataset.watchlistInterest || '');
     }
   });
 });
@@ -1863,9 +1884,200 @@ async function runPasswordLeakCheck() {
 }
 
 
-// ==================== WATCHLIST EXPOSURE & REMEDIATION (v1.12.0) ====================
+// ==================== PERSONALIZED WATCHLIST (v1.12.1) ====================
+
+function toggleWatchlistEditor(forceState) {
+  const editor = document.getElementById('wl-editor');
+  const button = document.getElementById('wl-toggle-editor');
+  if (!editor) return;
+  const shouldOpen = typeof forceState === 'boolean' ? forceState : editor.hidden;
+  editor.hidden = !shouldOpen;
+  if (button) button.textContent = shouldOpen ? '− CLOSE' : '+ ADD INTEREST';
+  if (shouldOpen) document.getElementById('wl-val-input')?.focus();
+}
+
+function watchlistCategory(itemType) {
+  return ['company', 'brand', 'domain', 'keyword'].includes(itemType) ? 'organization' : 'technology';
+}
+
+function watchlistTypeLabel(itemType) {
+  const labels = {
+    company: 'COMPANY', brand: 'BRAND', domain: 'DOMAIN', keyword: 'KEYWORD',
+    vendor: 'VENDOR', product: 'PRODUCT', cve: 'CVE'
+  };
+  return labels[itemType] || String(itemType || '').toUpperCase();
+}
+
+function splitWatchlistCsv(value) {
+  return String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function watchlistCountsFor(item) {
+  const exposure = (watchlistData.exposure_alerts || []).filter(alertItem =>
+    splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(item.id)
+  ).length;
+  const vulnerability = (watchlistData.active_alerts || []).filter(alertItem =>
+    alertItem.matched_watchlist_item?.id === item.id
+  ).length;
+  return { exposure, vulnerability, total: exposure + vulnerability };
+}
 
 async function loadWatchlist() {
+  try {
+    const response = await fetch('/api/watchlist', { cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    watchlistData = await response.json();
+
+    const exposureTotal = Number(watchlistData.total_exposure_alerts) || 0;
+    const vulnerabilityTotal = Number(watchlistData.total_vulnerability_alerts) || 0;
+    const total = exposureTotal + vulnerabilityTotal;
+    const metricItems = document.getElementById('wl-badge-count');
+    const metricExposure = document.getElementById('wl-exposure-badge');
+    const metricVuln = document.getElementById('wl-vulnerability-badge');
+    const metricAll = document.getElementById('wl-alerts-badge');
+    const tabCount = document.getElementById('tab-count-watchlist');
+    if (metricItems) metricItems.textContent = watchlistData.total_items || 0;
+    if (metricExposure) metricExposure.textContent = exposureTotal;
+    if (metricVuln) metricVuln.textContent = vulnerabilityTotal;
+    if (metricAll) metricAll.textContent = total;
+    if (tabCount) tabCount.textContent = exposureTotal;
+    setWatchlistAlertState(exposureTotal);
+    renderWatchlistWorkspace();
+  } catch (error) {
+    console.error('Error loading watchlist:', error);
+    const signals = document.getElementById('wl-signal-list');
+    if (signals) signals.innerHTML = '<div class="wl-empty-state"><strong>WATCHLIST UNAVAILABLE</strong><span>Could not load personalized intelligence.</span></div>';
+  }
+}
+
+function selectWatchlistInterest(itemId) {
+  selectedWatchlistId = itemId || '';
+  renderWatchlistWorkspace();
+}
+
+function renderWatchlistWorkspace() {
+  const container = document.getElementById('wl-items-container');
+  const signalList = document.getElementById('wl-signal-list');
+  if (!container || !signalList) return;
+
+  const allItems = watchlistData.watchlist || [];
+  const query = (document.getElementById('wl-interest-search')?.value || '').trim().toLowerCase();
+  const visibleItems = allItems.filter(item => {
+    const categoryMatches = watchlistScope === 'all' || watchlistCategory(item.item_type) === watchlistScope;
+    const textMatches = !query || `${item.value} ${item.notes || ''} ${item.item_type}`.toLowerCase().includes(query);
+    return categoryMatches && textMatches;
+  }).sort((a, b) => {
+    const countDiff = watchlistCountsFor(b).total - watchlistCountsFor(a).total;
+    return countDiff || a.value.localeCompare(b.value);
+  });
+
+  document.querySelectorAll('[data-watchlist-scope]').forEach(button =>
+    button.classList.toggle('active', button.dataset.watchlistScope === watchlistScope)
+  );
+  document.querySelectorAll('[data-watchlist-view]').forEach(button =>
+    button.classList.toggle('active', button.dataset.watchlistView === watchlistView)
+  );
+  const interestCount = document.getElementById('wl-interest-count');
+  if (interestCount) interestCount.textContent = allItems.length;
+
+  if (!visibleItems.length) {
+    container.innerHTML = '<div class="wl-empty-state compact"><strong>NO INTERESTS FOUND</strong><span>Adjust the filter or add something to your Watchlist.</span></div>';
+  } else {
+    const organizationItems = visibleItems.filter(item => watchlistCategory(item.item_type) === 'organization');
+    const technologyItems = visibleItems.filter(item => watchlistCategory(item.item_type) === 'technology');
+    const renderGroup = (title, items) => {
+      if (!items.length) return '';
+      return '<div class="wl-interest-group"><div class="wl-interest-group-title">' + title + '<span>' + items.length + '</span></div>' +
+        items.map(item => {
+          const counts = watchlistCountsFor(item);
+          const stateClass = counts.exposure ? 'danger' : (counts.vulnerability ? 'warning' : 'clear');
+          const stateText = counts.exposure
+            ? counts.exposure + ' exposure ' + (counts.exposure === 1 ? 'alert' : 'alerts')
+            : (counts.vulnerability ? counts.vulnerability + ' vulnerability ' + (counts.vulnerability === 1 ? 'match' : 'matches') : 'No active matches');
+          return '<article class="wl-interest-card ' + stateClass + (selectedWatchlistId === item.id ? ' selected' : '') + '" data-watchlist-interest="' + escapeHtml(item.id) + '">' +
+            '<div class="wl-interest-main"><span class="badge badge-filetype mono">' + escapeHtml(watchlistTypeLabel(item.item_type)) + '</span>' +
+              '<strong>' + escapeHtml(item.value) + '</strong></div>' +
+            '<div class="wl-interest-context">' + escapeHtml(item.notes || (watchlistCategory(item.item_type) === 'organization' ? 'Organization monitoring' : 'Technology monitoring')) + '</div>' +
+            '<div class="wl-interest-status"><span class="wl-status-dot"></span>' + escapeHtml(stateText) + '</div>' +
+            '<button class="wl-delete-btn mono font-bold" data-watchlist-delete="' + escapeHtml(item.id) + '" title="Delete interest">✕</button>' +
+          '</article>';
+        }).join('') + '</div>';
+    };
+    container.innerHTML = renderGroup('ORGANIZATIONS & DOMAINS', organizationItems) + renderGroup('TECHNOLOGIES & CVES', technologyItems);
+  }
+
+  const exposureAlerts = (watchlistData.exposure_alerts || []).filter(alertItem =>
+    !selectedWatchlistId || splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(selectedWatchlistId)
+  );
+  const vulnerabilityAlerts = (watchlistData.active_alerts || []).filter(alertItem =>
+    !selectedWatchlistId || alertItem.matched_watchlist_item?.id === selectedWatchlistId
+  ).sort((a, b) => {
+    const aPriority = (a.source === 'cisa_kev' ? 20 : 0) + (Number(a.cvss_score) || 0);
+    const bPriority = (b.source === 'cisa_kev' ? 20 : 0) + (Number(b.cvss_score) || 0);
+    return bPriority - aPriority;
+  });
+  const priorityVulnerabilities = vulnerabilityAlerts.filter(item =>
+    item.source === 'cisa_kev' || Number(item.cvss_score) >= 9
+  );
+  const clearFilter = document.getElementById('wl-clear-filter');
+  if (clearFilter) {
+    clearFilter.hidden = !selectedWatchlistId;
+    const selected = allItems.find(item => item.id === selectedWatchlistId);
+    clearFilter.textContent = selected ? selected.value + ' ×' : 'SHOW ALL ×';
+  }
+
+  const allCount = exposureAlerts.length + priorityVulnerabilities.length;
+  const allCountEl = document.getElementById('wl-view-all-count');
+  const exposureCountEl = document.getElementById('wl-view-exposure-count');
+  const vulnCountEl = document.getElementById('wl-view-vuln-count');
+  if (allCountEl) allCountEl.textContent = allCount;
+  if (exposureCountEl) exposureCountEl.textContent = exposureAlerts.length;
+  if (vulnCountEl) vulnCountEl.textContent = vulnerabilityAlerts.length;
+
+  const exposureHtml = exposureAlerts.map(renderExposureSignal).join('');
+  const vulnerabilityHtml = vulnerabilityAlerts.map(renderVulnerabilitySignal).join('');
+  const priorityVulnerabilityHtml = priorityVulnerabilities.map(renderVulnerabilitySignal).join('');
+  let content = '';
+  if (watchlistView === 'exposure') content = exposureHtml;
+  else if (watchlistView === 'vulnerability') content = vulnerabilityHtml;
+  else content = exposureHtml + priorityVulnerabilityHtml;
+  signalList.innerHTML = content || '<div class="wl-empty-state"><strong>NO RELEVANT MATCHES</strong><span>Your Watchlist is active. New public intelligence will appear here automatically.</span></div>';
+}
+
+function renderExposureSignal(alertItem) {
+  const matched = splitWatchlistCsv(alertItem.matched_values).join(' • ');
+  const severity = String(alertItem.severity || 'HIGH').toUpperCase();
+  return '<article class="wl-signal-card exposure">' +
+    '<div class="wl-signal-accent"></div><div class="wl-signal-content">' +
+      '<div class="wl-signal-meta"><span class="wl-signal-kind danger">PUBLIC EXPOSURE</span><span class="badge badge-crit">' + escapeHtml(severity) + '</span><span>' + escapeHtml(alertItem.source_name || 'Public CTI') + '</span><time>' + escapeHtml(formatWatchlistDate(alertItem.source_date || alertItem.detected_at)) + '</time></div>' +
+      '<h4>' + escapeHtml(alertItem.title || 'Public exposure detected') + '</h4>' +
+      '<div class="wl-signal-match">MATCHED WATCHLIST: <strong>' + escapeHtml(matched || 'Monitored interest') + '</strong></div>' +
+      '<p>' + escapeHtml(alertItem.evidence || 'The monitored interest was found in public threat intelligence.') + '</p>' +
+    '</div><button class="btn btn-sm wl-signal-action" data-artifact-type="' + escapeHtml(alertItem.source_type) + '" data-artifact-id="' + escapeHtml(alertItem.artifact_id) + '">INSPECT</button>' +
+  '</article>';
+}
+
+function renderVulnerabilitySignal(cve) {
+  const artifactType = cve.advisory_artifact_id ? 'advisory' : 'cve';
+  const artifactId = cve.advisory_artifact_id || cve.cve_id;
+  const score = Number(cve.cvss_score) || 0;
+  const severity = score >= 9 ? 'CRITICAL' : (cve.cvss_severity || 'HIGH');
+  const monitored = cve.matched_watchlist_item?.value || cve.vendor_project || cve.product || 'Technology';
+  return '<article class="wl-signal-card vulnerability">' +
+    '<div class="wl-signal-accent"></div><div class="wl-signal-content">' +
+      '<div class="wl-signal-meta"><span class="wl-signal-kind warning">VULNERABILITY</span><span class="badge badge-warn">' + escapeHtml(score ? score.toFixed(1) + ' ' + severity : severity) + '</span>' +
+        (cve.source === 'cisa_kev' ? '<span class="badge badge-kev">CISA KEV</span>' : '') + '<time>' + escapeHtml(cve.date_added || cve.due_date || '') + '</time></div>' +
+      '<h4><span class="mono info">' + escapeHtml(cve.cve_id || '') + '</span> ' + escapeHtml(cve.vulnerability_name || 'Security advisory') + '</h4>' +
+      '<div class="wl-signal-match">RELEVANT TO: <strong>' + escapeHtml(monitored) + '</strong></div>' +
+      '<p><strong>ACTION:</strong> ' + escapeHtml(cve.required_action || 'Review the vendor advisory and apply the recommended remediation.') + '</p>' +
+    '</div><button class="btn btn-sm wl-signal-action" data-artifact-type="' + artifactType + '" data-artifact-id="' + escapeHtml(artifactId) + '">INSPECT</button>' +
+  '</article>';
+}
+
+
+// Legacy renderer retained only for updater-safe source compatibility.
+
+async function loadWatchlistLegacy() {
   const container = document.getElementById('wl-items-container');
   const tbody = document.getElementById('wl-alerts-tbody');
   const exposureTbody = document.getElementById('wl-exposure-tbody');
@@ -2044,6 +2256,7 @@ async function addWatchlistItem() {
     if (res.ok) {
       valInput.value = '';
       if (notesInput) notesInput.value = '';
+      toggleWatchlistEditor(false);
       loadWatchlist();
     } else {
       const err = await res.json();
@@ -2067,6 +2280,7 @@ async function deleteWatchlistItem(itemId) {
       headers: { 'X-Admin-Token': adminToken }
     });
     if (res.ok) {
+      if (selectedWatchlistId === itemId) selectedWatchlistId = '';
       loadWatchlist();
     }
   } catch (e) {

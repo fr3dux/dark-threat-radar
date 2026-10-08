@@ -883,15 +883,34 @@ async def api_get_watchlist():
         items = [dict(r) for r in await cur.fetchall()]
 
         alert_cur = await conn.execute(
-            """SELECT a.*, w.item_type AS watchlist_type, w.notes AS watchlist_notes
+            """SELECT
+                   MIN(a.id) AS id,
+                   a.source_type,
+                   MAX(a.source_name) AS source_name,
+                   a.artifact_id,
+                   MAX(a.title) AS title,
+                   GROUP_CONCAT(DISTINCT a.matched_value) AS matched_values,
+                   GROUP_CONCAT(DISTINCT a.watchlist_id) AS matched_watchlist_ids,
+                   GROUP_CONCAT(DISTINCT w.item_type) AS watchlist_types,
+                   MAX(a.matched_field) AS matched_field,
+                   MAX(a.severity) AS severity,
+                   MAX(a.evidence) AS evidence,
+                   MAX(a.reference_url) AS reference_url,
+                   MAX(a.source_date) AS source_date,
+                   MIN(a.detected_at) AS detected_at,
+                   MAX(a.last_seen) AS last_seen
                FROM watchlist_alerts a
                JOIN watchlist w ON w.id = a.watchlist_id
-               ORDER BY COALESCE(a.source_date, a.detected_at) DESC, a.detected_at DESC
+               GROUP BY a.source_type, a.artifact_id
+               ORDER BY COALESCE(source_date, detected_at) DESC, detected_at DESC
                LIMIT 250"""
         )
         exposure_alerts = [dict(r) for r in await alert_cur.fetchall()]
         exposure_count_row = await (await conn.execute(
-            "SELECT COUNT(*) AS total FROM watchlist_alerts"
+            """SELECT COUNT(*) AS total FROM (
+                   SELECT source_type, artifact_id FROM watchlist_alerts
+                   GROUP BY source_type, artifact_id
+               )"""
         )).fetchone()
         total_exposure_alerts = int(exposure_count_row["total"] or 0)
 
@@ -1008,7 +1027,11 @@ async def api_watchlist_summary():
         row = await (await conn.execute(
             """SELECT COUNT(*) AS total,
                       SUM(CASE WHEN severity='CRITICAL' THEN 1 ELSE 0 END) AS critical
-               FROM watchlist_alerts"""
+               FROM (
+                   SELECT source_type, artifact_id, MAX(severity) AS severity
+                   FROM watchlist_alerts
+                   GROUP BY source_type, artifact_id
+               )"""
         )).fetchone()
     return {
         "total_exposure_alerts": int(row["total"] or 0),

@@ -286,6 +286,9 @@ def test_index_page_version_injection(client):
     assert 'id="infocon-badge"' not in html
     assert 'id="infocon-val"' in html
     assert 'id="panel-intel"' in html
+    assert '<h2>WATCHLIST</h2>' in html
+    assert 'INTELLIGENCE FOR YOU' in html
+    assert 'MY THREAT RADAR' not in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
     assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT RANSOMWARE EXTORTIONS")
@@ -519,6 +522,9 @@ def test_api_watchlist_crud(client):
     data = get_res.json()
     assert data["total_items"] >= 1
     assert any(w["value"] == "Citrix" for w in data["watchlist"])
+    assert "exposure_alerts" in data
+    assert "total_exposure_alerts" in data
+    assert "total_vulnerability_alerts" in data
 
     # 3. Delete item
     del_res = client.delete(f"/api/watchlist/{item_id}", headers=headers)
