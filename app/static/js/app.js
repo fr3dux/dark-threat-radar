@@ -100,6 +100,20 @@ function formatDateTime(value, timezone = appSettings.timezone, locale = appSett
   }
 }
 
+function formatSourceDate(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : (raw || 'N/A');
+}
+
+function tableTimestampMarkup(value) {
+  const formatted = String(formatDateTime(value) || 'N/A');
+  const separator = formatted.indexOf(',');
+  const date = separator >= 0 ? formatted.slice(0, separator).trim() : formatted;
+  const time = separator >= 0 ? formatted.slice(separator + 1).trim() : '';
+  return `<span class="table-timestamp"><span>${escapeHtml(date)}</span>${time ? `<span>${escapeHtml(time)}</span>` : ''}</span>`;
+}
+
 function applyConfiguredDates(root = document) {
   root.querySelectorAll('[data-utc-datetime]').forEach(element => {
     const raw = element.dataset.utcDatetime;
@@ -595,11 +609,11 @@ async function loadIocs() {
       const sources = (item.sources || item.source_name || '').split(',').map(value => value.trim()).filter(Boolean);
       return `<tr class="clickable-row" data-artifact-type="ioc" data-artifact-id="${escapeHtml(item.id)}">
         <td><span class="badge badge-filetype mono">${escapeHtml((item.indicator_type || '').toUpperCase())}</span></td>
-        <td><div class="mono font-bold intel-table-value">${escapeHtml(item.normalized_value)}</div><div class="mono text-muted">${escapeHtml(item.malware_family || '')}</div></td>
+        <td class="wrap-cell"><div class="mono font-bold intel-table-value">${escapeHtml(item.normalized_value)}</div><div class="mono text-muted">${escapeHtml(item.malware_family || '')}</div></td>
         <td>${escapeHtml(item.threat_type || 'indicator')}</td>
         <td><span class="badge ${Number(item.confidence) >= 80 ? 'badge-crit' : 'badge-warn'} mono">${Number(item.confidence) || 0}%</span></td>
         <td><div class="source-chip-list">${sources.slice(0, 3).map(name => `<span class="source-chip mono">${escapeHtml(name.replaceAll('_', ' '))}</span>`).join('')}${sources.length > 3 ? `<span class="source-chip mono">+${sources.length - 3}</span>` : ''}</div></td>
-        <td class="mono text-muted">${escapeHtml(formatDateTime(item.last_seen))}</td>
+        <td class="mono text-muted timestamp-cell" title="${escapeHtml(formatDateTime(item.last_seen))}">${tableTimestampMarkup(item.last_seen)}</td>
       </tr>`;
     }).join('') : '<tr><td colspan="6" class="loading-row">No active indicators match these filters.</td></tr>';
     const start = data.total ? offset + 1 : 0;
@@ -737,7 +751,7 @@ async function loadCves() {
           <td>${cvssBadge}</td>
           <td>${epssBadge}</td>
           <td>${rwBadge}</td>
-          <td class="mono text-muted" title="${escapeHtml(item.date_added || '')}">${escapeHtml(item.date_added || '')}</td>
+          <td class="mono text-muted" title="${escapeHtml(item.date_added || '')}">${escapeHtml(formatSourceDate(item.date_added))}</td>
         </tr>
       `;
     }).join('');
@@ -829,7 +843,7 @@ async function loadMalware() {
 
       return `
         <tr class="clickable-row" data-artifact-type="malware" data-artifact-id="${escapeHtml(sha256)}">
-          <td class="mono text-muted">${escapeHtml(formatDateTime(item.first_seen))}</td>
+          <td class="mono text-muted timestamp-cell" title="${escapeHtml(formatDateTime(item.first_seen))}">${tableTimestampMarkup(item.first_seen)}</td>
           <td class="mono" style="color: var(--accent-purple);" title="${escapeHtml(sha256)}">${sha256Short}</td>
           <td class="mono" title="${escapeHtml(item.file_name || '')}">${escapeHtml((item.file_name || 'unknown').slice(0, 26))}</td>
           <td><span class="badge badge-filetype">${escapeHtml((item.file_type || 'bin').toUpperCase())}</span></td>
@@ -936,7 +950,7 @@ async function loadDshield() {
           <td class="mono crit font-bold">${item.attacks.toLocaleString()}</td>
           <td class="mono">${item.count.toLocaleString()}</td>
           <td title="${escapeHtml(item.as_name || '')}">${escapeHtml((item.as_name || 'N/A').slice(0, 26))}</td>
-          <td class="mono text-muted">${escapeHtml(formatDateTime(item.lastseen || item.updated_at || ''))}</td>
+          <td class="mono text-muted timestamp-cell" title="${escapeHtml(formatDateTime(item.lastseen || item.updated_at || ''))}">${tableTimestampMarkup(item.lastseen || item.updated_at || '')}</td>
         </tr>
       `).join('');
     }
@@ -1602,11 +1616,11 @@ async function loadRansomware() {
 
       return `
       <tr class="clickable-row" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">
-        <td class="mono text-muted" title="${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}">${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}</td>
+        <td class="mono text-muted timestamp-cell" title="${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}">${tableTimestampMarkup(item.discovered || item.attackdate || item.updated_at)}</td>
         <td><span class="badge ${item.incident_type === 'data_breach' ? 'badge-warn' : 'badge-ransomware'} mono font-bold">${escapeHtml(item.incident_type === 'data_breach' ? 'DATA BREACH' : (item.group_name || 'UNKNOWN'))}</span></td>
-        <td class="font-bold" title="${escapeHtml(item.victim_name)}">${escapeHtml(item.victim_name)}</td>
+        <td class="font-bold wrap-cell" title="${escapeHtml(item.victim_name)}">${escapeHtml(item.victim_name)}</td>
         <td>${countryBadge}</td>
-        <td class="mono" style="color: var(--accent-blue);" title="${escapeHtml(item.domain || item.activity || '-')}">${escapeHtml(item.domain || item.activity || '-')}</td>
+        <td class="mono wrap-cell" style="color: var(--accent-blue);" title="${escapeHtml(item.domain || item.activity || '-')}">${escapeHtml(item.domain || item.activity || '-')}</td>
         <td><span class="badge ${Number(item.source_count) > 1 ? 'badge-kev' : 'badge-filetype'} mono">${Number(item.confidence_score) || 55}%</span> <span class="mono text-muted">${Number(item.source_count) || 1} SRC</span></td>
       </tr>
       `;

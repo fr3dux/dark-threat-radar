@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.8] - 2026-10-10
+
+### Fixed
+- **Complete Operational Values**: Replaces destructive ellipsis in IOC indicators, ransomware victims, and domain targets with safe multi-line wrapping so analysts can read the full value.
+- **Complete Table Timestamps**: Displays date and time with timezone on separate lines in IOC, Malware, Telemetry, and Ransomware tables, preserving the complete configured-timezone value in compact columns.
+- **Clean CVE Dates**: Shows the full `YYYY-MM-DD` source date without leaking or truncating the raw timestamp suffix.
+- **Stable Rightmost Columns**: Reserves enough space for IOC timestamps and ransomware confidence/source labels while retaining horizontal scrolling on narrow screens.
+
 ## [1.14.7] - 2026-10-10
 
 ### Fixed

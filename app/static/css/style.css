@@ -898,6 +898,32 @@ table.data-table.operational-table td {
   text-overflow: ellipsis;
 }
 
+table.data-table.operational-table td.wrap-cell {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+table.data-table.operational-table td.timestamp-cell {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.table-timestamp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.table-timestamp > span:last-child:not(:first-child) {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
 #cve-table,
 #ransomware-table {
   min-width: 980px;
@@ -905,6 +931,10 @@ table.data-table.operational-table td {
 
 #malware-table {
   min-width: 940px;
+}
+
+#panel-intel table.operational-table {
+  min-width: 980px;
 }
 
 table.data-table tr:hover td {
@@ -3231,7 +3261,7 @@ main.main-content.dashboard-active {
 }
 
 .intel-mode-switch .text-muted { margin-left: auto; font-size: 10px; }
-.intel-table-value { max-width: 540px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intel-table-value { max-width: none; overflow-wrap: anywhere; white-space: normal; }
 .source-chip-list { display: flex; flex-wrap: wrap; gap: 3px; }
 .source-chip {
   display: inline-block;
