@@ -2188,6 +2188,7 @@ table.data-table tr:last-child td {
 /* ==================== UI REFINEMENT (v1.8.2) ==================== */
 :root {
   --content-max: 1680px;
+  --workspace-max: 1180px;
   --focus-ring: rgba(88, 166, 255, 0.65);
 }
 
@@ -2289,7 +2290,7 @@ main.main-content {
 .metrics-strip {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  padding: 12px max(16px, calc((100% - var(--content-max)) / 2 + 16px));
+  padding: 12px max(16px, calc((100% - var(--workspace-max)) / 2));
 }
 
 .metric-card {
@@ -2318,9 +2319,14 @@ main.main-content {
 }
 
 main.main-content {
-  max-width: var(--content-max);
+  max-width: calc(var(--workspace-max) + 32px);
   margin: 0 auto;
   padding-top: 18px;
+}
+
+.toolbar-bar {
+  width: min(calc(100% - 32px), var(--workspace-max));
+  margin-inline: auto;
 }
 
 .dashboard-grid,
@@ -2741,7 +2747,7 @@ main.main-content {
 
 /* ==================== CENTRAL SETTINGS WORKSPACE (v1.14.0) ==================== */
 .settings-shell {
-  width: min(1180px, 100%);
+  width: min(var(--workspace-max), 100%);
   margin: 0 auto;
   border: 1px solid var(--border-color);
   border-radius: 5px;
@@ -3008,6 +3014,10 @@ main.main-content {
     padding: 0 8px;
   }
 
+  .toolbar-bar {
+    width: calc(100% - 20px);
+  }
+
   .tab-btn {
     padding: 9px 12px;
   }
@@ -3080,13 +3090,14 @@ main.main-content {
     min-width: 760px;
   }
 
-  .toolbar-bar,
-  .filter-group {
+  .toolbar-bar {
     align-items: stretch;
-    width: 100%;
+    width: calc(100% - 20px);
   }
 
   .filter-group {
+    align-items: stretch;
+    width: 100%;
     overflow-x: auto;
   }
 }
@@ -3252,7 +3263,7 @@ main.main-content {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 1px;
-  padding: 6px max(16px, calc((100% - var(--content-max)) / 2 + 16px));
+  padding: 6px max(16px, calc((100% - var(--workspace-max)) / 2));
   margin-top: 8px;
   background: #080c12;
   border-top: 1px solid rgba(48, 54, 61, 0.72);

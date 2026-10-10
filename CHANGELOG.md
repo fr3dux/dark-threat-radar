@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.4] - 2026-10-10
+
+### Changed
+- **Unified Page Workspace**: Applies the centered 1180px Settings workspace to Dashboard, CVEs, IOCs, Malware, Telemetry, Ransomware, Advisories, Watchlist, and Leak Check.
+- **Aligned Page Controls**: Centers explorer filters and the dashboard KPI rail on the same content axis while retaining responsive table scrolling and mobile edge spacing.
+
 ## [1.14.3] - 2026-10-10
 
 ### Fixed
