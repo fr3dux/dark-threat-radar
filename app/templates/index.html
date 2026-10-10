@@ -161,11 +161,6 @@
 
   <!-- Explorer Toolbar & Filters (Only displayed on Explorer/Feed/Telemetry/News tabs) -->
   <section class="toolbar-bar" id="explorer-toolbar" style="display: none;">
-    <div class="search-box">
-      <span class="search-icon">/</span>
-      <input type="text" id="global-search" class="search-input" placeholder="Search CVEs, hashes, IPs, tags, titles..." oninput="debounceSearch()">
-    </div>
-
     <!-- CVE Explorer Filters -->
     <div class="filter-group" id="cve-filters" style="display: none;">
       <select id="filter-cve-source" class="filter-select" onchange="cveState.page=1; loadCves();">
@@ -699,6 +694,13 @@
       </div>
 
       <div id="intel-ioc-view">
+        <div class="page-search-bar">
+          <div class="search-box page-search-box">
+            <span class="search-icon">/</span>
+            <input type="search" id="ioc-search" class="search-input" placeholder="Search IP, domain, URL, hash, malware family or threat type..." autocomplete="off" oninput="debouncePageSearch('iocs')">
+          </div>
+          <span class="page-search-scope mono">IOC INTELLIGENCE</span>
+        </div>
         <div class="pagination-bar">
           <div class="pagination-info mono" id="ioc-page-info">Showing 0 - 0 of 0 IOCs</div>
           <div class="pagination-controls">
@@ -714,6 +716,13 @@
       </div>
 
       <div id="intel-attack-view" style="display:none;">
+        <div class="page-search-bar">
+          <div class="search-box page-search-box">
+            <span class="search-icon">/</span>
+            <input type="search" id="attack-search" class="search-input" placeholder="Search ATT&amp;CK ID, technique, group, malware or description..." autocomplete="off" oninput="debouncePageSearch('attack')">
+          </div>
+          <span class="page-search-scope mono">MITRE ATT&amp;CK</span>
+        </div>
         <div class="pagination-bar">
           <div class="pagination-info mono" id="attack-page-info">Showing 0 - 0 of 0 ATT&amp;CK objects</div>
           <div class="pagination-controls">
@@ -734,6 +743,13 @@
     <!-- Full searchable, filterable, paginated CVEs -->
     <!-- ========================================== -->
     <div id="panel-cves" class="view-panel">
+      <div class="page-search-bar">
+        <div class="search-box page-search-box">
+          <span class="search-icon">/</span>
+          <input type="search" id="cve-search" class="search-input" placeholder="Search CVE ID, vendor, product or vulnerability description..." autocomplete="off" oninput="debouncePageSearch('cves')">
+        </div>
+        <span class="page-search-scope mono">CVE EXPLORER</span>
+      </div>
       
       <!-- Pagination Top Bar -->
       <div class="pagination-bar">
@@ -780,6 +796,13 @@
     <!-- Full searchable, paginated malware samples -->
     <!-- ========================================== -->
     <div id="panel-malware" class="view-panel">
+      <div class="page-search-bar">
+        <div class="search-box page-search-box">
+          <span class="search-icon">/</span>
+          <input type="search" id="malware-search" class="search-input" placeholder="Search SHA256, MD5, file name, signature or reporter..." autocomplete="off" oninput="debouncePageSearch('malware')">
+        </div>
+        <span class="page-search-scope mono">MALWARE SAMPLES</span>
+      </div>
       
       <!-- Pagination Top Bar -->
       <div class="pagination-bar">
@@ -824,6 +847,13 @@
     <!-- Top attacking IPs and targeted ports       -->
     <!-- ========================================== -->
     <div id="panel-dshield" class="view-panel">
+      <div class="page-search-bar">
+        <div class="search-box page-search-box">
+          <span class="search-icon">/</span>
+          <input type="search" id="dshield-search" class="search-input" placeholder="Search attacking IP, organization, port or service..." autocomplete="off" oninput="debouncePageSearch('dshield')">
+        </div>
+        <span class="page-search-scope mono">PUBLIC TELEMETRY</span>
+      </div>
       <div class="split-grid">
         <!-- Top Attacking Sources -->
         <div class="split-card">
@@ -881,6 +911,13 @@
     <!-- Full list of victim disclosures            -->
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
+      <div class="page-search-bar">
+        <div class="search-box page-search-box">
+          <span class="search-icon">/</span>
+          <input type="search" id="ransomware-search" class="search-input" placeholder="Search victim, company, domain, threat group or incident details..." autocomplete="off" oninput="debouncePageSearch('ransomware')">
+        </div>
+        <span class="page-search-scope mono">PUBLIC EXPOSURES</span>
+      </div>
       <div class="pagination-bar">
         <div class="pagination-info mono" id="ransomware-page-info">Showing 0 - 0 of 0 incidents</div>
         <div class="pagination-controls">
@@ -921,6 +958,13 @@
     <!-- Full stream of intelligence advisories     -->
     <!-- ========================================== -->
     <div id="panel-news" class="view-panel">
+      <div class="page-search-bar">
+        <div class="search-box page-search-box">
+          <span class="search-icon">/</span>
+          <input type="search" id="news-search" class="search-input" placeholder="Search advisory title, source or intelligence summary..." autocomplete="off" oninput="debouncePageSearch('news')">
+        </div>
+        <span class="page-search-scope mono">CTI ADVISORIES</span>
+      </div>
       <!-- Pagination Top Bar -->
       <div class="pagination-bar">
         <div class="pagination-info mono" id="news-page-info">Showing 0 - 0 of 0 news advisories</div>

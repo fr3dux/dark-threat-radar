@@ -437,7 +437,8 @@ function switchTab(panelId, btnElement) {
   // views gives tables and filters the visual priority they need.
   if (metricsStrip) metricsStrip.style.display = panelId === 'panel-dashboard' ? 'grid' : 'none';
 
-  if (panelId === 'panel-dashboard' || panelId === 'panel-leakcheck' || panelId === 'panel-watchlist' || panelId === 'panel-settings') {
+  const panelsWithFilters = ['panel-cves', 'panel-malware', 'panel-intel', 'panel-news'];
+  if (!panelsWithFilters.includes(panelId)) {
     toolbar.style.display = 'none';
   } else {
     toolbar.style.display = 'flex';
@@ -472,11 +473,18 @@ function switchTab(panelId, btnElement) {
 }
 
 function goToTabWithFilter(panelId, filters) {
-  // Reset search input
-  const searchInput = document.getElementById('global-search');
+  const searchIds = {
+    'panel-cves': 'cve-search',
+    'panel-malware': 'malware-search',
+    'panel-intel': intelMode === 'attack' ? 'attack-search' : 'ioc-search',
+    'panel-dshield': 'dshield-search',
+    'panel-ransomware': 'ransomware-search',
+    'panel-news': 'news-search'
+  };
+  const searchInput = document.getElementById(searchIds[panelId]);
   if (filters.query) {
-    searchInput.value = filters.query;
-  } else {
+    if (searchInput) searchInput.value = filters.query;
+  } else if (searchInput) {
     searchInput.value = '';
   }
 
@@ -516,26 +524,27 @@ function goToTabWithFilter(panelId, filters) {
   switchTab(panelId, targetBtn);
 }
 
-function debounceSearch() {
+function debouncePageSearch(page) {
   clearTimeout(searchDebounceTimeout);
   searchDebounceTimeout = setTimeout(() => {
-    if (currentTab === 'panel-cves') {
+    if (page === 'cves') {
       cveState.page = 1;
       loadCves();
-    } else if (currentTab === 'panel-malware') {
+    } else if (page === 'malware') {
       malwareState.page = 1;
       loadMalware();
-    } else if (currentTab === 'panel-intel') {
-      if (intelMode === 'attack') {
-        attackState.page = 1;
-        loadAttackKnowledge();
-      } else {
-        iocState.page = 1;
-        loadIocs();
-      }
-    } else if (currentTab === 'panel-dshield') {
+    } else if (page === 'iocs') {
+      iocState.page = 1;
+      loadIocs();
+    } else if (page === 'attack') {
+      attackState.page = 1;
+      loadAttackKnowledge();
+    } else if (page === 'dshield') {
       loadDshield();
-    } else if (currentTab === 'panel-news') {
+    } else if (page === 'ransomware') {
+      ransomwareState.page = 1;
+      loadRansomware();
+    } else if (page === 'news') {
       newsState.page = 1;
       loadNews();
     }
@@ -566,7 +575,7 @@ function showIntelMode(mode) {
 async function loadIocs() {
   const tbody = document.getElementById('ioc-tbody');
   if (!tbody) return;
-  const q = document.getElementById('global-search')?.value.trim() || '';
+  const q = document.getElementById('ioc-search')?.value.trim() || '';
   const type = document.getElementById('filter-ioc-type')?.value || 'all';
   const source = document.getElementById('filter-ioc-source')?.value || 'all';
   const offset = (iocState.page - 1) * iocState.limit;
@@ -616,7 +625,7 @@ function parseJsonArray(value) {
 async function loadAttackKnowledge() {
   const tbody = document.getElementById('attack-tbody');
   if (!tbody) return;
-  const q = document.getElementById('global-search')?.value.trim() || '';
+  const q = document.getElementById('attack-search')?.value.trim() || '';
   const type = document.getElementById('filter-attack-type')?.value || 'all';
   const offset = (attackState.page - 1) * attackState.limit;
   const params = new URLSearchParams({ limit: attackState.limit, offset });
@@ -658,7 +667,7 @@ function attackNextPage() { if (attackState.page * attackState.limit < attackSta
 // ==================== CVE EXPLORER ====================
 
 async function loadCves() {
-  const q = document.getElementById('global-search').value.trim();
+  const q = document.getElementById('cve-search')?.value.trim() || '';
   const source = document.getElementById('filter-cve-source').value;
   const ransomware = document.getElementById('filter-cve-ransomware').value;
   const severity = document.getElementById('filter-cve-severity').value;
@@ -750,9 +759,6 @@ function updateCvePagination() {
   document.getElementById('cve-btn-next').disabled = nextDisabled;
   document.getElementById('cve-btn-next-b').disabled = nextDisabled;
 
-  // Also update header tab count
-  const countBadge = document.getElementById('tab-count-cves');
-  if (countBadge) countBadge.textContent = cveState.total;
 }
 
 function cvePrevPage() {
@@ -781,7 +787,7 @@ function changeCvePageSize(val) {
 // ==================== MALWARE SAMPLES ====================
 
 async function loadMalware() {
-  const q = document.getElementById('global-search').value.trim();
+  const q = document.getElementById('malware-search')?.value.trim() || '';
   const fileType = document.getElementById('filter-malware-type').value;
 
   const tbody = document.getElementById('malware-tbody');
@@ -850,8 +856,6 @@ function updateMalwarePagination() {
   document.getElementById('malware-btn-next').disabled = nextDisabled;
   document.getElementById('malware-btn-next-b').disabled = nextDisabled;
 
-  const countBadge = document.getElementById('tab-count-malware');
-  if (countBadge) countBadge.textContent = malwareState.total;
 }
 
 function malwarePrevPage() {
@@ -906,13 +910,16 @@ function renderMapTopTargetedPorts(ports) {
 async function loadDshield() {
   const sourcesTbody = document.getElementById('dshield-sources-tbody');
   const portsTbody = document.getElementById('dshield-ports-tbody');
+  const q = (document.getElementById('dshield-search')?.value.trim() || '').toLowerCase();
 
   try {
     const res = await fetch('/api/dshield');
     const data = await res.json();
 
     // Sources
-    const sources = data.sources || [];
+    const allSources = data.sources || [];
+    const sources = q ? allSources.filter(item => [item.ip, item.as_name, item.attacks, item.count]
+      .some(value => String(value ?? '').toLowerCase().includes(q))) : allSources;
     document.getElementById('dshield-sources-count').textContent = `${sources.length} Top IPs`;
     if (sources.length === 0) {
       sourcesTbody.innerHTML = '<tr><td colspan="5" class="empty-row">No attacking source telemetry logged.</td></tr>';
@@ -929,8 +936,10 @@ async function loadDshield() {
     }
 
     // Ports
-    const ports = data.ports || [];
-    renderMapTopTargetedPorts(ports);
+    const allPorts = data.ports || [];
+    const ports = q ? allPorts.filter(item => [item.port, item.service, item.records, item.targets, item.count]
+      .some(value => String(value ?? '').toLowerCase().includes(q))) : allPorts;
+    renderMapTopTargetedPorts(allPorts);
     document.getElementById('dshield-ports-count').textContent = `${ports.length} Monitored`;
     if (ports.length === 0) {
       portsTbody.innerHTML = '<tr><td colspan="5" class="empty-row">No port telemetry recorded.</td></tr>';
@@ -955,7 +964,7 @@ async function loadDshield() {
 // ==================== CTI NEWS & INTEL ====================
 
 async function loadNews() {
-  const q = document.getElementById('global-search').value.trim();
+  const q = document.getElementById('news-search')?.value.trim() || '';
   const source = document.getElementById('filter-news-source').value;
   const container = document.getElementById('news-container');
 
@@ -1020,8 +1029,6 @@ function updateNewsPagination() {
   document.getElementById('news-btn-next').disabled = nextDisabled;
   document.getElementById('news-btn-next-b').disabled = nextDisabled;
 
-  const countBadge = document.getElementById('tab-count-news');
-  if (countBadge) countBadge.textContent = newsState.total;
 }
 
 function newsPrevPage() {
@@ -1553,7 +1560,7 @@ async function sha1Hex(message) {
 // ==================== RANSOMWARE TRACKER (v1.2.0) ====================
 
 async function loadRansomware() {
-  const q = document.getElementById('global-search').value.trim();
+  const q = document.getElementById('ransomware-search')?.value.trim() || '';
   const country = document.getElementById('filter-ransomware-country') ? document.getElementById('filter-ransomware-country').value : 'all';
 
   const tbody = document.getElementById('ransomware-tbody');
@@ -1575,9 +1582,6 @@ async function loadRansomware() {
 
     ransomwareState.total = data.total;
     updateRansomwarePagination();
-
-    const countTab = document.getElementById('tab-count-ransomware');
-    if (countTab) countTab.textContent = data.total;
 
     if (!data.items || data.items.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No public exposure incidents found for current filters.</td></tr>';

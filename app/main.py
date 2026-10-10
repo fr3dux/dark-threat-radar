@@ -669,9 +669,9 @@ async def api_news(
     params = []
 
     if q:
-        query += " AND (title LIKE ? OR snippet LIKE ?)"
+        query += " AND (title LIKE ? OR snippet LIKE ? OR source LIKE ?)"
         term = f"%{q}%"
-        params.extend([term, term])
+        params.extend([term, term, term])
 
     if source and source != "all":
         query += " AND source = ?"

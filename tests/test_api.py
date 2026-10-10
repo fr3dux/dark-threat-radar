@@ -349,6 +349,16 @@ def test_index_page_version_injection(client):
     assert "DISPLAY &amp; REGIONAL SETTINGS" in html
     assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
     assert 'id="integration-modal-overlay"' not in html
+    for search_id in (
+        "cve-search",
+        "ioc-search",
+        "malware-search",
+        "dshield-search",
+        "ransomware-search",
+        "news-search",
+    ):
+        assert f'id="{search_id}"' in html
+    assert 'id="global-search"' not in html
     assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
     assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT PUBLIC EXPOSURES")
     assert html.index("RECENT PUBLIC EXPOSURES") < html.index("VENDORS W/ CRITICAL CVES")

@@ -378,6 +378,31 @@ header.app-header {
   font-family: var(--font-mono);
 }
 
+.page-search-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+}
+
+.page-search-box {
+  width: min(100%, 680px);
+  max-width: 680px;
+  flex: 1 1 420px;
+}
+
+.page-search-scope {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+
 .filter-group {
   display: flex;
   align-items: center;
@@ -3103,6 +3128,22 @@ main.main-content.dashboard-active {
     align-items: stretch;
     width: 100%;
     overflow-x: auto;
+  }
+
+  .page-search-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-search-box {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+    flex-basis: auto;
+  }
+
+  .page-search-scope {
+    align-self: flex-end;
   }
 }
 

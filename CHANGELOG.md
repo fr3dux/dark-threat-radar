@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.6] - 2026-10-10
+
+### Fixed
+- **Page-Specific Search**: Replaces the shared explorer search with independent searches for CVEs, IOCs, Malware, Telemetry, Ransomware, and Advisories, each with its own query state and contextual guidance.
+- **Ransomware Search**: Connects the public-exposure search to the ransomware API and resets its pagination whenever the query changes.
+- **Telemetry Search**: Adds immediate client-side filtering across attacking IPs, organizations, targeted ports, and services without changing the dashboard's global port ranking.
+- **Stable Navigation Totals**: Keeps header counters as global dataset totals while filtered result counts remain scoped to their corresponding explorer page.
+
+### Changed
+- **Responsive Search Layout**: Places search inside each operational page with a compact scope label and mobile-safe stacking.
+- **Advisory Source Matching**: Includes the advisory source name in full-text CTI news searches.
+
 ## [1.14.5] - 2026-10-10
 
 ### Fixed
