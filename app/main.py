@@ -153,9 +153,11 @@ async def api_version():
 
 
 @app.get("/api/update/status", tags=["System"])
-async def api_update_status():
+async def api_update_status(
+    force: bool = Query(False, description="Bypass the in-memory release cache"),
+):
     """Check the fixed official repository for a newer stable release."""
-    return await get_update_status()
+    return await get_update_status(force=force)
 
 
 @app.post("/api/admin/update", status_code=202, tags=["Administration"])

@@ -44,7 +44,10 @@ def test_api_version(client):
 
 
 def test_update_status_endpoint(client, monkeypatch):
+    requested = {}
+
     async def fake_status(force=False):
+        requested["force"] = force
         return {
             "current_version": "1.9.0",
             "latest_version": "1.9.1",
@@ -54,9 +57,10 @@ def test_update_status_endpoint(client, monkeypatch):
         }
 
     monkeypatch.setattr(main_module, "get_update_status", fake_status)
-    response = client.get("/api/update/status")
+    response = client.get("/api/update/status?force=true")
     assert response.status_code == 200
     assert response.json()["update_available"] is True
+    assert requested["force"] is True
 
 
 def test_update_install_requires_admin_and_queues(client, monkeypatch):

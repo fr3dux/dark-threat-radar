@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(pollStatus, 15000);
   pollWatchlistAlerts();
   setInterval(pollWatchlistAlerts, 60000);
-  checkForUpdate();
+  checkForUpdate(true);
   setInterval(() => checkForUpdate(), 21600000);
 
   // Dynamic CTI records use data attributes instead of inline JavaScript.
@@ -190,9 +190,10 @@ function renderUpdateStatus(data) {
   }
 }
 
-async function checkForUpdate() {
+async function checkForUpdate(force = false) {
   try {
-    const response = await fetch('/api/update/status', { cache: 'no-store' });
+    const endpoint = force ? '/api/update/status?force=true' : '/api/update/status';
+    const response = await fetch(endpoint, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     renderUpdateStatus(data);
