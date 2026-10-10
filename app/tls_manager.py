@@ -116,6 +116,7 @@ def tls_public_status(control_dir: Path = TLS_CONTROL_DIR) -> dict[str, Any]:
         "manager_ready": (control_dir / "ready").is_file(),
         "state": "not_configured",
         "configured": False,
+        "application_port": PORT,
     }
     for filename in ("active.json", "status.json"):
         path = control_dir / filename

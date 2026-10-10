@@ -371,6 +371,10 @@ def test_index_page_version_injection(client):
     assert 'id="settings-tls-https-port"' in html
     assert 'id="settings-tls-certificate"' in html
     assert 'id="settings-tls-key"' in html
+    assert "PUBLIC HTTP PORT" in html
+    assert "Application upstream remains on port 9220" in html
+    assert html.count("CHOOSE FILE") == 3
+    assert html.count("NO FILE SELECTED") == 3
     assert "DISPLAY &amp; REGIONAL SETTINGS" in html
     assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
     assert 'id="integration-modal-overlay"' not in html

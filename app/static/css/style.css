@@ -2987,21 +2987,53 @@ main.main-content.dashboard-active {
 }
 
 .tls-file-input {
-  min-width: 0;
-  width: 100%;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
 }
 
-.tls-file-input::file-selector-button {
-  margin-right: 8px;
-  padding: 6px 9px;
-  border: 1px solid var(--border-hover);
+.tls-file-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
   background: var(--bg-deep);
-  color: var(--text-primary);
-  font: inherit;
   cursor: pointer;
+}
+
+.tls-file-button {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-right: 1px solid var(--border-color);
+  background: rgba(88, 166, 255, 0.08);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.tls-file-name {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 10px;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tls-file-input:focus-visible + .tls-file-picker {
+  outline: 1px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.tls-file-input:disabled + .tls-file-picker {
+  cursor: not-allowed;
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .tls-settings-actions {

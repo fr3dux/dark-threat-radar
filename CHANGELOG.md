@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1] - 2026-10-10
+
+### Fixed
+- **Clear TLS Port Roles**: Labels ports 80 and 443 as public Nginx listeners and identifies port 9220 as the unchanged internal application upstream.
+- **Consistent File Picker Language**: Replaces browser-localized native upload controls with English selectors and filename states that match the rest of the interface.
+- **Accurate Locked State**: Shows the TLS manager as locked before administrative access is verified instead of implying an active status check.
+
 ## [1.15.0] - 2026-10-10
 
 ### Added

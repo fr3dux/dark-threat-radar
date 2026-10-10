@@ -1309,7 +1309,7 @@
 
         <div class="settings-section-heading" id="settings-tls-section">
           <div><span class="mono integration-modal-kicker">02 // HTTPS &amp; ACCESS</span><h3>APPLICATION ADDRESS &amp; TLS</h3></div>
-          <span class="connector-state disabled mono" id="tls-manager-state">CHECKING</span>
+          <span class="connector-state disabled mono" id="tls-manager-state">LOCKED</span>
         </div>
         <div class="tls-settings-card">
           <div class="tls-settings-grid">
@@ -1319,30 +1319,42 @@
               <small>DNS must already point this name to the server. The system does not modify public DNS.</small>
             </label>
             <label class="settings-field">
-              <span class="mono">HTTP PORT</span>
+              <span class="mono">PUBLIC HTTP PORT</span>
               <input type="number" id="settings-tls-http-port" class="search-input tls-control" min="1" max="65535" value="80" disabled>
-              <small>Used for HTTP access or redirect.</small>
+              <small id="tls-http-port-help">Nginx listener for HTTP access or redirect. Application upstream remains on port 9220.</small>
             </label>
             <label class="settings-field">
-              <span class="mono">HTTPS PORT</span>
+              <span class="mono">PUBLIC HTTPS PORT</span>
               <input type="number" id="settings-tls-https-port" class="search-input tls-control" min="1" max="65535" value="443" disabled>
-              <small>Public encrypted access port.</small>
+              <small>Nginx listener for encrypted access.</small>
             </label>
-            <label class="settings-field tls-file-field">
+            <div class="settings-field tls-file-field">
               <span class="mono">SERVER CERTIFICATE (PEM)</span>
-              <input type="file" id="settings-tls-certificate" class="tls-file-input tls-control" accept=".pem,.crt,.cer,application/x-pem-file" disabled>
+              <input type="file" id="settings-tls-certificate" class="tls-file-input tls-control" accept=".pem,.crt,.cer,application/x-pem-file" onchange="updateTlsFileLabel('settings-tls-certificate', 'settings-tls-certificate-name')" disabled>
+              <label class="tls-file-picker mono" for="settings-tls-certificate">
+                <span class="tls-file-button">CHOOSE FILE</span>
+                <span class="tls-file-name" id="settings-tls-certificate-name">NO FILE SELECTED</span>
+              </label>
               <small>Certificate containing the configured FQDN.</small>
-            </label>
-            <label class="settings-field tls-file-field">
+            </div>
+            <div class="settings-field tls-file-field">
               <span class="mono">INTERMEDIATE CHAIN (PEM)</span>
-              <input type="file" id="settings-tls-chain" class="tls-file-input tls-control" accept=".pem,.crt,.cer,application/x-pem-file" disabled>
+              <input type="file" id="settings-tls-chain" class="tls-file-input tls-control" accept=".pem,.crt,.cer,application/x-pem-file" onchange="updateTlsFileLabel('settings-tls-chain', 'settings-tls-chain-name')" disabled>
+              <label class="tls-file-picker mono" for="settings-tls-chain">
+                <span class="tls-file-button">CHOOSE FILE</span>
+                <span class="tls-file-name" id="settings-tls-chain-name">NO FILE SELECTED</span>
+              </label>
               <small>Optional CA intermediate chain.</small>
-            </label>
-            <label class="settings-field tls-file-field">
+            </div>
+            <div class="settings-field tls-file-field">
               <span class="mono">PRIVATE KEY (PEM)</span>
-              <input type="file" id="settings-tls-key" class="tls-file-input tls-control" accept=".pem,.key,application/x-pem-file" disabled>
+              <input type="file" id="settings-tls-key" class="tls-file-input tls-control" accept=".pem,.key,application/x-pem-file" onchange="updateTlsFileLabel('settings-tls-key', 'settings-tls-key-name')" disabled>
+              <label class="tls-file-picker mono" for="settings-tls-key">
+                <span class="tls-file-button">CHOOSE FILE</span>
+                <span class="tls-file-name" id="settings-tls-key-name">NO FILE SELECTED</span>
+              </label>
               <small>Validated once, stored owner-only, and never returned to the browser.</small>
-            </label>
+            </div>
           </div>
           <div class="tls-settings-actions">
             <label class="integration-check-row mono">

@@ -2548,6 +2548,25 @@ function setIntegrationMessage(message, type = '') {
   element.className = `integration-message mono ${type}`.trim();
 }
 
+function updateTlsFileLabel(inputId, labelId) {
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  if (!label) return;
+  label.textContent = input?.files?.[0]?.name || 'NO FILE SELECTED';
+}
+
+function clearTlsFileInputs() {
+  [
+    ['settings-tls-certificate', 'settings-tls-certificate-name'],
+    ['settings-tls-chain', 'settings-tls-chain-name'],
+    ['settings-tls-key', 'settings-tls-key-name']
+  ].forEach(([inputId, labelId]) => {
+    const input = document.getElementById(inputId);
+    if (input) input.value = '';
+    updateTlsFileLabel(inputId, labelId);
+  });
+}
+
 function openIntegrationSettings() {
   const menu = document.getElementById('feeds-dropdown-menu');
   const summaryButton = document.getElementById('feed-summary-btn');
@@ -2582,10 +2601,7 @@ function closeIntegrationSettings() {
     if (control) control.disabled = true;
   });
   document.querySelectorAll('.tls-control').forEach(control => { control.disabled = true; });
-  ['settings-tls-certificate', 'settings-tls-chain', 'settings-tls-key'].forEach(id => {
-    const input = document.getElementById(id);
-    if (input) input.value = '';
-  });
+  clearTlsFileInputs();
   const tokenInput = document.getElementById('integration-admin-token');
   if (tokenInput) tokenInput.value = '';
   setIntegrationMessage(translateMessage('admin_required'));
@@ -2643,6 +2659,11 @@ function renderTlsSettings(data) {
   const readiness = document.getElementById('settings-tls-readiness-note');
   const ready = Boolean(data.manager_ready);
   const state = data.state || (ready ? 'not_configured' : 'disabled');
+  const applicationPort = Number(data.application_port) || 9220;
+  const httpPortHelp = document.getElementById('tls-http-port-help');
+  if (httpPortHelp) {
+    httpPortHelp.textContent = `Nginx public listener for HTTP access or redirect. Application upstream remains on port ${applicationPort}.`;
+  }
   if (stateBadge) {
     stateBadge.className = `connector-state ${state === 'active' ? 'healthy' : (state === 'error' ? 'failed' : 'disabled')} mono`;
     stateBadge.textContent = !ready ? 'SETUP REQUIRED' : (state === 'active' ? 'HTTPS ACTIVE' : state.replaceAll('_', ' ').toUpperCase());
@@ -2712,10 +2733,7 @@ async function applyTlsSettings() {
     });
     const data = await parseIntegrationResponse(response);
     renderTlsSettings(data);
-    ['settings-tls-certificate', 'settings-tls-chain', 'settings-tls-key'].forEach(id => {
-      const input = document.getElementById(id);
-      if (input) input.value = '';
-    });
+    clearTlsFileInputs();
     setIntegrationMessage('TLS configuration queued. Existing access remains active during validation.', 'ok');
   } catch (error) {
     setIntegrationMessage(error.message, 'error');

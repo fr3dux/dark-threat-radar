@@ -68,7 +68,9 @@ def test_certificate_key_hostname_validation_and_safe_status(tmp_path):
     assert "private_key_path" not in queued
     assert "certificate_path" not in queued
     assert "PRIVATE KEY" not in str(queued)
-    assert tls_public_status(control)["manager_ready"] is True
+    public_status = tls_public_status(control)
+    assert public_status["manager_ready"] is True
+    assert public_status["application_port"] == 9220
 
 
 def test_nginx_configuration_supports_custom_ports_and_redirect():
