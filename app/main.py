@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Security
+from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Security, UploadFile, File, Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import APIKeyHeader
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -65,6 +65,7 @@ from app.scheduler import (
 )
 from app.updater import get_update_status, queue_latest_update
 from app.watchlist_monitor import EXPOSURE_TYPES, refresh_watchlist_alerts
+from app.tls_manager import MAX_PEM_BYTES, queue_tls_configuration, tls_public_status
 
 logging.basicConfig(
     level=logging.INFO,
@@ -256,6 +257,45 @@ async def api_save_general_settings(
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Unknown IANA timezone") from exc
     return await save_app_settings(timezone_name, payload.locale)
+
+
+@app.get("/api/admin/settings/tls", tags=["Administration"])
+async def api_tls_settings_status(
+    _admin: None = Security(require_settings_admin),
+):
+    """Return public TLS proxy state without exposing certificate or key material."""
+    return tls_public_status()
+
+
+@app.post("/api/admin/settings/tls", tags=["Administration"])
+async def api_queue_tls_settings(
+    fqdn: str = Form(..., min_length=4, max_length=253),
+    http_port: int = Form(80, ge=1, le=65535),
+    https_port: int = Form(443, ge=1, le=65535),
+    redirect_http: bool = Form(True),
+    certificate: UploadFile = File(...),
+    private_key: UploadFile = File(...),
+    intermediate_chain: Optional[UploadFile] = File(None),
+    _admin: None = Security(require_settings_admin),
+):
+    """Validate and queue an atomic host-proxy TLS configuration change."""
+    certificate_bytes = await certificate.read(MAX_PEM_BYTES + 1)
+    key_bytes = await private_key.read(MAX_PEM_BYTES + 1)
+    chain_bytes = await intermediate_chain.read(MAX_PEM_BYTES + 1) if intermediate_chain else b""
+    try:
+        return queue_tls_configuration(
+            fqdn=fqdn,
+            http_port=http_port,
+            https_port=https_port,
+            redirect_http=redirect_http,
+            certificate=certificate_bytes,
+            private_key=key_bytes,
+            chain=chain_bytes,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/admin/update", status_code=202, tags=["Administration"])

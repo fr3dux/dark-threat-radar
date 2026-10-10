@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-10-10
+
+### Added
+- **Managed HTTPS & FQDN**: Adds an administrative Settings section for FQDN, public HTTP/HTTPS ports, HTTP redirect policy, server certificate, intermediate chain, and private key uploads.
+- **Certificate Safety Validation**: Rejects malformed, expired, hostname-mismatched, or key-mismatched PEM material before creating an activation request; upload size and listener ports are constrained.
+- **Privilege-Separated TLS Manager**: Adds an optional root-owned Nginx worker and installer for native Linux deployments, including syntax checks, HTTPS health verification, atomic activation, and automatic rollback.
+- **TLS Status Visibility**: Shows manager readiness, activation state, active HTTPS address, certificate issuer, and expiration without returning key material or filesystem paths.
+
+### Security
+- **Stable Application Upstream**: Keeps FastAPI on its existing upstream listener while Nginx owns the configured public HTTP/HTTPS ports, so the API and Swagger use the same protected FQDN.
+- **Owner-Only Key Storage**: Writes private keys and TLS control requests with restrictive permissions and never exposes uploaded secrets through status endpoints.
+
 ## [1.14.9] - 2026-10-10
 
 ### Added

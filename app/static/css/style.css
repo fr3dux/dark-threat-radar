@@ -2961,14 +2961,92 @@ main.main-content.dashboard-active {
   padding-inline: 16px;
 }
 
+.tls-settings-card {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: rgba(22, 27, 34, 0.72);
+}
+
+.tls-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tls-fqdn-field {
+  grid-column: span 4;
+}
+
+.tls-file-field {
+  grid-column: span 2;
+}
+
+.tls-settings-grid .settings-field {
+  padding: 10px;
+}
+
+.tls-file-input {
+  min-width: 0;
+  width: 100%;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.tls-file-input::file-selector-button {
+  margin-right: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--border-hover);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tls-settings-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-deep);
+}
+
+.tls-settings-actions .integration-provider-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tls-readiness-note {
+  margin-top: 10px;
+}
+
 .settings-shell .integration-provider-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (max-width: 900px) {
   .settings-general-grid,
-  .settings-shell .integration-provider-list {
+  .settings-shell .integration-provider-list,
+  .tls-settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tls-settings-actions {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .tls-fqdn-field,
+  .tls-file-field {
+    grid-column: auto;
+  }
+
+  .tls-settings-actions .btn {
+    width: 100%;
   }
 
   .settings-status {

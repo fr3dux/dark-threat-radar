@@ -1307,8 +1307,58 @@
           </div>
         </div>
 
+        <div class="settings-section-heading" id="settings-tls-section">
+          <div><span class="mono integration-modal-kicker">02 // HTTPS &amp; ACCESS</span><h3>APPLICATION ADDRESS &amp; TLS</h3></div>
+          <span class="connector-state disabled mono" id="tls-manager-state">CHECKING</span>
+        </div>
+        <div class="tls-settings-card">
+          <div class="tls-settings-grid">
+            <label class="settings-field tls-fqdn-field">
+              <span class="mono">APPLICATION FQDN</span>
+              <input type="text" id="settings-tls-fqdn" class="search-input tls-control" placeholder="radar.example.com" autocomplete="off" disabled>
+              <small>DNS must already point this name to the server. The system does not modify public DNS.</small>
+            </label>
+            <label class="settings-field">
+              <span class="mono">HTTP PORT</span>
+              <input type="number" id="settings-tls-http-port" class="search-input tls-control" min="1" max="65535" value="80" disabled>
+              <small>Used for HTTP access or redirect.</small>
+            </label>
+            <label class="settings-field">
+              <span class="mono">HTTPS PORT</span>
+              <input type="number" id="settings-tls-https-port" class="search-input tls-control" min="1" max="65535" value="443" disabled>
+              <small>Public encrypted access port.</small>
+            </label>
+            <label class="settings-field tls-file-field">
+              <span class="mono">SERVER CERTIFICATE (PEM)</span>
+              <input type="file" id="settings-tls-certificate" class="tls-file-input tls-control" accept=".pem,.crt,.cer,application/x-pem-file" disabled>
+              <small>Certificate containing the configured FQDN.</small>
+            </label>
+            <label class="settings-field tls-file-field">
+              <span class="mono">INTERMEDIATE CHAIN (PEM)</span>
+              <input type="file" id="settings-tls-chain" class="tls-file-input tls-control" accept=".pem,.crt,.cer,application/x-pem-file" disabled>
+              <small>Optional CA intermediate chain.</small>
+            </label>
+            <label class="settings-field tls-file-field">
+              <span class="mono">PRIVATE KEY (PEM)</span>
+              <input type="file" id="settings-tls-key" class="tls-file-input tls-control" accept=".pem,.key,application/x-pem-file" disabled>
+              <small>Validated once, stored owner-only, and never returned to the browser.</small>
+            </label>
+          </div>
+          <div class="tls-settings-actions">
+            <label class="integration-check-row mono">
+              <input type="checkbox" id="settings-tls-redirect" class="tls-control" checked disabled>
+              REDIRECT HTTP TO HTTPS
+            </label>
+            <div class="integration-provider-meta mono" id="settings-tls-meta">Unlock administrative access to inspect HTTPS status.</div>
+            <button type="button" class="btn btn-primary" id="settings-tls-apply" onclick="applyTlsSettings()" disabled>VALIDATE &amp; ACTIVATE HTTPS</button>
+          </div>
+          <div class="integration-opt-in-note tls-readiness-note" id="settings-tls-readiness-note">
+            HTTPS requires the root-owned TLS manager on the host. Existing HTTP access remains available if activation fails.
+          </div>
+        </div>
+
         <div class="settings-section-heading" id="settings-integrations-section">
-          <div><span class="mono integration-modal-kicker">02 // INTEGRATIONS</span><h3>CTI FEEDS &amp; SERVER-SIDE SECRETS</h3></div>
+          <div><span class="mono integration-modal-kicker">03 // INTEGRATIONS</span><h3>CTI FEEDS &amp; SERVER-SIDE SECRETS</h3></div>
           <span class="badge badge-kev mono">OWNER-ONLY STORAGE</span>
         </div>
 

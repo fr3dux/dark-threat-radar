@@ -2581,6 +2581,11 @@ function closeIntegrationSettings() {
     const control = document.getElementById(id);
     if (control) control.disabled = true;
   });
+  document.querySelectorAll('.tls-control').forEach(control => { control.disabled = true; });
+  ['settings-tls-certificate', 'settings-tls-chain', 'settings-tls-key'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+  });
   const tokenInput = document.getElementById('integration-admin-token');
   if (tokenInput) tokenInput.value = '';
   setIntegrationMessage(translateMessage('admin_required'));
@@ -2608,6 +2613,7 @@ async function verifyIntegrationAccess() {
   try {
     await loadIntegrationSettings();
     await loadPublicSettings();
+    await loadTlsSettings();
     ['settings-timezone', 'settings-locale', 'settings-save-general'].forEach(id => {
       const control = document.getElementById(id);
       if (control) control.disabled = false;
@@ -2616,7 +2622,10 @@ async function verifyIntegrationAccess() {
     document.getElementById('settings-admin-access')?.classList.add('is-unlocked');
     setIntegrationMessage(translateMessage('admin_verified'), 'ok');
     if (integrationSettingsPoll) clearInterval(integrationSettingsPoll);
-    integrationSettingsPoll = setInterval(() => loadIntegrationSettings(true), 5000);
+    integrationSettingsPoll = setInterval(() => {
+      loadIntegrationSettings(true).catch(() => {});
+      loadTlsSettings(true).catch(() => {});
+    }, 5000);
   } catch (error) {
     integrationAdminToken = '';
     document.getElementById('settings-admin-access')?.classList.remove('is-unlocked');
@@ -2625,6 +2634,93 @@ async function verifyIntegrationAccess() {
       if (control) control.disabled = true;
     });
     setIntegrationMessage(error.message, 'error');
+  }
+}
+
+function renderTlsSettings(data) {
+  const stateBadge = document.getElementById('tls-manager-state');
+  const meta = document.getElementById('settings-tls-meta');
+  const readiness = document.getElementById('settings-tls-readiness-note');
+  const ready = Boolean(data.manager_ready);
+  const state = data.state || (ready ? 'not_configured' : 'disabled');
+  if (stateBadge) {
+    stateBadge.className = `connector-state ${state === 'active' ? 'healthy' : (state === 'error' ? 'failed' : 'disabled')} mono`;
+    stateBadge.textContent = !ready ? 'SETUP REQUIRED' : (state === 'active' ? 'HTTPS ACTIVE' : state.replaceAll('_', ' ').toUpperCase());
+  }
+  if (readiness) {
+    readiness.textContent = ready
+      ? 'The certificate and key are validated before an atomic Nginx reload. Failed activation automatically restores the previous listener.'
+      : 'Host TLS manager is not installed. Run the documented installer once before configuring HTTPS.';
+  }
+  if (meta) {
+    const address = data.configured
+      ? `https://${data.fqdn}${Number(data.https_port) === 443 ? '' : `:${data.https_port}`}`
+      : 'HTTPS is not configured';
+    const issuer = data.issuer ? ` // Issuer: ${data.issuer}` : '';
+    const expiry = data.expires_at ? ` // Expires: ${formatDateTime(data.expires_at)}` : '';
+    meta.textContent = `${address}${issuer}${expiry}${data.message ? ` // ${data.message}` : ''}`;
+  }
+  if (data.fqdn) document.getElementById('settings-tls-fqdn').value = data.fqdn;
+  if (data.http_port) document.getElementById('settings-tls-http-port').value = data.http_port;
+  if (data.https_port) document.getElementById('settings-tls-https-port').value = data.https_port;
+  if (typeof data.redirect_http === 'boolean') document.getElementById('settings-tls-redirect').checked = data.redirect_http;
+  document.querySelectorAll('.tls-control').forEach(control => { control.disabled = !ready; });
+}
+
+async function loadTlsSettings(silent = false) {
+  if (!integrationAdminToken) throw new Error(translateMessage('admin_required'));
+  const response = await fetch('/api/admin/settings/tls', {
+    cache: 'no-store',
+    headers: { 'X-Admin-Token': integrationAdminToken }
+  });
+  const data = await parseIntegrationResponse(response);
+  renderTlsSettings(data);
+  if (!silent && !data.manager_ready) {
+    setIntegrationMessage('Administrative access verified. HTTPS host manager requires one-time setup.', 'ok');
+  }
+  return data;
+}
+
+async function applyTlsSettings() {
+  if (!integrationAdminToken) {
+    setIntegrationMessage('Unlock administrative access first.', 'error');
+    return;
+  }
+  const certificate = document.getElementById('settings-tls-certificate')?.files?.[0];
+  const privateKey = document.getElementById('settings-tls-key')?.files?.[0];
+  const chain = document.getElementById('settings-tls-chain')?.files?.[0];
+  if (!certificate || !privateKey) {
+    setIntegrationMessage('Select the server certificate and matching private key.', 'error');
+    return;
+  }
+  const form = new FormData();
+  form.append('fqdn', document.getElementById('settings-tls-fqdn')?.value.trim() || '');
+  form.append('http_port', document.getElementById('settings-tls-http-port')?.value || '80');
+  form.append('https_port', document.getElementById('settings-tls-https-port')?.value || '443');
+  form.append('redirect_http', String(Boolean(document.getElementById('settings-tls-redirect')?.checked)));
+  form.append('certificate', certificate);
+  form.append('private_key', privateKey);
+  if (chain) form.append('intermediate_chain', chain);
+  const button = document.getElementById('settings-tls-apply');
+  if (button) button.disabled = true;
+  setIntegrationMessage('Validating certificate, key, hostname, and listener ports...');
+  try {
+    const response = await fetch('/api/admin/settings/tls', {
+      method: 'POST',
+      headers: { 'X-Admin-Token': integrationAdminToken },
+      body: form
+    });
+    const data = await parseIntegrationResponse(response);
+    renderTlsSettings(data);
+    ['settings-tls-certificate', 'settings-tls-chain', 'settings-tls-key'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+    setIntegrationMessage('TLS configuration queued. Existing access remains active during validation.', 'ok');
+  } catch (error) {
+    setIntegrationMessage(error.message, 'error');
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 

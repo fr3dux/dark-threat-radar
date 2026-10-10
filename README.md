@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.14.9-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.15.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -51,7 +51,8 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - **Industrial SOC Aesthetic:** Sober, dense, high-contrast analyst-grade interface with side-by-side symmetrical card pairs, lateral drawer inspection, compact single-row menu, and dark theme.
 - **Enterprise-Grade Versioning:** Strict Semantic Versioning (SemVer), schema migration tracking (`schema_migrations`), and an automated `pytest` validation suite.
 - **Secure Update Channel:** Detects new stable GitHub releases in the dashboard. Native installations can opt into authenticated one-click updates through a privilege-separated systemd worker with backup, isolated testing, health checks, and rollback.
-- **Central Settings Workspace:** Configure a global IANA timezone, locale foundation, and protected CTI feed credentials from one administrative page. Threat records remain stored in UTC and are converted only for display.
+- **Central Settings Workspace:** Configure a global IANA timezone, locale foundation, protected CTI feed credentials, and host-managed HTTPS from one administrative page. Threat records remain stored in UTC and are converted only for display.
+- **Managed HTTPS & FQDN:** Native Linux deployments can upload a PEM certificate, optional intermediate chain, and private key; choose public HTTP/HTTPS ports; validate hostname/key/expiry; and activate Nginx atomically with health verification and rollback.
 
 ---
 
@@ -217,6 +218,8 @@ docker compose logs -f
 
 Open your browser at `http://localhost:9220` (or your server's IP).
 
+The built-in HTTPS manager targets native Linux/systemd installations. Docker users should keep port 9220 private and terminate TLS in their existing Caddy, Nginx, Traefik, or load-balancer deployment.
+
 ---
 
 ## Native Linux Installation
@@ -280,6 +283,23 @@ sudo /opt/dark-threat-radar/venv/bin/python /opt/dark-threat-radar/scripts/insta
 
 The installer copies the worker to a root-owned system location and runs it with the system Python interpreter, outside the application environment. The web application never receives permission to execute arbitrary commands; it can only create a validated request for the fixed external updater. Adjust `/opt/dark-threat-radar` if the repository is installed elsewhere.
 
+### 5. Optional Managed HTTPS, FQDN, and Public Ports
+
+Native Linux installations can enable the Settings HTTPS section with a one-time root-owned Nginx manager installation:
+
+```bash
+sudo ./venv/bin/python scripts/install_tls_manager.py --project-root "$(pwd)" --app-user root --install-nginx
+```
+
+After installation, open **Settings → HTTPS & Access**, unlock administration, and provide:
+
+- the application FQDN, with DNS already pointing to the server;
+- the public HTTP and HTTPS ports (defaults: 80 and 443);
+- the server certificate, optional intermediate chain, and matching private key in PEM format;
+- whether HTTP should redirect to HTTPS.
+
+The FastAPI service remains on its upstream port (9220 by default). Restrict that port with the host firewall if HTTPS must be the only public entry point. A root-owned worker validates the hostname, expiry, certificate/key match, Nginx syntax, and the resulting HTTPS health endpoint. Configuration is applied atomically; if validation or health checking fails, the previous listener is restored. The private key is owner-only and is never returned by the API or browser.
+
 ---
 
 ## Configuration and Environment Variables
@@ -288,6 +308,7 @@ The installer copies the worker to a root-owned system location and runs it with
 | :--- | :--- | :--- |
 | `HOST` | `0.0.0.0` | Network binding interface. |
 | `PORT` | `9220` | Listening HTTP port. |
+| `TLS_CONTROL_DIR` | `/var/lib/dark-threat-radar/tls` | Request/status directory shared with the optional root-owned TLS manager. |
 | `SYNC_INTERVAL_SECONDS` | `300` | Core connector interval: CISA, NVD, EPSS, DShield, MalwareBazaar, ransomware.live, and news. |
 | `CTI_FAST_INTERVAL_SECONDS` | `900` (minimum 900) | ThreatFox, URLhaus, Feodo Tracker, and SSLBL interval. |
 | `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub, Spamhaus, OTX, PhishTank, blocklist.de, MSRC, Red Hat, RansomFeed, RansomLook, DataBreaches.net, and ThreatCluster interval. |
@@ -371,6 +392,8 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `POST`| `/api/sync` | Manually triggers immediate synchronization; requires `X-Admin-Token`. |
 | `GET` | `/api/admin/integrations` | Returns managed connector configuration and validation state; requires `X-Admin-Token`. |
 | `PUT` | `/api/admin/settings/general` | Updates the global IANA timezone and locale preference; requires `X-Admin-Token`. |
+| `GET` | `/api/admin/settings/tls` | Returns sanitized HTTPS manager readiness and active endpoint metadata; requires `X-Admin-Token`. |
+| `POST` | `/api/admin/settings/tls` | Validates and queues FQDN, ports, certificate chain, and private key for atomic proxy activation; requires `X-Admin-Token`. |
 | `PUT` | `/api/admin/integrations/{provider}` | Stores and validates a supported provider key without returning the secret. |
 | `DELETE` | `/api/admin/integrations/{provider}` | Removes a managed key and returns the connector to `AUTH REQUIRED`. |
 | `POST` | `/api/admin/update` | Authenticates and queues the latest validated stable release for the external updater. |
@@ -428,7 +451,7 @@ O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de amea�
 4. **Reputação diária:** AbuseIPDB usa uma execução diária independente e uma trava persistente para respeitar a cota do plano gratuito, inclusive após reinícios ou sincronizações manuais.
 5. **Enriquecimento lento (6 h):** OSV.dev, CIRCL MISP OSINT, MITRE ATT&CK e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Settings → Integrations** após a confirmação dos termos do provedor.
 
-A área **Settings** centraliza o timezone global, a base de localização para inglês, português do Brasil e espanhol, além das credenciais protegidas dos feeds. Todos os eventos continuam armazenados em UTC e são convertidos apenas na apresentação ao analista.
+A área **Settings** centraliza o timezone global, a base de localização para inglês, português do Brasil e espanhol, as credenciais protegidas dos feeds e, em instalações Linux nativas, o FQDN, portas públicas e certificado HTTPS. O proxy Nginx é gerenciado por um serviço externo privilegiado, com validação e rollback; a chave privada nunca é devolvida ao navegador. Todos os eventos continuam armazenados em UTC e são convertidos apenas na apresentação ao analista.
 
 Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. Incidentes de exposição unem Ransomware.live, RansomFeed, RansomLook, DataBreaches.net e, opcionalmente, ThreatCluster, preservando todas as fontes, primeiro registro e última atualização. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
 

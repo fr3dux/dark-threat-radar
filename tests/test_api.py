@@ -94,6 +94,26 @@ def test_general_settings_require_admin_and_validate_iana_timezone(client, monke
     assert restored.status_code == 200
 
 
+def test_tls_settings_require_admin_and_never_return_key_material(client, monkeypatch):
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "settings-admin-code")
+    monkeypatch.setattr(main_module, "tls_public_status", lambda: {
+        "manager_ready": True,
+        "state": "active",
+        "configured": True,
+        "fqdn": "radar.example.com",
+        "https_port": 443,
+    })
+    assert client.get("/api/admin/settings/tls").status_code == 401
+    response = client.get(
+        "/api/admin/settings/tls",
+        headers={"X-Admin-Token": "settings-admin-code"},
+    )
+    assert response.status_code == 200
+    assert response.json()["fqdn"] == "radar.example.com"
+    assert "private_key" not in response.text
+    rate_limiter.clear()
+
+
 def test_update_install_requires_admin_and_queues(client, monkeypatch):
     monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "update-admin-code")
 
@@ -346,6 +366,11 @@ def test_index_page_version_injection(client):
     assert 'id="panel-settings"' in html
     assert 'id="settings-admin-access"' in html
     assert 'class="settings-action-card"' in html
+    assert 'id="settings-tls-fqdn"' in html
+    assert 'id="settings-tls-http-port"' in html
+    assert 'id="settings-tls-https-port"' in html
+    assert 'id="settings-tls-certificate"' in html
+    assert 'id="settings-tls-key"' in html
     assert "DISPLAY &amp; REGIONAL SETTINGS" in html
     assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
     assert 'id="integration-modal-overlay"' not in html

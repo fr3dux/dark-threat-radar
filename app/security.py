@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 
 MAX_REQUEST_BODY_BYTES = 64 * 1024
+MAX_TLS_UPLOAD_BODY_BYTES = 128 * 1024
 
 
 @dataclass(frozen=True)
@@ -73,11 +74,16 @@ class RequestBodyLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        effective_limit = (
+            MAX_TLS_UPLOAD_BODY_BYTES
+            if scope.get("path") == "/api/admin/settings/tls"
+            else self.max_body_size
+        )
         headers = dict(scope.get("headers", []))
         declared_length = headers.get(b"content-length")
         if declared_length:
             try:
-                if int(declared_length) > self.max_body_size:
+                if int(declared_length) > effective_limit:
                     response = JSONResponse(
                         status_code=413,
                         content={"error": "Request body too large", "status_code": 413},
@@ -99,7 +105,7 @@ class RequestBodyLimitMiddleware:
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_body_size:
+                if received > effective_limit:
                     raise _RequestBodyTooLarge
             return message
 
