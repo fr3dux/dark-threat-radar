@@ -279,6 +279,9 @@ function renderUpdateStatus(data) {
     if (data.check_error) {
       pill.classList.add('is-error');
       pill.title = 'The stable release channel could not be checked';
+    } else if (data.check_warning) {
+      pill.classList.add('is-warning');
+      pill.title = 'Showing the last verified release status; the live check is temporarily limited';
     } else if (active) {
       pill.classList.add('is-active');
       pill.title = 'A validated system update is in progress';
@@ -291,7 +294,8 @@ function renderUpdateStatus(data) {
     }
   }
   if (pillText) {
-    if (data.check_error) pillText.textContent = 'UPDATE STATUS UNKNOWN';
+    if (data.check_error) pillText.textContent = 'UPDATE CHECK DEGRADED';
+    else if (data.check_warning) pillText.textContent = data.update_available ? `UPDATE v${data.latest_version} AVAILABLE` : 'SYSTEM UPDATED';
     else if (active) pillText.textContent = `UPDATING v${data.update_target_version || data.latest_version || ''}`.trim();
     else if (data.update_available) pillText.textContent = `UPDATE v${data.latest_version} AVAILABLE`;
     else pillText.textContent = 'SYSTEM UPDATED';
@@ -307,6 +311,8 @@ function renderUpdateStatus(data) {
 
   if (data.check_error) {
     setUpdateMessage(data.check_error, 'error');
+  } else if (data.check_warning) {
+    setUpdateMessage(`${data.check_warning} Showing the last verified release status.`);
   } else if (active) {
     setUpdateMessage(data.update_message || 'Update is running. This page will reconnect automatically.');
   } else if (state === 'rolled_back' || state === 'failed') {

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.3] - 2026-10-10
+
+### Fixed
+- **Resilient Update Discovery**: Uses the GitHub latest-release redirect when the unauthenticated REST quota is exhausted, halves normal release-check API usage, and preserves the last verified state during temporary provider failures.
+- **Accurate Update Status**: Replaces the alarming unknown state with a degraded warning only when no verified status exists; cached verified status remains visible with a clear non-fatal warning.
+- **Ransomware.live Partial Availability**: Keeps the primary global victim feed healthy when the optional Brazil enrichment endpoint fails temporarily.
+
 ## [1.14.2] - 2026-10-10
 
 ### Fixed

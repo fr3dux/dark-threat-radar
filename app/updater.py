@@ -27,7 +27,12 @@ ALLOWED_STATUS_FIELDS = {
     "state", "message", "target_version", "previous_version", "started_at",
     "finished_at", "progress", "rolled_back",
 }
-_cache: dict[str, Any] = {"checked_at": 0.0, "release": None, "error": None}
+_cache: dict[str, Any] = {
+    "checked_at": 0.0,
+    "release": None,
+    "error": None,
+    "warning": None,
+}
 _cache_lock = asyncio.Lock()
 
 
@@ -80,6 +85,8 @@ async def _fetch_latest_release() -> dict[str, Any]:
 
     async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
         release_response = await client.get(f"{api_base}/releases/latest")
+        if release_response.status_code in {403, 429}:
+            return await _fetch_latest_release_from_web(client)
         release_data = None
         if release_response.status_code == 200:
             release = release_response.json()
@@ -97,10 +104,16 @@ async def _fetch_latest_release() -> dict[str, Any]:
             except ValueError:
                 release_data = None
 
-        # Tags are a safe availability fallback when a GitHub Release has not
-        # been authored yet. The external updater still validates the fixed
-        # origin and exact tag before changing the installation.
+        # A current or newer stable Release is authoritative. Avoid spending a
+        # second unauthenticated GitHub API request on every page refresh.
+        if release_data and parse_version(release_data["version"]) >= parse_version(__version__):
+            return release_data
+
+        # Tags remain a fallback for installations whose latest authored
+        # Release is older than the running version.
         tags_response = await client.get(f"{api_base}/tags", params={"per_page": 30})
+        if tags_response.status_code in {403, 429}:
+            return await _fetch_latest_release_from_web(client)
         tags_response.raise_for_status()
         versions = []
         for item in tags_response.json():
@@ -126,6 +139,24 @@ async def _fetch_latest_release() -> dict[str, Any]:
         }
 
 
+async def _fetch_latest_release_from_web(client: httpx.AsyncClient) -> dict[str, Any]:
+    """Resolve GitHub's public latest-release redirect without using REST quota."""
+    response = await client.get(f"https://github.com/{UPDATE_REPOSITORY}/releases/latest")
+    response.raise_for_status()
+    match = re.search(r"/releases/tag/(v?\d+\.\d+\.\d+)$", str(response.url).rstrip("/"))
+    if not match:
+        raise RuntimeError("GitHub did not return a stable latest-release tag")
+    version = normalize_version(match.group(1))
+    return {
+        "version": version,
+        "tag": f"v{version}",
+        "name": f"Dark Threat Radar v{version}",
+        "url": f"https://github.com/{UPDATE_REPOSITORY}/releases/tag/v{version}",
+        "published_at": None,
+        "changelog": "Release notes are available on GitHub.",
+    }
+
+
 async def get_update_status(force: bool = False) -> dict[str, Any]:
     now = time.monotonic()
     async with _cache_lock:
@@ -133,8 +164,15 @@ async def get_update_status(force: bool = False) -> dict[str, Any]:
             try:
                 _cache["release"] = await _fetch_latest_release()
                 _cache["error"] = None
+                _cache["warning"] = None
             except Exception as exc:
-                _cache["error"] = f"Release check unavailable: {exc}"
+                message = f"Release check temporarily unavailable: {exc}"
+                if _cache["release"]:
+                    _cache["error"] = None
+                    _cache["warning"] = message
+                else:
+                    _cache["error"] = message
+                    _cache["warning"] = None
             _cache["checked_at"] = now
 
         release = _cache["release"]
@@ -151,6 +189,7 @@ async def get_update_status(force: bool = False) -> dict[str, Any]:
             "published_at": release["published_at"] if release else None,
             "changelog": release["changelog"] if release else "",
             "check_error": _cache["error"],
+            "check_warning": _cache.get("warning"),
             "updater_enabled": updater_ready,
         }
         result.update({f"update_{key}": value for key, value in _read_update_state().items()})

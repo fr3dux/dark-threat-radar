@@ -63,7 +63,14 @@ async def ingest_ransomware_live() -> int:
         headers = {"User-Agent": "DarkThreatRadar/1.13", "Accept": "application/json"}
         async with httpx.AsyncClient(timeout=30, headers=headers) as client:
             recent = await fetch_endpoint(client, RECENT_VICTIMS_URL)
-            brazil = await fetch_endpoint(client, BRAZIL_VICTIMS_URL)
+            try:
+                brazil = await fetch_endpoint(client, BRAZIL_VICTIMS_URL)
+            except Exception as exc:
+                # The global catalog is primary. A temporary failure in the
+                # optional Brazil enrichment must not discard valid exposure
+                # intelligence or mark the whole connector failed.
+                logger.warning("Ransomware.live Brazil enrichment unavailable: %s", type(exc).__name__)
+                brazil = []
         for item in brazil:
             item.setdefault("country", "BR")
         records = parse_ransomware_live(recent + brazil)

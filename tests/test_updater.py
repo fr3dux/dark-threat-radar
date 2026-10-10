@@ -10,9 +10,10 @@ from app import updater
 
 
 class FakeResponse:
-    def __init__(self, status_code, payload):
+    def __init__(self, status_code, payload, url="https://example.invalid/"):
         self.status_code = status_code
         self._payload = payload
+        self.url = url
 
     def json(self):
         return self._payload
@@ -84,3 +85,54 @@ def test_newer_tag_wins_over_outdated_latest_release(monkeypatch):
     release = asyncio.run(updater._fetch_latest_release())
     assert release["version"] == "1.9.0"
     assert release["tag"] == "v1.9.0"
+
+
+def test_rate_limited_api_uses_public_latest_release_redirect(monkeypatch):
+    requested = []
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, params=None):
+            requested.append(url)
+            if "api.github.com" in url:
+                return FakeResponse(403, {"message": "rate limit"})
+            return FakeResponse(
+                200, {},
+                "https://github.com/fr3dux/dark-threat-radar/releases/tag/v1.14.3",
+            )
+
+    monkeypatch.setattr(updater.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    release = asyncio.run(updater._fetch_latest_release())
+
+    assert release["version"] == "1.14.3"
+    assert release["tag"] == "v1.14.3"
+    assert len(requested) == 2
+
+
+def test_transient_check_failure_preserves_verified_cached_release(monkeypatch):
+    async def fail_release_check():
+        raise httpx.ConnectError("temporary failure")
+
+    cached_release = {
+        "version": "1.14.3",
+        "tag": "v1.14.3",
+        "name": "Dark Threat Radar v1.14.3",
+        "url": "https://github.com/fr3dux/dark-threat-radar/releases/tag/v1.14.3",
+        "published_at": None,
+        "changelog": "Cached notes",
+    }
+    monkeypatch.setattr(updater, "_fetch_latest_release", fail_release_check)
+    updater._cache.update({
+        "checked_at": 0.0, "release": cached_release, "error": None, "warning": None,
+    })
+
+    status = asyncio.run(updater.get_update_status(force=True))
+
+    assert status["latest_version"] == "1.14.3"
+    assert status["check_error"] is None
+    assert "temporarily unavailable" in status["check_warning"]

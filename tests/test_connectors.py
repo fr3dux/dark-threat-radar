@@ -10,7 +10,7 @@ from app import database
 from app import credential_store
 from app.ingestion import _run_group
 from app import ingestion
-from app.ingestion import abuseipdb, threatfox, urlhaus
+from app.ingestion import abuseipdb, ransomware_live, threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
@@ -64,6 +64,41 @@ def test_connector_group_isolates_failures():
     result = asyncio.run(_run_group("test", [bad, good]))
     assert isinstance(result[0], RuntimeError)
     assert result[1] == 7
+
+
+def test_ransomware_live_keeps_primary_feed_when_enrichment_fails(monkeypatch):
+    health = {}
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return None
+
+    async def fake_fetch(_client, url):
+        if url == ransomware_live.BRAZIL_VICTIMS_URL:
+            raise RuntimeError("optional enrichment unavailable")
+        return [{"id": "victim-1", "victim": "Example Corp", "group": "test"}]
+
+    async def fake_upsert(_source, records):
+        assert len(records) == 1
+        return {"received": 1, "created": 1, "updated": 0, "dropped": 0, "duplicated": 0}
+
+    async def ignore_feed_status(*_args, **_kwargs):
+        return None
+
+    async def capture_health(_source, _category, state, **kwargs):
+        health.update(state=state, **kwargs)
+
+    monkeypatch.setattr(ransomware_live.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(ransomware_live, "fetch_endpoint", fake_fetch)
+    monkeypatch.setattr(ransomware_live, "upsert_exposure_records", fake_upsert)
+    monkeypatch.setattr(ransomware_live, "update_feed_status", ignore_feed_status)
+    monkeypatch.setattr(ransomware_live, "update_connector_health", capture_health)
+
+    result = asyncio.run(ransomware_live.ingest_ransomware_live())
+
+    assert result == 1
+    assert health["state"] == "healthy"
+    assert health["items_received"] == 1
 
 
 def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):
