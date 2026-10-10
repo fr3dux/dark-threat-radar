@@ -2740,7 +2740,8 @@ main.main-content {
 
 /* ==================== CENTRAL SETTINGS WORKSPACE (v1.14.0) ==================== */
 .settings-shell {
-  width: 100%;
+  width: min(1180px, 100%);
+  margin: 0 auto;
   border: 1px solid var(--border-color);
   border-radius: 5px;
   background: #0d1117;
@@ -2900,6 +2901,59 @@ main.main-content {
 
   .settings-save-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  #panel-settings {
+    margin-inline: -10px;
+  }
+
+  .settings-shell {
+    width: 100%;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .settings-shell .integration-modal-header,
+  .settings-shell .integration-modal-body {
+    padding: 12px;
+  }
+
+  .settings-shell .integration-modal-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-security-note {
+    line-height: 1.5;
+  }
+
+  .settings-shell .admin-access-row .integration-input-row,
+  .settings-shell .integration-provider-card .integration-input-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-shell .admin-access-row .btn,
+  .settings-shell .integration-provider-card .btn {
+    width: 100%;
+  }
+
+  .settings-section-heading {
+    align-items: flex-start;
+  }
+
+  .settings-section-heading > .badge {
+    flex: 0 0 auto;
+  }
+
+  .settings-field,
+  .settings-preview-card,
+  .settings-action-card,
+  .integration-provider-card {
+    padding: 10px;
   }
 }
 
