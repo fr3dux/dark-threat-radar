@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-10-10
+
+### Added
+- **Central Settings Workspace**: Adds a dedicated Settings tab for global presentation preferences and protected feed administration.
+- **Configurable IANA Timezone**: Stores threat data in UTC while consistently converting dashboard, explorer, Watchlist, artifact, and connector timestamps to the selected display timezone with an explicit zone label.
+- **Localization Foundation**: Adds persisted locale preferences for English, Portuguese (Brazil), and Spanish, with locale-aware dates and a message-catalog-ready UI architecture.
+
+### Changed
+- **Integrated Feed Administration**: Moves API-key and OpenPhish controls from the former modal into Settings, retaining owner-only secret storage and live connector validation.
+- **Normalized News Dates**: Exposes the canonical UTC publication timestamp to the browser instead of mixing raw provider date formats.
+
+### Security
+- **Protected Preference Changes**: Timezone and locale changes require the existing administrative access code; only non-secret presentation preferences are publicly readable.
+
 ## [1.13.1] - 2026-10-10
 
 ### Fixed

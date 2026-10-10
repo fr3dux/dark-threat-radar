@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app_settings.locale or 'en' }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dark Threat Radar // Cyber Threat Intelligence Platform</title>
   <link rel="stylesheet" href="/static/css/style.css?v={{ version }}">
 </head>
-<body data-version="{{ version }}">
+<body data-version="{{ version }}" data-timezone="{{ app_settings.timezone or 'UTC' }}" data-locale="{{ app_settings.locale or 'en' }}">
 
   <!-- ==================== APP HEADER WITH RESTORED FEEDS RIBBON ==================== -->
   <header class="app-header">
@@ -109,6 +109,9 @@
       </button>
       <button class="tab-btn" id="tab-leakcheck" data-target="panel-leakcheck" onclick="switchTab('panel-leakcheck', this)">
         <span class="tab-icon">⚿</span> LEAK CHECK
+      </button>
+      <button class="tab-btn" id="tab-settings" data-target="panel-settings" onclick="switchTab('panel-settings', this)">
+        <span class="tab-icon">⚙</span> SETTINGS
       </button>
     </div>
   </nav>
@@ -349,7 +352,7 @@
               <div class="spotlight-news-item" data-artifact-type="news" data-artifact-id="{{ news.id }}">
                 <div class="spotlight-news-header">
                   <span class="badge badge-filetype mono">{{ news.source }}</span>
-                  <span class="mono text-muted" style="font-size: 11px;">{{ news.published_date | truncate(26) }}</span>
+                  <time class="mono text-muted js-datetime" style="font-size: 11px;" data-utc-datetime="{{ news.published_at or news.published_date or news.updated_at }}">{{ news.published_at or news.published_date or news.updated_at }}</time>
                 </div>
                 <div class="spotlight-news-title">{{ news.title }}</div>
                 {% if news.snippet %}
@@ -391,7 +394,7 @@
                   {% else %}
                   <span class="mono text-muted">-</span>
                   {% endif %}
-                  <span class="mono text-muted" style="font-size: 11px;">Disclosed: {{ (victim.discovered or victim.attackdate or '')[:16] }}</span>
+                  <span class="mono text-muted" style="font-size: 11px;">Disclosed: <time class="js-datetime" data-utc-datetime="{{ victim.discovered or victim.attackdate or victim.updated_at }}">{{ victim.discovered or victim.attackdate or victim.updated_at }}</time></span>
                   <span class="badge badge-filetype mono">{{ victim.source_count or 1 }} SOURCE{% if (victim.source_count or 1) != 1 %}S{% endif %}</span>
                 </div>
               </div>
@@ -1190,28 +1193,22 @@
       </div>
     </div>
 
-    </main>
-
-  <!-- Application Footer -->
-  <footer class="app-footer">
-    <div class="footer-content">
-      <span>Dark Threat Radar v{{ version }} // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
-    </div>
-  </footer>
-
-  <!-- Authenticated server-side connector credential settings -->
-  <div class="integration-modal-overlay" id="integration-modal-overlay" onclick="if(event.target === this) closeIntegrationSettings()" aria-hidden="true">
-    <section class="integration-modal" role="dialog" aria-modal="true" aria-labelledby="integration-modal-title">
+    <!-- ========================================== -->
+    <!-- TAB: SETTINGS (v1.14.0) -->
+    <!-- Global presentation preferences and protected connector credentials -->
+    <!-- ========================================== -->
+    <div id="panel-settings" class="view-panel">
+    <section class="settings-shell" aria-labelledby="integration-modal-title">
       <div class="integration-modal-header">
         <div>
-          <div class="mono integration-modal-kicker">ADMINISTRATION // CONNECTORS &amp; SERVER-SIDE SECRETS</div>
-          <h2 class="mono" id="integration-modal-title">CTI FEED SETTINGS</h2>
+          <div class="mono integration-modal-kicker">SYSTEM ADMINISTRATION // GLOBAL PREFERENCES &amp; CONNECTORS</div>
+          <h2 class="mono" id="integration-modal-title">SETTINGS</h2>
         </div>
-        <button type="button" class="drawer-close mono" onclick="closeIntegrationSettings()">ESC [X]</button>
+        <span class="settings-status mono" id="settings-current-zone">DISPLAY TIMEZONE: {{ app_settings.timezone or 'UTC' }}</span>
       </div>
 
       <div class="integration-modal-body">
-        <p class="integration-security-note">Keys are stored only on this server with owner-only permissions. Existing keys are never sent back to the browser.</p>
+        <p class="integration-security-note">Threat data remains stored in UTC. This page controls presentation preferences and protected server-side credentials; existing keys are never returned to the browser.</p>
 
         <form class="admin-access-row" onsubmit="event.preventDefault(); verifyIntegrationAccess()">
           <label class="mono" for="integration-admin-token">ADMIN ACCESS CODE</label>
@@ -1221,6 +1218,40 @@
           </div>
           <div class="integration-message mono" id="integration-access-message">Administrative authentication is required.</div>
         </form>
+
+        <div class="settings-section-heading" id="settings-general-section">
+          <div><span class="mono integration-modal-kicker">01 // GENERAL</span><h3>DISPLAY &amp; REGIONAL SETTINGS</h3></div>
+          <span class="badge badge-filetype mono">UTC STORAGE</span>
+        </div>
+        <div class="settings-general-grid">
+          <label class="settings-field">
+            <span class="mono">DISPLAY TIMEZONE</span>
+            <select id="settings-timezone" class="filter-select" onchange="updateSettingsPreview()" disabled>
+              <option value="{{ app_settings.timezone or 'UTC' }}">{{ app_settings.timezone or 'UTC' }}</option>
+            </select>
+            <small>All feeds remain normalized in UTC. Only dates presented to analysts are converted.</small>
+          </label>
+          <label class="settings-field">
+            <span class="mono">LANGUAGE FOUNDATION</span>
+            <select id="settings-locale" class="filter-select" onchange="updateSettingsPreview()" disabled>
+              <option value="en">English</option>
+              <option value="pt-BR">Português (Brasil)</option>
+              <option value="es">Español</option>
+            </select>
+            <small>Date localization is active. This preference also prepares the interface for gradual translation.</small>
+          </label>
+          <div class="settings-preview-card">
+            <span class="mono">LIVE DATE PREVIEW</span>
+            <strong class="mono" id="settings-date-preview">Loading timezone preview…</strong>
+            <small id="settings-zone-description">Stored as UTC · displayed using the selected IANA timezone.</small>
+          </div>
+          <button type="button" class="btn btn-primary settings-save-button" id="settings-save-general" onclick="saveGeneralSettings()" disabled>SAVE GENERAL SETTINGS</button>
+        </div>
+
+        <div class="settings-section-heading" id="settings-integrations-section">
+          <div><span class="mono integration-modal-kicker">02 // INTEGRATIONS</span><h3>CTI FEEDS &amp; SERVER-SIDE SECRETS</h3></div>
+          <span class="badge badge-kev mono">OWNER-ONLY STORAGE</span>
+        </div>
 
         <div class="integration-provider-list" id="integration-provider-list" aria-live="polite">
           <article class="integration-provider-card" data-provider="threatfox">
@@ -1349,7 +1380,16 @@
         </div>
       </div>
     </section>
-  </div>
+    </div>
+
+    </main>
+
+  <!-- Application Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span>Dark Threat Radar v{{ version }} // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+    </div>
+  </footer>
 
   <!-- Authenticated, privilege-separated application updater -->
   <div class="integration-modal-overlay" id="update-modal-overlay" onclick="if(event.target === this) closeUpdateModal()" aria-hidden="true">

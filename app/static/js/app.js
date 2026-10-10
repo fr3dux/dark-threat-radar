@@ -13,6 +13,136 @@ let watchlistScope = 'all';
 let watchlistView = 'all';
 let selectedWatchlistId = '';
 const loadedAppVersion = document.body.dataset.version || '';
+let appSettings = {
+  timezone: document.body.dataset.timezone || 'UTC',
+  locale: document.body.dataset.locale || 'en'
+};
+
+const messageCatalogs = Object.freeze({
+  en: {
+    admin_required: 'Administrative authentication is required.',
+    enter_admin: 'Enter the administrative access code.',
+    verifying_admin: 'Verifying administrative access...',
+    admin_verified: 'Administrative access verified. Keys remain server-side only.',
+    unlock_first: 'Unlock administrative access first.',
+    saving_settings: 'Saving global display settings...',
+    settings_saved: 'Settings saved. Dates now use {timezone}.',
+    display_timezone: 'DISPLAY TIMEZONE: {timezone}'
+  },
+  'pt-BR': {
+    admin_required: 'A autenticação administrativa é obrigatória.',
+    enter_admin: 'Informe o código de acesso administrativo.',
+    verifying_admin: 'Validando o acesso administrativo...',
+    admin_verified: 'Acesso administrativo validado. As chaves permanecem somente no servidor.',
+    unlock_first: 'Desbloqueie primeiro o acesso administrativo.',
+    saving_settings: 'Salvando as configurações globais de exibição...',
+    settings_saved: 'Configurações salvas. As datas agora usam {timezone}.',
+    display_timezone: 'FUSO DE EXIBIÇÃO: {timezone}'
+  },
+  es: {
+    admin_required: 'Se requiere autenticación administrativa.',
+    enter_admin: 'Ingrese el código de acceso administrativo.',
+    verifying_admin: 'Verificando el acceso administrativo...',
+    admin_verified: 'Acceso administrativo verificado. Las claves permanecen solo en el servidor.',
+    unlock_first: 'Desbloquee primero el acceso administrativo.',
+    saving_settings: 'Guardando la configuración global de visualización...',
+    settings_saved: 'Configuración guardada. Las fechas ahora usan {timezone}.',
+    display_timezone: 'ZONA HORARIA DE VISUALIZACIÓN: {timezone}'
+  }
+});
+
+function translateMessage(key, values = {}, locale = appSettings.locale) {
+  const catalog = messageCatalogs[locale] || messageCatalogs.en;
+  const template = catalog[key] || messageCatalogs.en[key] || key;
+  return Object.entries(values).reduce(
+    (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+    template
+  );
+}
+
+function intlLocale(locale = appSettings.locale) {
+  return locale === 'pt-BR' ? 'pt-BR' : (locale === 'es' ? 'es-ES' : 'en-US');
+}
+
+function parseUtcDate(value) {
+  if (!value) return null;
+  let normalized = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2}(\.\d+)?)? UTC$/.test(normalized)) {
+    normalized = normalized.replace(' UTC', 'Z').replace(' ', 'T');
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(normalized)) {
+    normalized = `${normalized.replace(' ', 'T')}Z`;
+  } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(normalized)) {
+    normalized = `${normalized}Z`;
+  }
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateTime(value, timezone = appSettings.timezone, locale = appSettings.locale) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number);
+    return new Intl.DateTimeFormat(intlLocale(locale), {
+      timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date(Date.UTC(year, month - 1, day)));
+  }
+  const parsed = parseUtcDate(value);
+  if (!parsed) return value || 'N/A';
+  try {
+    return new Intl.DateTimeFormat(intlLocale(locale), {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false, timeZoneName: 'short'
+    }).format(parsed);
+  } catch (_) {
+    return parsed.toISOString().replace('T', ' ').replace('Z', ' UTC');
+  }
+}
+
+function applyConfiguredDates(root = document) {
+  root.querySelectorAll('[data-utc-datetime]').forEach(element => {
+    const raw = element.dataset.utcDatetime;
+    element.textContent = formatDateTime(raw);
+    element.title = raw ? `UTC source: ${raw}` : '';
+  });
+}
+
+function updateSettingsPreview() {
+  const timezone = document.getElementById('settings-timezone')?.value || appSettings.timezone;
+  const locale = document.getElementById('settings-locale')?.value || appSettings.locale;
+  const preview = document.getElementById('settings-date-preview');
+  if (preview) preview.textContent = formatDateTime(new Date().toISOString(), timezone, locale);
+}
+
+async function loadPublicSettings() {
+  try {
+    const response = await fetch('/api/settings', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    appSettings = { timezone: data.timezone || 'UTC', locale: data.locale || 'en' };
+    document.body.dataset.timezone = appSettings.timezone;
+    document.body.dataset.locale = appSettings.locale;
+    document.documentElement.lang = appSettings.locale;
+
+    const timezoneSelect = document.getElementById('settings-timezone');
+    if (timezoneSelect) {
+      timezoneSelect.innerHTML = (data.supported_timezones || [appSettings.timezone])
+        .map(zone => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`).join('');
+      timezoneSelect.value = appSettings.timezone;
+    }
+    const localeSelect = document.getElementById('settings-locale');
+    if (localeSelect) localeSelect.value = appSettings.locale;
+    const zoneStatus = document.getElementById('settings-current-zone');
+    if (zoneStatus) zoneStatus.textContent = translateMessage('display_timezone', { timezone: appSettings.timezone });
+    applyConfiguredDates();
+    updateSettingsPreview();
+  } catch (error) {
+    console.error('Failed to load presentation settings:', error);
+    applyConfiguredDates();
+    updateSettingsPreview();
+  }
+}
 
 function updateStickyNavigationOffset() {
   const header = document.querySelector('header.app-header');
@@ -37,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ResizeObserver also covers header wrapping caused by viewport or font changes.
   updateStickyNavigationOffset();
   requestAnimationFrame(updateStickyNavigationOffset);
+  loadPublicSettings();
   window.addEventListener('resize', updateStickyNavigationOffset, { passive: true });
 
   const appHeader = document.querySelector('header.app-header');
@@ -51,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Close drawer on ESC
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      closeIntegrationSettings();
       closeUpdateModal();
       closeDrawer();
       const menu = document.getElementById('feeds-dropdown-menu');
@@ -296,7 +426,7 @@ function switchTab(panelId, btnElement) {
   // views gives tables and filters the visual priority they need.
   if (metricsStrip) metricsStrip.style.display = panelId === 'panel-dashboard' ? 'grid' : 'none';
 
-  if (panelId === 'panel-dashboard' || panelId === 'panel-leakcheck' || panelId === 'panel-watchlist') {
+  if (panelId === 'panel-dashboard' || panelId === 'panel-leakcheck' || panelId === 'panel-watchlist' || panelId === 'panel-settings') {
     toolbar.style.display = 'none';
   } else {
     toolbar.style.display = 'flex';
@@ -325,6 +455,8 @@ function switchTab(panelId, btnElement) {
     loadDshield();
   } else if (panelId === 'panel-news') {
     loadNews();
+  } else if (panelId === 'panel-settings') {
+    loadPublicSettings();
   }
 }
 
@@ -447,7 +579,7 @@ async function loadIocs() {
         <td>${escapeHtml(item.threat_type || 'indicator')}</td>
         <td><span class="badge ${Number(item.confidence) >= 80 ? 'badge-crit' : 'badge-warn'} mono">${Number(item.confidence) || 0}%</span></td>
         <td><div class="source-chip-list">${sources.slice(0, 3).map(name => `<span class="source-chip mono">${escapeHtml(name.replaceAll('_', ' '))}</span>`).join('')}${sources.length > 3 ? `<span class="source-chip mono">+${sources.length - 3}</span>` : ''}</div></td>
-        <td class="mono text-muted">${escapeHtml((item.last_seen || '').replace('T', ' ').slice(0, 19))}</td>
+        <td class="mono text-muted">${escapeHtml(formatDateTime(item.last_seen))}</td>
       </tr>`;
     }).join('') : '<tr><td colspan="6" class="loading-row">No active indicators match these filters.</td></tr>';
     const start = data.total ? offset + 1 : 0;
@@ -674,7 +806,7 @@ async function loadMalware() {
 
       return `
         <tr class="clickable-row" data-artifact-type="malware" data-artifact-id="${escapeHtml(sha256)}">
-          <td class="mono text-muted">${escapeHtml(item.first_seen || '')}</td>
+          <td class="mono text-muted">${escapeHtml(formatDateTime(item.first_seen))}</td>
           <td class="mono" style="color: var(--accent-purple);" title="${escapeHtml(sha256)}">${sha256Short}</td>
           <td class="mono" title="${escapeHtml(item.file_name || '')}">${escapeHtml((item.file_name || 'unknown').slice(0, 26))}</td>
           <td><span class="badge badge-filetype">${escapeHtml((item.file_type || 'bin').toUpperCase())}</span></td>
@@ -780,7 +912,7 @@ async function loadDshield() {
           <td class="mono crit font-bold">${item.attacks.toLocaleString()}</td>
           <td class="mono">${item.count.toLocaleString()}</td>
           <td title="${escapeHtml(item.as_name || '')}">${escapeHtml((item.as_name || 'N/A').slice(0, 26))}</td>
-          <td class="mono text-muted">${escapeHtml(item.lastseen || item.updated_at || '')}</td>
+          <td class="mono text-muted">${escapeHtml(formatDateTime(item.lastseen || item.updated_at || ''))}</td>
         </tr>
       `).join('');
     }
@@ -847,7 +979,7 @@ async function loadNews() {
         </div>
         ${item.snippet ? `<div class="news-snippet">${escapeHtml(item.snippet)}</div>` : ''}
         <div class="news-meta">
-          <span>PUBLISHED: ${escapeHtml(item.published_date || item.updated_at || 'Recent')}</span>
+          <span>PUBLISHED: ${escapeHtml(formatDateTime(item.published_at || item.published_date || item.updated_at || 'Recent'))}</span>
           <span class="text-muted">&bull;</span>
           <span class="mono" style="color: var(--accent-blue); text-decoration: underline;">INSPECT INTELLIGENCE &rarr;</span>
         </div>
@@ -967,12 +1099,12 @@ async function openArtifact(type, identifier) {
           <span class="property-key">THREAT</span><span class="property-value">${escapeHtml(d.threat_type || 'indicator')}</span>
           <span class="property-key">CONFIDENCE</span><span class="property-value mono font-bold">${Number(d.confidence) || 0}% · ${escapeHtml(d.severity || '')}</span>
           <span class="property-key">MALWARE FAMILY</span><span class="property-value">${escapeHtml(d.malware_family || 'N/A')}</span>
-          <span class="property-key">FIRST / LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.first_seen || 'N/A')}<br>${escapeHtml(d.last_seen || 'N/A')}</span>
+          <span class="property-key">FIRST / LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(formatDateTime(d.first_seen))}<br>${escapeHtml(formatDateTime(d.last_seen))}</span>
         </div></div>
         <div class="drawer-section"><div class="drawer-section-title">SOURCE CORRELATION (${observations.length})</div>
           <div class="source-observation-list">${observations.map(source => `<div class="source-observation">
             <div><strong class="mono">${escapeHtml((source.source_name || '').replaceAll('_', ' ').toUpperCase())}</strong> <span class="badge ${source.active ? 'badge-kev' : 'badge-filetype'}">${source.active ? 'ACTIVE' : 'EXPIRED'}</span></div>
-            <div class="mono text-muted">Confidence ${Number(source.confidence) || 0}% · Last seen ${escapeHtml(source.last_seen || 'N/A')}</div>
+            <div class="mono text-muted">Confidence ${Number(source.confidence) || 0}% · Last seen ${escapeHtml(formatDateTime(source.last_seen))}</div>
           </div>`).join('') || '<div class="text-muted">No source observations available.</div>'}</div>
         </div>`;
       const referenceUrl = safeHttpUrl(d.reference_url);
@@ -1001,7 +1133,7 @@ async function openArtifact(type, identifier) {
         <span class="property-key">CVE / ADVISORY</span><span class="property-value mono info">${escapeHtml(d.cve_ids || d.advisory_id)}</span>
         <span class="property-key">SEVERITY</span><span class="property-value"><span class="badge badge-warn">${escapeHtml(d.severity || 'UNKNOWN')}</span></span>
         <span class="property-key">TITLE</span><span class="property-value">${escapeHtml(d.title)}</span>
-        <span class="property-key">PUBLISHED</span><span class="property-value mono text-muted">${escapeHtml(d.published_date || 'N/A')}</span>
+        <span class="property-key">PUBLISHED</span><span class="property-value mono text-muted">${escapeHtml(formatDateTime(d.published_at || d.published_date || d.updated_at))}</span>
       </div></div>`;
       const advisoryUrl = safeHttpUrl(d.reference_url);
       actionsHtml = advisoryUrl ? `<a class="external-link" href="${escapeHtml(advisoryUrl)}" target="_blank" rel="noopener">Official Vendor Advisory &rarr;</a>` : '';
@@ -1018,7 +1150,7 @@ async function openArtifact(type, identifier) {
             <span class="property-key">FILE TYPE</span><span class="property-value mono uppercase">${escapeHtml(d.file_type || 'unknown')}</span>
             <span class="property-key">SIGNATURE</span><span class="property-value font-bold" style="color: var(--accent-red);">${escapeHtml(d.signature || 'Unclassified')}</span>
             <span class="property-key">REPORTER</span><span class="property-value mono text-muted">${escapeHtml(d.reporter || 'abuse_ch')}</span>
-            <span class="property-key">FIRST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.first_seen || '')}</span>
+            <span class="property-key">FIRST SEEN</span><span class="property-value mono text-muted">${escapeHtml(formatDateTime(d.first_seen))}</span>
           </div>
         </div>
       `;
@@ -1084,11 +1216,11 @@ async function openArtifact(type, identifier) {
             <span class="property-key">THREAT ACTOR</span><span class="property-value"><span class="badge badge-ransomware mono font-bold">${escapeHtml((d.group_name || 'UNKNOWN').toUpperCase())}</span></span>
             <span class="property-key">COUNTRY</span><span class="property-value mono">${escapeHtml(d.country || 'N/A')}</span>
             <span class="property-key">DOMAIN / ACTIVITY</span><span class="property-value mono">${escapeHtml(d.domain || d.activity || 'N/A')}</span>
-            <span class="property-key">DISCOVERED</span><span class="property-value mono text-muted">${escapeHtml(d.discovered || 'N/A')}</span>
-            <span class="property-key">ATTACK DATE</span><span class="property-value mono text-muted">${escapeHtml(d.attackdate || 'N/A')}</span>
+            <span class="property-key">DISCOVERED</span><span class="property-value mono text-muted">${escapeHtml(formatDateTime(d.discovered || d.updated_at))}</span>
+            <span class="property-key">ATTACK DATE</span><span class="property-value mono text-muted">${escapeHtml(d.attackdate ? formatDateTime(d.attackdate) : 'N/A')}</span>
             <span class="property-key">INCIDENT TYPE</span><span class="property-value mono">${escapeHtml((d.incident_type || 'ransomware_extortion').replaceAll('_', ' ').toUpperCase())}</span>
             <span class="property-key">CONFIDENCE</span><span class="property-value mono font-bold">${Number(d.confidence_score) || 55}% · ${Number(d.source_count) || 1} SOURCE${Number(d.source_count) === 1 ? '' : 'S'}</span>
-            <span class="property-key">FIRST / LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.first_seen || 'N/A')}<br>${escapeHtml(d.last_seen || 'N/A')}</span>
+            <span class="property-key">FIRST / LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(formatDateTime(d.first_seen))}<br>${escapeHtml(formatDateTime(d.last_seen))}</span>
           </div>
         </div>
         ${d.description ? `
@@ -1101,7 +1233,7 @@ async function openArtifact(type, identifier) {
           <div class="drawer-section-title">SOURCE PROVENANCE (${observations.length})</div>
           <div class="source-observation-list">${observations.map(source => `<div class="source-observation">
             <div><strong class="mono">${escapeHtml(source.source_name || 'PUBLIC CTI')}</strong> <span class="badge badge-filetype">${escapeHtml((source.incident_type || '').replaceAll('_', ' ').toUpperCase())}</span></div>
-            <div class="mono text-muted">First seen ${escapeHtml(source.first_seen || 'N/A')} · Updated ${escapeHtml(source.last_seen || 'N/A')}</div>
+            <div class="mono text-muted">First seen ${escapeHtml(formatDateTime(source.first_seen))} · Updated ${escapeHtml(formatDateTime(source.last_seen))}</div>
             ${safeHttpUrl(source.reference_url) ? `<a class="external-link" href="${escapeHtml(safeHttpUrl(source.reference_url))}" target="_blank" rel="noopener">Provider evidence &rarr;</a>` : ''}
           </div>`).join('') || '<div class="text-muted">No source observations available.</div>'}</div>
         </div>
@@ -1121,7 +1253,7 @@ async function openArtifact(type, identifier) {
           <div class="property-list">
             <span class="property-key">TITLE</span><span class="property-value font-bold">${escapeHtml(d.title)}</span>
             <span class="property-key">SOURCE</span><span class="property-value">${escapeHtml(d.source)}</span>
-            <span class="property-key">PUBLISHED</span><span class="property-value mono text-muted">${escapeHtml(d.published_date || 'N/A')}</span>
+            <span class="property-key">PUBLISHED</span><span class="property-value mono text-muted">${escapeHtml(formatDateTime(d.published_at || d.published_date || d.updated_at))}</span>
           </div>
         </div>
         ${d.snippet ? `
@@ -1331,7 +1463,7 @@ async function pollStatus() {
         container.innerHTML = Object.entries(groups).map(([category, connectors]) => `
           <div class="connector-category mono">${escapeHtml(category.toUpperCase())}</div>
           ${connectors.map(c => `
-            <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || `Last success: ${c.last_success || 'never'}`)}">
+            <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || `Last success: ${formatDateTime(c.last_success)}`)}">
               <span class="status-dot ${escapeHtml(c.state)}"></span>
               <span class="feed-name mono">${escapeHtml(c.source_name.replaceAll('_', ' ').toUpperCase())}</span>
               <span class="connector-state ${escapeHtml(c.state)} mono">${escapeHtml(c.state === 'failed' ? 'error' : c.state.replaceAll('_', ' '))}</span>
@@ -1449,7 +1581,7 @@ async function loadRansomware() {
 
       return `
       <tr class="clickable-row" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">
-        <td class="mono text-muted">${escapeHtml((item.discovered || item.attackdate || '').substring(0, 16))}</td>
+        <td class="mono text-muted">${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}</td>
         <td><span class="badge ${item.incident_type === 'data_breach' ? 'badge-warn' : 'badge-ransomware'} mono font-bold">${escapeHtml(item.incident_type === 'data_breach' ? 'DATA BREACH' : (item.group_name || 'UNKNOWN'))}</span></td>
         <td class="font-bold">${escapeHtml(item.victim_name)}</td>
         <td>${countryBadge}</td>
@@ -2260,10 +2392,7 @@ async function loadWatchlistLegacy() {
 }
 
 function formatWatchlistDate(value) {
-  if (!value) return 'N/A';
-  const parsed = new Date(value);
-  if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
-  return String(value).substring(0, 19);
+  return formatDateTime(value);
 }
 
 function setWatchlistAlertState(total) {
@@ -2385,24 +2514,16 @@ function setIntegrationMessage(message, type = '') {
 }
 
 function openIntegrationSettings() {
-  const overlay = document.getElementById('integration-modal-overlay');
   const menu = document.getElementById('feeds-dropdown-menu');
   const summaryButton = document.getElementById('feed-summary-btn');
   if (menu) menu.style.display = 'none';
   if (summaryButton) summaryButton.setAttribute('aria-expanded', 'false');
-  if (!overlay) return;
-  overlay.classList.add('open');
-  overlay.setAttribute('aria-hidden', 'false');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => document.getElementById('integration-admin-token')?.focus(), 0);
+  switchTab('panel-settings', document.getElementById('tab-settings'));
+  document.getElementById('settings-integrations-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('integration-admin-token')?.focus(), 350);
 }
 
 function closeIntegrationSettings() {
-  const overlay = document.getElementById('integration-modal-overlay');
-  if (!overlay || !overlay.classList.contains('open')) return;
-  overlay.classList.remove('open');
-  overlay.setAttribute('aria-hidden', 'true');
-  document.body.style.overflow = '';
   integrationAdminToken = '';
   if (integrationSettingsPoll) {
     clearInterval(integrationSettingsPoll);
@@ -2420,9 +2541,13 @@ function closeIntegrationSettings() {
     const checkbox = document.getElementById(id);
     if (checkbox) { checkbox.checked = false; checkbox.disabled = true; }
   });
+  ['settings-timezone', 'settings-locale', 'settings-save-general'].forEach(id => {
+    const control = document.getElementById(id);
+    if (control) control.disabled = true;
+  });
   const tokenInput = document.getElementById('integration-admin-token');
   if (tokenInput) tokenInput.value = '';
-  setIntegrationMessage('Administrative authentication is required.');
+  setIntegrationMessage(translateMessage('admin_required'));
 }
 
 async function parseIntegrationResponse(response) {
@@ -2439,25 +2564,70 @@ async function verifyIntegrationAccess() {
   const tokenInput = document.getElementById('integration-admin-token');
   const token = tokenInput?.value.trim() || '';
   if (!token) {
-    setIntegrationMessage('Enter the administrative access code.', 'error');
+    setIntegrationMessage(translateMessage('enter_admin'), 'error');
     return;
   }
   integrationAdminToken = token;
-  setIntegrationMessage('Verifying administrative access...');
+  setIntegrationMessage(translateMessage('verifying_admin'));
   try {
     await loadIntegrationSettings();
+    await loadPublicSettings();
+    ['settings-timezone', 'settings-locale', 'settings-save-general'].forEach(id => {
+      const control = document.getElementById(id);
+      if (control) control.disabled = false;
+    });
     if (tokenInput) tokenInput.value = '';
-    setIntegrationMessage('Administrative access verified. Keys remain server-side only.', 'ok');
+    setIntegrationMessage(translateMessage('admin_verified'), 'ok');
     if (integrationSettingsPoll) clearInterval(integrationSettingsPoll);
     integrationSettingsPoll = setInterval(() => loadIntegrationSettings(true), 5000);
   } catch (error) {
     integrationAdminToken = '';
+    ['settings-timezone', 'settings-locale', 'settings-save-general'].forEach(id => {
+      const control = document.getElementById(id);
+      if (control) control.disabled = true;
+    });
     setIntegrationMessage(error.message, 'error');
   }
 }
 
+async function saveGeneralSettings() {
+  if (!integrationAdminToken) {
+    setIntegrationMessage(translateMessage('unlock_first'), 'error');
+    return;
+  }
+  const timezone = document.getElementById('settings-timezone')?.value || 'UTC';
+  const locale = document.getElementById('settings-locale')?.value || 'en';
+  const saveButton = document.getElementById('settings-save-general');
+  if (saveButton) saveButton.disabled = true;
+  setIntegrationMessage(translateMessage('saving_settings'));
+  try {
+    const response = await fetch('/api/admin/settings/general', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': integrationAdminToken
+      },
+      body: JSON.stringify({ timezone, locale })
+    });
+    const data = await parseIntegrationResponse(response);
+    appSettings = { timezone: data.timezone, locale: data.locale };
+    document.body.dataset.timezone = appSettings.timezone;
+    document.body.dataset.locale = appSettings.locale;
+    document.documentElement.lang = appSettings.locale;
+    applyConfiguredDates();
+    updateSettingsPreview();
+    const zoneStatus = document.getElementById('settings-current-zone');
+    if (zoneStatus) zoneStatus.textContent = translateMessage('display_timezone', { timezone: appSettings.timezone });
+    setIntegrationMessage(translateMessage('settings_saved', { timezone: appSettings.timezone }), 'ok');
+  } catch (error) {
+    setIntegrationMessage(error.message, 'error');
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
+}
+
 async function loadIntegrationSettings(silent = false) {
-  if (!integrationAdminToken) throw new Error('Administrative authentication is required.');
+  if (!integrationAdminToken) throw new Error(translateMessage('admin_required'));
   const response = await fetch('/api/admin/integrations', {
     headers: { 'X-Admin-Token': integrationAdminToken }
   });
@@ -2494,7 +2664,7 @@ async function loadIntegrationSettings(silent = false) {
         ? 'COMMUNITY FEED / NO AUTH REQUIRED'
         : (item.configured ? 'KEY CONFIGURED' : 'NO KEY CONFIGURED');
       const detail = state === 'healthy'
-        ? `Last success: ${item.last_success || 'just now'}`
+        ? `Last success: ${formatDateTime(item.last_success)}`
         : (item.last_error || 'Awaiting connector validation');
       meta.textContent = `${configuredText} // ${detail}`;
     }

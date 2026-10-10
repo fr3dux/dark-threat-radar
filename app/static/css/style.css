@@ -2738,6 +2738,102 @@ main.main-content {
   text-decoration: none;
 }
 
+/* ==================== CENTRAL SETTINGS WORKSPACE (v1.14.0) ==================== */
+.settings-shell {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: #0d1117;
+  overflow: hidden;
+}
+
+.settings-shell .integration-modal-header {
+  position: static;
+}
+
+.settings-status {
+  align-self: center;
+  padding: 6px 9px;
+  border: 1px solid rgba(57, 210, 221, 0.35);
+  color: var(--accent-cyan);
+  font-size: 9.5px;
+}
+
+.settings-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 18px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section-heading h3 {
+  margin: 3px 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+.settings-general-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-field,
+.settings-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+}
+
+.settings-field > span,
+.settings-preview-card > span {
+  color: var(--text-secondary);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.settings-field small,
+.settings-preview-card small {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.settings-preview-card strong {
+  color: var(--accent-cyan);
+  font-size: 15px;
+}
+
+.settings-save-button {
+  min-height: 42px;
+}
+
+.settings-shell .integration-provider-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .settings-general-grid,
+  .settings-shell .integration-provider-list {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-status {
+    display: none;
+  }
+}
+
 @media (max-width: 1200px) {
   .header-top {
     align-items: flex-start;

@@ -81,13 +81,20 @@ def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):
             exposure_columns = {
                 row[1] for row in await (await conn.execute("PRAGMA table_info(ransomware_victims)")).fetchall()
             }
-        return connectors, versions, cve_columns, exposure_columns
+            settings = {
+                row["setting_key"]: row["setting_value"]
+                for row in await (await conn.execute(
+                    "SELECT setting_key, setting_value FROM app_settings"
+                )).fetchall()
+            }
+        return connectors, versions, cve_columns, exposure_columns, settings
 
-    connectors, versions, cve_columns, exposure_columns = asyncio.run(verify())
+    connectors, versions, cve_columns, exposure_columns, settings = asyncio.run(verify())
     assert len(connectors) == 27
     assert next(c for c in connectors if c["source_name"] == "openphish")["state"] == "disabled"
     assert "incident_type" not in cve_columns
     assert {"incident_type", "confidence_score", "source_count", "source_names"} <= exposure_columns
+    assert settings == {"timezone": "UTC", "locale": "en"}
     assert sum(v["version"] == "1.8.1" for v in versions) == 1
 
 

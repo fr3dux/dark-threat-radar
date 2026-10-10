@@ -34,6 +34,7 @@ SCHEMA_MIGRATIONS = [
     ("1.12.0", "Add persistent organization exposure alerts to the Watchlist"),
     ("1.12.2", "Add acknowledgement lifecycle for Watchlist exposure alerts"),
     ("1.13.0", "Correlate multi-source ransomware and data-breach exposure incidents"),
+    ("1.14.0", "Add centralized application preferences for timezone and locale"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -326,6 +327,12 @@ async def init_db():
             """, (feed,))
 
         await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS watchlist (
             id TEXT PRIMARY KEY,
             item_type TEXT NOT NULL, -- vendor, product, cve
@@ -478,6 +485,13 @@ async def init_db():
             ON attack_knowledge(external_id);
         """)
 
+        settings_now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        await conn.executemany(
+            """INSERT OR IGNORE INTO app_settings (setting_key, setting_value, updated_at)
+               VALUES (?, ?, ?)""",
+            (("timezone", "UTC", settings_now), ("locale", "en", settings_now)),
+        )
+
         connector_sources = [
             ("cisa_kev", "Vulnerabilities"),
             ("nvd_cve", "Vulnerabilities"),
@@ -543,6 +557,32 @@ async def get_schema_migrations() -> List[Dict[str, Any]]:
         cursor = await conn.execute("SELECT version, applied_at, description FROM schema_migrations ORDER BY applied_at ASC;")
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
+
+
+async def get_app_settings() -> Dict[str, str]:
+    """Return public, non-secret presentation preferences."""
+    defaults = {"timezone": "UTC", "locale": "en"}
+    async with get_db() as conn:
+        rows = await (await conn.execute(
+            "SELECT setting_key, setting_value FROM app_settings"
+        )).fetchall()
+    defaults.update({row["setting_key"]: row["setting_value"] for row in rows})
+    return defaults
+
+
+async def save_app_settings(timezone_name: str, locale: str) -> Dict[str, str]:
+    """Atomically persist validated presentation preferences."""
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    async with get_db() as conn:
+        await conn.executemany(
+            """INSERT INTO app_settings (setting_key, setting_value, updated_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(setting_key) DO UPDATE SET
+                   setting_value=excluded.setting_value, updated_at=excluded.updated_at""",
+            (("timezone", timezone_name, now), ("locale", locale, now)),
+        )
+        await conn.commit()
+    return {"timezone": timezone_name, "locale": locale}
 
 async def update_connector_health(
     source_name: str,
@@ -785,7 +825,7 @@ async def get_dashboard_stats() -> Dict[str, Any]:
 
         # Top 5 recent CTI alerts
         cur = await conn.execute("""
-            SELECT id, title, source, published_date, link, snippet
+            SELECT id, title, source, published_date, published_at, updated_at, link, snippet
             FROM cti_news 
             ORDER BY COALESCE(published_at, updated_at) DESC, updated_at DESC
             LIMIT 5;

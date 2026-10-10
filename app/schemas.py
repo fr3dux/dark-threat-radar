@@ -56,6 +56,11 @@ class OpenPhishSettingsUpdate(BaseModel):
     terms_accepted: bool
 
 
+class GeneralSettingsUpdate(BaseModel):
+    timezone: str = Field(..., min_length=1, max_length=64)
+    locale: Literal["en", "pt-BR", "es"] = "en"
+
+
 class PasswordLeakCheckRequest(BaseModel):
     sha1_prefix: str = Field(..., pattern=r"^[A-Fa-f0-9]{5}$")
     sha1_suffix: str = Field(..., pattern=r"^[A-Fa-f0-9]{35}$")
@@ -176,6 +181,7 @@ class RecentNews(BaseModel):
     title: str
     source: str
     published_date: Optional[str] = None
+    published_at: Optional[str] = None
     link: str
     snippet: Optional[str] = None
 
@@ -312,6 +318,7 @@ class NewsItem(BaseModel):
     link: str
     source: str
     published_date: Optional[str] = None
+    published_at: Optional[str] = None
     snippet: Optional[str] = None
     updated_at: Optional[str] = None
 

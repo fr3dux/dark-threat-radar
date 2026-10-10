@@ -5,6 +5,7 @@ import logging
 import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Security
 from fastapi.exceptions import RequestValidationError
@@ -37,6 +38,7 @@ from app.schemas import (
     ErrorResponse,
     IntegrationKeyUpdate,
     OpenPhishSettingsUpdate,
+    GeneralSettingsUpdate,
     PasswordLeakCheckRequest,
     EmailLeakCheckRequest,
     WatchlistCreate,
@@ -49,6 +51,8 @@ from app.database import (
     get_dashboard_stats,
     get_all_feed_statuses,
     get_all_connector_health,
+    get_app_settings,
+    save_app_settings,
     update_connector_health,
 )
 from app.scheduler import (
@@ -66,6 +70,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("threat_radar")
+
+DISPLAY_TIMEZONES = [
+    "UTC",
+    "America/Sao_Paulo", "America/Manaus", "America/Recife", "America/Fortaleza",
+    "America/Belem", "America/Cuiaba", "America/Rio_Branco", "America/Noronha",
+    "America/Buenos_Aires", "America/Santiago", "America/Bogota", "America/Lima",
+    "America/Mexico_City", "America/New_York", "America/Chicago", "America/Denver",
+    "America/Los_Angeles", "America/Toronto", "America/Vancouver",
+    "Europe/Lisbon", "Europe/London", "Europe/Madrid", "Europe/Paris", "Europe/Berlin",
+    "Europe/Rome", "Europe/Amsterdam", "Europe/Moscow",
+    "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore", "Asia/Tokyo", "Asia/Shanghai",
+    "Australia/Sydney", "Pacific/Auckland",
+]
 
 
 @asynccontextmanager
@@ -129,6 +146,7 @@ async def index_page(request: Request):
     stats = await get_dashboard_stats()
     feed_statuses = await get_all_feed_statuses()
     connectors = await get_all_connector_health()
+    app_settings = await get_app_settings()
     sync_state = get_sync_state()
     return templates.TemplateResponse(
         request=request,
@@ -139,6 +157,7 @@ async def index_page(request: Request):
             "stats": stats,
             "feed_statuses": feed_statuses,
             "connectors": connectors,
+            "app_settings": app_settings,
             "sync_state": sync_state
         }
     )
@@ -158,6 +177,35 @@ async def api_update_status(
 ):
     """Check the fixed official repository for a newer stable release."""
     return await get_update_status(force=force)
+
+
+@app.get("/api/settings", tags=["System"])
+async def api_public_settings():
+    """Return non-secret presentation preferences and supported values."""
+    settings = await get_app_settings()
+    timezones = list(DISPLAY_TIMEZONES)
+    if settings["timezone"] not in timezones:
+        timezones.append(settings["timezone"])
+        timezones.sort()
+    return {
+        **settings,
+        "supported_locales": ["en", "pt-BR", "es"],
+        "supported_timezones": timezones,
+    }
+
+
+@app.put("/api/admin/settings/general", tags=["Administration"])
+async def api_save_general_settings(
+    payload: GeneralSettingsUpdate,
+    _admin: None = Security(require_settings_admin),
+):
+    """Persist validated global display settings without changing stored UTC data."""
+    timezone_name = payload.timezone.strip()
+    try:
+        ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Unknown IANA timezone") from exc
+    return await save_app_settings(timezone_name, payload.locale)
 
 
 @app.post("/api/admin/update", status_code=202, tags=["Administration"])
@@ -281,6 +329,7 @@ async def api_admin_integrations(
             "enabled": openphish_is_enabled() if provider == "openphish" else True,
             "terms_accepted": openphish_terms_accepted() if provider == "openphish" else None,
             "state": connector.get("state", "never_run"),
+            "last_attempt": connector.get("last_attempt"),
             "last_success": connector.get("last_success"),
             "last_error": connector.get("last_error"),
         })

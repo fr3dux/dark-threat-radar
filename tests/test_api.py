@@ -63,6 +63,37 @@ def test_update_status_endpoint(client, monkeypatch):
     assert requested["force"] is True
 
 
+def test_general_settings_require_admin_and_validate_iana_timezone(client, monkeypatch):
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "settings-admin-code")
+    payload = {"timezone": "America/Sao_Paulo", "locale": "pt-BR"}
+    assert client.put("/api/admin/settings/general", json=payload).status_code == 401
+
+    headers = {"X-Admin-Token": "settings-admin-code"}
+    saved = client.put("/api/admin/settings/general", headers=headers, json=payload)
+    assert saved.status_code == 200
+    assert saved.json() == payload
+
+    public = client.get("/api/settings")
+    assert public.status_code == 200
+    assert public.json()["timezone"] == "America/Sao_Paulo"
+    assert public.json()["locale"] == "pt-BR"
+    assert "America/Sao_Paulo" in public.json()["supported_timezones"]
+
+    invalid = client.put(
+        "/api/admin/settings/general",
+        headers=headers,
+        json={"timezone": "../../etc/passwd", "locale": "en"},
+    )
+    assert invalid.status_code == 422
+
+    restored = client.put(
+        "/api/admin/settings/general",
+        headers=headers,
+        json={"timezone": "UTC", "locale": "en"},
+    )
+    assert restored.status_code == 200
+
+
 def test_update_install_requires_admin_and_queues(client, monkeypatch):
     monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "update-admin-code")
 
@@ -311,6 +342,11 @@ def test_index_page_version_injection(client):
     assert 'INTELLIGENCE FOR YOU' in html
     assert 'MY THREAT RADAR' not in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
+    assert 'id="tab-settings"' in html
+    assert 'id="panel-settings"' in html
+    assert "DISPLAY &amp; REGIONAL SETTINGS" in html
+    assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
+    assert 'id="integration-modal-overlay"' not in html
     assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
     assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT PUBLIC EXPOSURES")
     assert html.index("RECENT PUBLIC EXPOSURES") < html.index("VENDORS W/ CRITICAL CVES")
