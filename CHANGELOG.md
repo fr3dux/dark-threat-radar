@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.9] - 2026-10-10
+
+### Added
+- **Ransomware Country Search**: Searches public exposure incidents by the stored country value, two- or three-letter country codes, and common country names in English, Portuguese, and Spanish.
+
+### Changed
+- **Clear Search Guidance**: The Ransomware search field now explicitly includes country among the supported criteria.
+
 ## [1.14.8] - 2026-10-10
 
 ### Fixed

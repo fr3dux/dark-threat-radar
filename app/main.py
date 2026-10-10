@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import secrets
+import unicodedata
 from contextlib import asynccontextmanager
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -70,6 +71,55 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("threat_radar")
+
+COUNTRY_SEARCH_ALIASES = {
+    "BR": ("BR", "BRA", "BRAZIL", "BRASIL"),
+    "US": ("US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA", "ESTADOS UNIDOS"),
+    "GB": ("GB", "UK", "UNITED KINGDOM", "GREAT BRITAIN", "REINO UNIDO"),
+    "CA": ("CA", "CAN", "CANADA", "CANADÁ"),
+    "MX": ("MX", "MEX", "MEXICO", "MÉXICO"),
+    "AR": ("AR", "ARG", "ARGENTINA"),
+    "CL": ("CL", "CHL", "CHILE"),
+    "CO": ("CO", "COL", "COLOMBIA", "COLÔMBIA"),
+    "PE": ("PE", "PER", "PERU", "PERÚ"),
+    "DE": ("DE", "DEU", "GERMANY", "ALEMANHA", "ALEMANIA"),
+    "ES": ("ES", "ESP", "SPAIN", "ESPANHA", "ESPAÑA"),
+    "PT": ("PT", "PRT", "PORTUGAL"),
+    "FR": ("FR", "FRA", "FRANCE", "FRANÇA", "FRANCIA"),
+    "IT": ("IT", "ITA", "ITALY", "ITÁLIA", "ITALIA"),
+    "NL": ("NL", "NLD", "NETHERLANDS", "HOLANDA", "PAÍSES BAIXOS", "PAISES BAJOS"),
+    "CH": ("CH", "CHE", "SWITZERLAND", "SUÍÇA", "SUIZA"),
+    "PL": ("PL", "POL", "POLAND", "POLÔNIA", "POLONIA"),
+    "UA": ("UA", "UKR", "UKRAINE", "UCRÂNIA", "UCRANIA"),
+    "RU": ("RU", "RUS", "RUSSIA", "RÚSSIA", "RUSIA"),
+    "CN": ("CN", "CHN", "CHINA"),
+    "JP": ("JP", "JPN", "JAPAN", "JAPÃO", "JAPÓN"),
+    "KR": ("KR", "KOR", "SOUTH KOREA", "COREIA DO SUL", "COREA DEL SUR"),
+    "IN": ("IN", "IND", "INDIA", "ÍNDIA"),
+    "AU": ("AU", "AUS", "AUSTRALIA", "AUSTRÁLIA"),
+    "NZ": ("NZ", "NZL", "NEW ZEALAND", "NOVA ZELÂNDIA", "NUEVA ZELANDA"),
+    "ZA": ("ZA", "ZAF", "SOUTH AFRICA", "ÁFRICA DO SUL", "SUDÁFRICA"),
+    "AE": ("AE", "ARE", "UNITED ARAB EMIRATES", "EMIRADOS ÁRABES UNIDOS"),
+    "SG": ("SG", "SGP", "SINGAPORE", "SINGAPURA"),
+    "TW": ("TW", "TWN", "TAIWAN", "TAIWÁN"),
+    "TR": ("TR", "TUR", "TURKEY", "TÜRKIYE", "TURQUIA"),
+    "IL": ("IL", "ISR", "ISRAEL"),
+}
+
+
+def _normalized_country_term(value: str) -> str:
+    return "".join(
+        character for character in unicodedata.normalize("NFKD", value.casefold())
+        if not unicodedata.combining(character)
+    ).strip()
+
+
+def _country_aliases_for_search(value: str) -> tuple[str, ...]:
+    normalized = _normalized_country_term(value)
+    for aliases in COUNTRY_SEARCH_ALIASES.values():
+        if normalized in {_normalized_country_term(alias) for alias in aliases}:
+            return aliases
+    return ()
 
 DISPLAY_TIMEZONES = [
     "UTC",
@@ -698,7 +748,7 @@ async def api_news(
 
 @app.get("/api/ransomware", response_model=RansomwareListResponse, tags=["Ransomware"])
 async def api_ransomware(
-    q: Optional[str] = Query(None, description="Search victim, group, or domain"),
+    q: Optional[str] = Query(None, description="Search victim, group, domain, incident details, or country"),
     group: Optional[str] = Query("all", description="Filter by threat actor group"),
     country: Optional[str] = Query("all", description="Filter by country code (e.g. BR)"),
     limit: int = Query(50, ge=1, le=200),
@@ -708,9 +758,15 @@ async def api_ransomware(
     params = []
 
     if q:
-        query += " AND (victim_name LIKE ? OR group_name LIKE ? OR domain LIKE ? OR description LIKE ?)"
+        query += " AND (victim_name LIKE ? OR group_name LIKE ? OR domain LIKE ? OR description LIKE ? OR country LIKE ?"
         wildcard = f"%{q}%"
-        params.extend([wildcard, wildcard, wildcard, wildcard])
+        params.extend([wildcard, wildcard, wildcard, wildcard, wildcard])
+        country_aliases = _country_aliases_for_search(q)
+        if country_aliases:
+            placeholders = ", ".join("?" for _ in country_aliases)
+            query += f" OR UPPER(country) IN ({placeholders})"
+            params.extend(alias.upper() for alias in country_aliases)
+        query += ")"
 
     if group and group != "all":
         query += " AND LOWER(group_name) = ?"

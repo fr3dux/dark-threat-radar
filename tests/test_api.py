@@ -475,6 +475,58 @@ def test_api_ransomware(client):
     assert isinstance(data["items"], list)
 
 
+def test_api_ransomware_searches_country_codes_and_localized_names(client, monkeypatch):
+    """Ransomware search resolves stored country codes from analyst-friendly names."""
+
+    @asynccontextmanager
+    async def ransomware_country_db():
+        conn = await aiosqlite.connect(":memory:")
+        conn.row_factory = aiosqlite.Row
+        await conn.execute(
+            """
+            CREATE TABLE ransomware_victims (
+                id TEXT PRIMARY KEY, victim_name TEXT NOT NULL, group_name TEXT NOT NULL,
+                country TEXT, activity TEXT, domain TEXT, discovered TEXT, attackdate TEXT,
+                description TEXT, claim_url TEXT, screenshot TEXT, url TEXT, raw_json TEXT,
+                updated_at TEXT, incident_type TEXT NOT NULL DEFAULT 'ransomware_extortion',
+                canonical_key TEXT, first_seen TEXT, last_seen TEXT,
+                confidence_score INTEGER NOT NULL DEFAULT 55,
+                source_count INTEGER NOT NULL DEFAULT 1,
+                source_names TEXT NOT NULL DEFAULT '["Ransomware.live"]'
+            )
+            """
+        )
+        await conn.executemany(
+            """INSERT INTO ransomware_victims
+               (id, victim_name, group_name, country, discovered, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            [
+                ("br-victim", "Empresa Brasileira", "group-a", "BR", "2026-10-10", "2026-10-10"),
+                ("us-victim", "US Company", "group-b", "US", "2026-10-09", "2026-10-09"),
+                ("de-victim", "German Company", "group-c", "DE", "2026-10-08", "2026-10-08"),
+            ],
+        )
+        await conn.commit()
+        try:
+            yield conn
+        finally:
+            await conn.close()
+
+    monkeypatch.setattr(main_module, "get_db", ransomware_country_db)
+
+    brazil = client.get("/api/ransomware?q=Brasil")
+    assert brazil.status_code == 200
+    assert [item["id"] for item in brazil.json()["items"]] == ["br-victim"]
+
+    united_states = client.get("/api/ransomware?q=Estados%20Unidos")
+    assert united_states.status_code == 200
+    assert [item["id"] for item in united_states.json()["items"]] == ["us-victim"]
+
+    country_code = client.get("/api/ransomware?q=DE")
+    assert country_code.status_code == 200
+    assert [item["id"] for item in country_code.json()["items"]] == ["de-victim"]
+
+
 def test_schema_migration_120(client):
     """Test database schema contains 1.2.0 migration record."""
     import asyncio
