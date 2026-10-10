@@ -2525,6 +2525,7 @@ function openIntegrationSettings() {
 
 function closeIntegrationSettings() {
   integrationAdminToken = '';
+  document.getElementById('settings-admin-access')?.classList.remove('is-unlocked');
   if (integrationSettingsPoll) {
     clearInterval(integrationSettingsPoll);
     integrationSettingsPoll = null;
@@ -2577,11 +2578,13 @@ async function verifyIntegrationAccess() {
       if (control) control.disabled = false;
     });
     if (tokenInput) tokenInput.value = '';
+    document.getElementById('settings-admin-access')?.classList.add('is-unlocked');
     setIntegrationMessage(translateMessage('admin_verified'), 'ok');
     if (integrationSettingsPoll) clearInterval(integrationSettingsPoll);
     integrationSettingsPoll = setInterval(() => loadIntegrationSettings(true), 5000);
   } catch (error) {
     integrationAdminToken = '';
+    document.getElementById('settings-admin-access')?.classList.remove('is-unlocked');
     ['settings-timezone', 'settings-locale', 'settings-save-general'].forEach(id => {
       const control = document.getElementById(id);
       if (control) control.disabled = true;

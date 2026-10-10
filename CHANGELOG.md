@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.1] - 2026-10-10
+
+### Fixed
+- **Compact Settings Authentication**: Constrains the administrative unlock form to a focused card instead of stretching the credential field across the full workspace.
+- **Settings Action Hierarchy**: Replaces the oversized full-card save button with a compact action area and tighter responsive spacing.
+
 ## [1.14.0] - 2026-10-10
 
 ### Added

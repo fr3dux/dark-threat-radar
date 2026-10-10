@@ -2751,6 +2751,43 @@ main.main-content {
   position: static;
 }
 
+.settings-shell .integration-modal-body {
+  padding-top: 14px;
+}
+
+.settings-shell .admin-access-row {
+  width: min(620px, 100%);
+  padding: 10px 12px;
+}
+
+.settings-shell .admin-access-row > label {
+  margin-bottom: 6px;
+}
+
+.settings-shell .admin-access-row .search-input {
+  height: 30px;
+}
+
+.settings-shell .admin-access-row .btn {
+  min-width: 92px;
+  height: 30px;
+  padding-inline: 14px;
+}
+
+.settings-shell .admin-access-row.is-unlocked {
+  border-color: rgba(63, 185, 80, 0.3);
+  background: rgba(63, 185, 80, 0.05);
+}
+
+.settings-shell .admin-access-row.is-unlocked > label,
+.settings-shell .admin-access-row.is-unlocked .integration-input-row {
+  display: none;
+}
+
+.settings-shell .admin-access-row.is-unlocked .integration-message {
+  margin-top: 0;
+}
+
 .settings-status {
   align-self: center;
   padding: 6px 9px;
@@ -2784,7 +2821,8 @@ main.main-content {
 }
 
 .settings-field,
-.settings-preview-card {
+.settings-preview-card,
+.settings-action-card {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -2796,7 +2834,8 @@ main.main-content {
 }
 
 .settings-field > span,
-.settings-preview-card > span {
+.settings-preview-card > span,
+.settings-action-card span {
   color: var(--text-secondary);
   font-size: 9.5px;
   font-weight: 700;
@@ -2804,7 +2843,8 @@ main.main-content {
 }
 
 .settings-field small,
-.settings-preview-card small {
+.settings-preview-card small,
+.settings-action-card small {
   color: var(--text-muted);
   font-size: 10px;
   line-height: 1.45;
@@ -2815,8 +2855,24 @@ main.main-content {
   font-size: 15px;
 }
 
+.settings-action-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-action-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
 .settings-save-button {
-  min-height: 42px;
+  flex: 0 0 auto;
+  min-width: 150px;
+  height: 32px;
+  padding-inline: 16px;
 }
 
 .settings-shell .integration-provider-list {
@@ -2831,6 +2887,19 @@ main.main-content {
 
   .settings-status {
     display: none;
+  }
+
+  .settings-shell .admin-access-row {
+    width: 100%;
+  }
+
+  .settings-action-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-save-button {
+    width: 100%;
   }
 }
 

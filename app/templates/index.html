@@ -1210,7 +1210,7 @@
       <div class="integration-modal-body">
         <p class="integration-security-note">Threat data remains stored in UTC. This page controls presentation preferences and protected server-side credentials; existing keys are never returned to the browser.</p>
 
-        <form class="admin-access-row" onsubmit="event.preventDefault(); verifyIntegrationAccess()">
+        <form class="admin-access-row" id="settings-admin-access" onsubmit="event.preventDefault(); verifyIntegrationAccess()">
           <label class="mono" for="integration-admin-token">ADMIN ACCESS CODE</label>
           <div class="integration-input-row">
             <input type="password" id="integration-admin-token" class="search-input" autocomplete="off" placeholder="Enter administrative access code">
@@ -1245,7 +1245,13 @@
             <strong class="mono" id="settings-date-preview">Loading timezone preview…</strong>
             <small id="settings-zone-description">Stored as UTC · displayed using the selected IANA timezone.</small>
           </div>
-          <button type="button" class="btn btn-primary settings-save-button" id="settings-save-general" onclick="saveGeneralSettings()" disabled>SAVE GENERAL SETTINGS</button>
+          <div class="settings-action-card">
+            <div>
+              <span class="mono">APPLY PREFERENCES</span>
+              <small>Updates presentation only. Stored intelligence remains unchanged.</small>
+            </div>
+            <button type="button" class="btn btn-primary settings-save-button" id="settings-save-general" onclick="saveGeneralSettings()" disabled>SAVE CHANGES</button>
+          </div>
         </div>
 
         <div class="settings-section-heading" id="settings-integrations-section">

@@ -344,6 +344,8 @@ def test_index_page_version_injection(client):
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     assert 'id="tab-settings"' in html
     assert 'id="panel-settings"' in html
+    assert 'id="settings-admin-access"' in html
+    assert 'class="settings-action-card"' in html
     assert "DISPLAY &amp; REGIONAL SETTINGS" in html
     assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
     assert 'id="integration-modal-overlay"' not in html
