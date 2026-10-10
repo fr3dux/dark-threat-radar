@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-10-10
+
+### Added
+- **Multi-Source Exposure Intelligence**: Adds RansomFeed, RansomLook, and DataBreaches.net alongside Ransomware.live, plus an optional authenticated ThreatCluster connector.
+- **Canonical Incident Correlation**: Correlates observations by normalized organization, domain, threat group, and time proximity so one event appears once with an `N SOURCES` indicator.
+- **Complete Provenance**: Preserves provider record identifiers, first seen, last update, evidence links, raw metadata, and per-source observations for every canonical incident.
+- **Confidence Escalation**: A single provider is sufficient to create an incident and Watchlist alert; independent confirmations automatically raise its confidence score.
+- **Managed ThreatCluster Key**: Adds owner-only runtime key storage, web configuration, live validation, and `AUTH REQUIRED` behavior when no key is configured.
+
+### Changed
+- **Public Exposure View**: Expands the former single-provider ransomware list into a public exposure stream covering ransomware extortion and non-ransomware breach/exfiltration reporting.
+- **Watchlist Attribution**: Uses canonical incident identifiers and all contributing source names, preventing duplicate company/domain alerts while retaining every matching interest.
+- **Provider-Aware Scheduling**: Runs the new exposure connectors hourly and sequentially to respect public services and SQLite write isolation.
+
+### Security
+- **Bounded Untrusted Feeds**: Limits provider records and response sizes, strips RSS HTML, normalizes domains and timestamps, truncates stored fields, and continues escaped rendering with safe HTTP/HTTPS pivots.
+
 ## [1.12.2] - 2026-10-08
 
 ### Added

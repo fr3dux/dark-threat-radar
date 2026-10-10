@@ -1,11 +1,11 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.12.2-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.13.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-70%2F70%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-72%2F72%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -58,12 +58,12 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                    23 Public CTI Connectors                            │
+│                    27 Public CTI Connectors                            │
 ├────────────────────────────────────────────────────────────────────────┤
 │ CORE / 5m: CISA KEV, NVD, EPSS, DShield, MalwareBazaar,                │
-│            ransomware.live, CTI News                                   │
+│ ransomware.live, CTI News                                              │
 │ FAST / 15m: ThreatFox, URLhaus, Feodo Tracker, SSLBL                   │
-│ HOURLY: GitHub, Spamhaus, OTX, PhishTank, blocklist.de, MSRC, Red Hat  │
+│ HOURLY: GitHub, OTX, PhishTank, RansomFeed, RansomLook, breach intel  │
 │ DAILY: AbuseIPDB (persistent quota guard; key required)                │
 │ SLOW / 6h: OSV.dev, CIRCL MISP, MITRE ATT&CK, OpenPhish (optional)     │
 └──────────────────────────────────┬─────────────────────────────────────┘
@@ -78,7 +78,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                SQLite Async Storage & Migrations (WAL)                 │
-│ CVEs │ malware │ DShield │ ransomware │ news │ watchlist              │
+│ CVEs │ malware │ DShield │ exposure incidents + sources │ watchlist   │
 │ normalized_iocs │ ioc_sources │ connector_health │ vendor_advisories   │
 │ ATT&CK knowledge base │ per-source lifecycle and expiration            │
 └──────────────────────────────────┬─────────────────────────────────────┘
@@ -100,7 +100,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 
 ## Integrated Threat Intelligence Sources
 
-Dark Threat Radar tracks 23 public CTI connectors. OpenPhish remains disabled until an administrator reviews the provider terms and explicitly enables it from **Feed Settings**. ThreatFox, URLhaus, AlienVault OTX, PhishTank, and AbuseIPDB report `AUTH REQUIRED` until their free-community credentials are configured. Credentials can be managed from **Feed Settings** and are never returned to the browser.
+Dark Threat Radar tracks 27 public CTI connectors. OpenPhish remains disabled until an administrator reviews the provider terms and explicitly enables it from **Feed Settings**. ThreatFox, URLhaus, AlienVault OTX, PhishTank, AbuseIPDB, and the optional ThreatCluster connector report `AUTH REQUIRED` until their free-community credentials are configured. Credentials can be managed from **Feed Settings** and are never returned to the browser.
 
 | Feed | Source / API | Description | Ingestion Frequency |
 | :--- | :--- | :--- | :--- |
@@ -110,6 +110,10 @@ Dark Threat Radar tracks 23 public CTI connectors. OpenPhish remains disabled un
 | **SANS ISC DShield** | SANS Internet Storm Center | INFOCON state, global scanning sources, attacked ports, records, and target counts. | Core: 5 min |
 | **MalwareBazaar** | abuse.ch | Recent malware samples, hashes, file types, signatures, and families. | Core: 5 min |
 | **Ransomware.live v2** | Ransomware.live | Recent extortion disclosures with group, victim, domain, country, and discovery data. | Core: 5 min |
+| **RansomFeed** | RansomFeed public API | Recent ransomware leak-site victims with organization, group, domain, country, sector, and disclosure evidence. | Hourly |
+| **RansomLook** | RansomLook recent-post API | Independent leak-site monitoring used to confirm or extend extortion observations. | Hourly |
+| **DataBreaches.net** | Public RSS | Public breach and exfiltration reporting, including incidents not classified as ransomware. | Hourly |
+| **ThreatCluster** | Public API plan | Optional authenticated ransomware/dark-web victim observations from the last seven days. | Hourly; key required |
 | **CTI News & OSINT** | Curated RSS + optional local cache | The Hacker News, BleepingComputer, SecurityWeek, CISO Advisor, and CERT.br bulletins. | Core: 5 min |
 | **ThreatFox** | abuse.ch | Authenticated IOC feed for malicious IPs, domains, URLs, hashes, JA3 fingerprints, and malware families. | Fast: 15 min; key required |
 | **URLhaus** | abuse.ch | Authenticated feed of recent malware-distribution URLs and their online status. | Fast: 15 min; key required |
@@ -147,7 +151,8 @@ Dark Threat Radar includes a hardware-accelerated 60 FPS HTML5 Canvas Cyberattac
 The Watchlist module combines technical exposure management with organization monitoring:
 - **Technical Targets:** Register Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler), or Specific CVE targets for vulnerability and remediation correlation.
 - **Organization Targets:** Register a Company, Brand, Domain, or Keyword to detect public mentions that may indicate data exposure, extortion, phishing infrastructure, or another security incident.
-- **Persistent Exposure Alerts:** Cross-references ransomware disclosures, CTI news, official vendor advisories, and normalized public IOCs after every ingestion cycle. Findings retain the matched evidence, source, severity, first detection time, and a direct artifact inspection action.
+- **Persistent Exposure Alerts:** Cross-references ransomware disclosures, non-ransomware breach reporting, CTI news, official vendor advisories, and normalized public IOCs after every ingestion cycle. One source is enough to alert; independent confirmations raise confidence without duplicating the incident.
+- **Multi-Source Exposure Correlation:** Deduplicates organization exposures by normalized company, domain, threat group, and time proximity. Every incident preserves first seen, last update, confidence, and complete provider provenance with a compact `N SOURCES` indicator.
 - **Operational Alert Lifecycle:** New correlated incidents remain visibly unread in the Watchlist banner and navigation counter until an analyst acknowledges them with the administrative access code. Acknowledgement clears the active warning without deleting the evidence or incident history.
 - **Live Analyst Signaling:** The Watchlist tab is highlighted while unacknowledged exposure exists, checks for new findings every minute, and displays an in-dashboard notification when the unread count increases.
 - **Remediation Directives:** Technical matches continue to surface official required actions, mitigation deadlines, severity classifications, and direct links to patch advisories in a separate section.
@@ -165,7 +170,7 @@ Dark Threat Radar incorporates an interactive verification module (`/api/leak-ch
 
 ## Hardware Sizing and System Requirements
 
-Dark Threat Radar is designed as a lightweight standalone CTI service, but its 23 connectors perform concurrent downloads, parsing, normalization, and SQLite writes. Size the host for synchronization and update peaks rather than only for idle web traffic.
+Dark Threat Radar is designed as a lightweight standalone CTI service, but its 27 connectors perform concurrent downloads, parsing, normalization, and SQLite writes. Size the host for synchronization and update peaks rather than only for idle web traffic.
 
 | Deployment profile | CPU | Memory | Free SSD storage | Intended use |
 | :--- | :--- | :--- | :--- | :--- |
@@ -284,7 +289,7 @@ The installer copies the worker to a root-owned system location and runs it with
 | `PORT` | `9220` | Listening HTTP port. |
 | `SYNC_INTERVAL_SECONDS` | `300` | Core connector interval: CISA, NVD, EPSS, DShield, MalwareBazaar, ransomware.live, and news. |
 | `CTI_FAST_INTERVAL_SECONDS` | `900` (minimum 900) | ThreatFox, URLhaus, Feodo Tracker, and SSLBL interval. |
-| `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub, Spamhaus, OTX, PhishTank, blocklist.de, MSRC, and Red Hat interval. |
+| `CTI_HOURLY_INTERVAL_SECONDS` | `3600` (minimum 3600) | GitHub, Spamhaus, OTX, PhishTank, blocklist.de, MSRC, Red Hat, RansomFeed, RansomLook, DataBreaches.net, and ThreatCluster interval. |
 | `CTI_SLOW_INTERVAL_SECONDS` | `21600` (minimum 21600) | OSV.dev, CIRCL MISP, MITRE ATT&CK, and, when enabled, OpenPhish interval. |
 | `ABUSEIPDB_INTERVAL_SECONDS` | `86400` (minimum 21600) | AbuseIPDB blacklist interval. The daily default stays within the Standard plan's five-request quota. |
 | `BASE_DIR` | `/opt/dark-threat-radar` (or repo root) | Absolute root directory of the application. |
@@ -297,6 +302,7 @@ The installer copies the worker to a root-owned system location and runs it with
 | `OTX_API_KEY` | `""` | AlienVault OTX API key; can also be managed securely from the web panel. |
 | `PHISHTANK_API_KEY` | `""` | PhishTank application key; can also be managed securely from the web panel. |
 | `ABUSEIPDB_API_KEY` | `""` | AbuseIPDB API key; can also be managed securely from the web panel. |
+| `THREATCLUSTER_API_KEY` | `""` | Optional ThreatCluster API key; can also be managed securely from the web panel. |
 | `SETTINGS_ADMIN_TOKEN` | Generated during setup | Unique per-installation administrative access code for web-based secret management. |
 | `UPDATE_REPOSITORY` | `fr3dux/dark-threat-radar` | Fixed GitHub repository used for stable release discovery. |
 | `UPDATE_CHECK_INTERVAL_SECONDS` | `21600` (minimum 300) | Cached interval for checking the stable release channel. |
@@ -341,7 +347,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/version` | Returns centralized SemVer version and system metadata. |
 | `GET` | `/api/update/status` | Checks the official stable channel and returns sanitized update state. |
 | `GET` | `/api/status` | Ingestion health, per-feed synchronization timestamps, and counts. |
-| `GET` | `/api/connectors` | Operational state and counters for all 23 configured connectors. |
+| `GET` | `/api/connectors` | Operational state and counters for all 27 configured connectors. |
 | `GET` | `/api/stats` | Aggregated dashboard statistics (CVSS distribution, vendors, malware, ransomware). |
 | `GET` | `/api/iocs` | Search normalized IOCs by value, type, source, and active state. |
 | `GET` | `/api/attack-knowledge` | Query the local MITRE ATT&CK knowledge base by text and STIX object type. |
@@ -349,7 +355,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/cves` | Query CVEs with filters (`q`, `severity`, `source`, `has_ransomware`, `limit`, `offset`). |
 | `GET` | `/api/malware` | Query malware samples (`q`, `file_type`, `signature`, `limit`, `offset`). |
 | `GET` | `/api/dshield` | SANS DShield telemetry (INFOCON, top attacking IPs, top scanned ports). |
-| `GET` | `/api/ransomware` | Ransomware victim disclosures (`q`, `group`, `country`, `limit`, `offset`). |
+| `GET` | `/api/ransomware` | Canonical ransomware and public data-breach incidents with confidence and source counts (`q`, `group`, `country`, `limit`, `offset`). |
 | `GET` | `/api/attacks/live` | Real-time cyberattack trajectories with geographic coordinates for map rendering. |
 | `GET` | `/api/watchlist` | Retrieve registered targets, persistent organization-exposure alerts, and vulnerability remediation matches. |
 | `GET` | `/api/watchlist/summary` | Lightweight public-exposure alert counts for dashboard signaling. |
@@ -411,7 +417,7 @@ Test coverage includes:
 
 ## Resumo em Portugues
 
-O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de ameaças cibernéticas (CTI) e apoio a SOC. Desenvolvido em FastAPI com SQLite assíncrono, o sistema acompanha 23 conectores públicos em cinco grupos de agendamento:
+O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de ameaças cibernéticas (CTI) e apoio a SOC. Desenvolvido em FastAPI com SQLite assíncrono, o sistema acompanha 27 conectores públicos em cinco grupos de agendamento:
 
 1. **Núcleo de vulnerabilidades e telemetria (5 min):** CISA KEV, NIST NVD, FIRST EPSS, SANS ISC DShield, MalwareBazaar, ransomware.live e notícias CTI.
 2. **IOCs rápidos (15 min):** ThreatFox, URLhaus, Feodo Tracker e SSLBL. ThreatFox e URLhaus exigem Auth-Key e podem ser configurados pelo painel administrativo.
@@ -419,7 +425,7 @@ O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de amea�
 4. **Reputação diária:** AbuseIPDB usa uma execução diária independente e uma trava persistente para respeitar a cota do plano gratuito, inclusive após reinícios ou sincronizações manuais.
 5. **Enriquecimento lento (6 h):** OSV.dev, CIRCL MISP OSINT, MITRE ATT&CK e OpenPhish. O OpenPhish permanece desativado por padrão e pode ser habilitado em **Feed Settings** após a confirmação dos termos do provedor.
 
-Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
+Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. Incidentes de exposição unem Ransomware.live, RansomFeed, RansomLook, DataBreaches.net e, opcionalmente, ThreatCluster, preservando todas as fontes, primeiro registro e última atualização. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
 
 Para dimensionamento, o mínimo suportado é **2 vCPU, 2 GB de RAM e 10 GB livres em SSD**. Para operação contínua com todos os conectores e uma pequena equipe, recomenda-se **4 vCPU, 4 GB de RAM e 20 GB livres**. Uma publicação aberta à Internet ou com maior retenção deve partir de **4 vCPU, 8 GB de RAM e 40 GB livres**, além de proxy reverso, monitoramento e backups.
 

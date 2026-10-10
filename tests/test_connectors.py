@@ -17,6 +17,11 @@ from app.ingestion.urlhaus import parse_recent_csv
 from app.ingestion.common import IOCRecord, expire_stale_iocs, upsert_ioc_records
 from app.ingestion.normalization import TYPE_IPV4
 from app.news_dates import normalize_news_date
+from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_records
+from app.ingestion.ransomfeed import parse_ransomfeed
+from app.ingestion.ransomlook import parse_ransomlook
+from app.ingestion.databreaches_net import parse_databreaches_feed
+from app.ingestion.threatcluster import parse_threatcluster
 
 
 def test_spamhaus_ndjson_parser():
@@ -69,11 +74,20 @@ def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):
         await database.init_db()
         connectors = await database.get_all_connector_health()
         versions = await database.get_schema_migrations()
-        return connectors, versions
+        async with database.get_db() as conn:
+            cve_columns = {
+                row[1] for row in await (await conn.execute("PRAGMA table_info(cve_records)")).fetchall()
+            }
+            exposure_columns = {
+                row[1] for row in await (await conn.execute("PRAGMA table_info(ransomware_victims)")).fetchall()
+            }
+        return connectors, versions, cve_columns, exposure_columns
 
-    connectors, versions = asyncio.run(verify())
-    assert len(connectors) == 23
+    connectors, versions, cve_columns, exposure_columns = asyncio.run(verify())
+    assert len(connectors) == 27
     assert next(c for c in connectors if c["source_name"] == "openphish")["state"] == "disabled"
+    assert "incident_type" not in cve_columns
+    assert {"incident_type", "confidence_score", "source_count", "source_names"} <= exposure_columns
     assert sum(v["version"] == "1.8.1" for v in versions) == 1
 
 
@@ -148,11 +162,85 @@ def test_runtime_credentials_are_owner_only_and_never_require_restart(tmp_path, 
 def test_new_provider_credentials_share_protected_runtime_store(tmp_path, monkeypatch):
     secret_path = tmp_path / ".runtime-secrets.json"
     monkeypatch.setattr(credential_store, "RUNTIME_SECRETS_PATH", secret_path)
-    for provider in ("alienvault_otx", "phishtank", "abuseipdb"):
+    for provider in ("alienvault_otx", "phishtank", "abuseipdb", "threatcluster"):
         monkeypatch.delenv(credential_store.PROVIDER_ENV_VARS[provider], raising=False)
         credential_store.save_provider_secret(provider, f"{provider}-test-key")
         assert credential_store.provider_secret_is_configured(provider) is True
     assert stat.S_IMODE(secret_path.stat().st_mode) == 0o600
+
+
+def test_exposure_provider_parsers():
+    ransomfeed = parse_ransomfeed([{
+        "id": 10, "hash": "rf-10", "victim": "Example Corp", "gang": "Qilin",
+        "website": "www.example.com/path", "date": "2026-10-09 10:00:00",
+    }])
+    assert ransomfeed[0].domain == "www.example.com/path"
+    ransomlook = parse_ransomlook([{
+        "id": "rl-10", "post_title": "Example Corp", "group_name": "qilin",
+        "discovered": "2026-10-09T11:00:00Z",
+    }])
+    assert ransomlook[0].victim_name == "Example Corp"
+    rss = b"""<?xml version='1.0'?><rss version='2.0'><channel><title>DataBreaches</title>
+      <item><guid>db-10</guid><title>Example Corp reports data exposure</title>
+      <link>https://databreaches.net/example</link><pubDate>Fri, 09 Oct 2026 12:00:00 +0000</pubDate>
+      <description><![CDATA[<p>Customer records were exposed.</p>]]></description></item>
+      </channel></rss>"""
+    breach = parse_databreaches_feed(rss)
+    assert breach[0].incident_type == "data_breach"
+    assert "Customer records" in breach[0].description
+    threatcluster = parse_threatcluster({"results": [{
+        "id": "tc-10", "victim_name": "Example Corp", "group_name": "Qilin",
+        "domain": "example.com", "discovered_at": "2026-10-09T12:00:00Z",
+    }]})
+    assert threatcluster[0].source_record_id == "tc-10"
+
+
+def test_multi_source_exposure_correlation_and_provenance(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "exposure.db")
+
+    async def scenario():
+        await database.init_db()
+        first = await upsert_exposure_records("Ransomware.live", [ExposureRecord(
+            source_record_id="live-1", victim_name="Example Corp", group_name="Qilin",
+            domain="example.com", discovered="2026-10-08T10:00:00Z",
+        )])
+        second = await upsert_exposure_records("RansomFeed", [ExposureRecord(
+            source_record_id="feed-1", victim_name="Example Corporation", group_name="qilin",
+            domain="www.example.com", discovered="2026-10-09T10:00:00Z",
+        )])
+        third = await upsert_exposure_records("DataBreaches.net", [ExposureRecord(
+            source_record_id="news-1", victim_name="Example Corp reports data exposure",
+            group_name="data breach", incident_type="data_breach",
+            discovered="Fri, 09 Oct 2026 12:00:00 +0000",
+        )])
+        duplicate = await upsert_exposure_records("RansomFeed", [ExposureRecord(
+            source_record_id="feed-1", victim_name="Example Corporation", group_name="qilin",
+            domain="example.com", discovered="2026-10-09T10:00:00Z",
+        )])
+        # Re-running startup migrations must not fabricate a Ransomware.live
+        # observation for incidents that already have real source provenance.
+        await database.init_db()
+        async with database.get_db() as conn:
+            incidents = [dict(row) for row in await (await conn.execute(
+                "SELECT * FROM ransomware_victims"
+            )).fetchall()]
+            sources = [dict(row) for row in await (await conn.execute(
+                "SELECT * FROM exposure_incident_sources"
+            )).fetchall()]
+        return first, second, third, duplicate, incidents, sources
+
+    first, second, third, duplicate, incidents, sources = asyncio.run(scenario())
+    assert first["created"] == 1
+    assert second["updated"] == 1
+    assert third["updated"] == 1
+    assert duplicate["duplicated"] == 1
+    assert len(incidents) == 1
+    assert incidents[0]["source_count"] == 3
+    assert incidents[0]["confidence_score"] > 72
+    assert set(__import__("json").loads(incidents[0]["source_names"])) == {
+        "Ransomware.live", "RansomFeed", "DataBreaches.net",
+    }
+    assert len(sources) == 3
 
 
 def test_source_aware_expiry_keeps_correlated_ioc_active(tmp_path, monkeypatch):

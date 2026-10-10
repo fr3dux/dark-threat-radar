@@ -365,8 +365,8 @@
         <div class="dash-card">
           <div class="dash-card-header">
             <div class="header-with-badge">
-              <span class="dash-card-title"><span class="widget-bullet purple">●</span> RECENT RANSOMWARE EXTORTIONS</span>
-              <span class="badge badge-ransomware">RANSOMWARE.LIVE</span>
+              <span class="dash-card-title"><span class="widget-bullet purple">●</span> RECENT PUBLIC EXPOSURES</span>
+              <span class="badge badge-ransomware">MULTI-SOURCE CTI</span>
             </div>
             <button class="dash-action-btn" onclick="goToTabWithFilter('panel-ransomware', {})">RANSOMWARE TRACKER &rarr;</button>
           </div>
@@ -376,7 +376,11 @@
               <div class="critical-vendor-item" data-artifact-type="ransomware" data-artifact-id="{{ victim.id }}">
                 <div class="crit-vendor-top">
                   <span class="crit-vendor-name font-bold">{{ victim.victim_name }}</span>
+                  {% if victim.incident_type == 'data_breach' %}
+                  <span class="badge badge-warn mono font-bold">DATA BREACH</span>
+                  {% else %}
                   <span class="badge badge-ransomware mono font-bold">{{ victim.group_name | upper }}</span>
+                  {% endif %}
                 </div>
                 <div class="crit-vendor-desc text-muted mono" style="font-size: 11.5px;">{{ victim.domain or victim.activity or 'Corporate Target' }}</div>
                 <div class="crit-vendor-meta">
@@ -388,6 +392,7 @@
                   <span class="mono text-muted">-</span>
                   {% endif %}
                   <span class="mono text-muted" style="font-size: 11px;">Disclosed: {{ (victim.discovered or victim.attackdate or '')[:16] }}</span>
+                  <span class="badge badge-filetype mono">{{ victim.source_count or 1 }} SOURCE{% if (victim.source_count or 1) != 1 %}S{% endif %}</span>
                 </div>
               </div>
               {% endfor %}
@@ -874,7 +879,7 @@
     <!-- ========================================== -->
     <div id="panel-ransomware" class="view-panel">
       <div class="pagination-bar">
-        <div class="pagination-info mono" id="ransomware-page-info">Showing 0 - 0 of 0 victims</div>
+        <div class="pagination-info mono" id="ransomware-page-info">Showing 0 - 0 of 0 incidents</div>
         <div class="pagination-controls">
           <button class="btn btn-sm" id="ransomware-btn-prev" onclick="ransomwarePrevPage()">&larr; PREVIOUS</button>
           <span class="page-number-display mono" id="ransomware-page-num">PAGE 1 / 1</span>
@@ -891,17 +896,17 @@
               <th>VICTIM NAME</th>
               <th style="width: 100px;">COUNTRY</th>
               <th style="width: 180px;">DOMAIN / TARGET</th>
-              <th style="width: 110px;">ACTION</th>
+              <th style="width: 155px;">CONFIDENCE / SOURCES</th>
             </tr>
           </thead>
           <tbody id="ransomware-tbody">
-            <tr><td colspan="6" class="loading-row">Loading ransomware telemetry...</td></tr>
+            <tr><td colspan="6" class="loading-row">Loading public exposure intelligence...</td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="pagination-bar" style="margin-top: 8px;">
-        <div class="pagination-info mono" id="ransomware-page-info-bottom">Showing 0 - 0 of 0 victims</div>
+        <div class="pagination-info mono" id="ransomware-page-info-bottom">Showing 0 - 0 of 0 incidents</div>
         <div class="pagination-controls">
           <button class="btn btn-sm" id="ransomware-btn-prev-b" onclick="ransomwarePrevPage()">&larr; PREVIOUS</button>
           <button class="btn btn-sm" id="ransomware-btn-next-b" onclick="ransomwareNextPage()">NEXT &rarr;</button>
@@ -1296,6 +1301,22 @@
               <button type="button" class="btn" id="integration-remove-abuseipdb" onclick="removeIntegrationKey('abuseipdb')" disabled>REMOVE</button>
             </div>
             <div class="integration-provider-meta mono" id="integration-meta-abuseipdb">Not authenticated</div>
+          </article>
+
+          <article class="integration-provider-card" data-provider="threatcluster">
+            <div class="integration-provider-heading">
+              <div>
+                <strong class="mono">THREATCLUSTER</strong>
+                <span class="integration-provider-description">Optional ransomware and dark-web victim intelligence</span>
+              </div>
+              <span class="connector-state auth_required mono" id="integration-state-threatcluster">LOCKED</span>
+            </div>
+            <div class="integration-input-row">
+              <input type="password" id="integration-key-threatcluster" class="search-input" autocomplete="new-password" placeholder="Paste the ThreatCluster API key" disabled>
+              <button type="button" class="btn btn-primary" id="integration-save-threatcluster" onclick="saveIntegrationKey('threatcluster')" disabled>SAVE &amp; TEST</button>
+              <button type="button" class="btn" id="integration-remove-threatcluster" onclick="removeIntegrationKey('threatcluster')" disabled>REMOVE</button>
+            </div>
+            <div class="integration-provider-meta mono" id="integration-meta-threatcluster">Not authenticated</div>
           </article>
 
           <article class="integration-provider-card openphish-provider-card" data-provider="openphish">

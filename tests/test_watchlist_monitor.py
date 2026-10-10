@@ -14,6 +14,7 @@ def test_boundary_and_domain_matching():
     assert domain_matches("example.com", "https://portal.example.com/path")
     assert not domain_matches("example.com", "notexample.com")
     assert not domain_matches("example..com", "example..com")
+    assert text_matches("example.com", "Incident affected customer portal example.com")
 
 
 def test_exposure_watchlist_persists_cross_source_alerts(tmp_path, monkeypatch):

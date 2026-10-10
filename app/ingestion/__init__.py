@@ -27,6 +27,10 @@ from app.ingestion.mitre_attack import ingest_mitre_attack
 from app.ingestion.msrc_csaf import ingest_msrc_csaf
 from app.ingestion.phishtank import ingest_phishtank
 from app.ingestion.redhat_security import ingest_redhat_security
+from app.ingestion.ransomfeed import ingest_ransomfeed
+from app.ingestion.ransomlook import ingest_ransomlook
+from app.ingestion.databreaches_net import ingest_databreaches_net
+from app.ingestion.threatcluster import ingest_threatcluster
 
 logger = logging.getLogger("ingestion")
 Connector = Callable[[], Awaitable[int]]
@@ -88,6 +92,10 @@ async def run_hourly_ingestions() -> list[object]:
         ("hourly-blocklist", ingest_blocklist_de),
         ("hourly-msrc", ingest_msrc_csaf),
         ("hourly-redhat", ingest_redhat_security),
+        ("hourly-ransomfeed", ingest_ransomfeed),
+        ("hourly-ransomlook", ingest_ransomlook),
+        ("hourly-databreaches", ingest_databreaches_net),
+        ("hourly-threatcluster", ingest_threatcluster),
     ):
         results.extend(await _run_group(name, [connector]))
     return results

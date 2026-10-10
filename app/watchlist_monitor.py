@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import unicodedata
 from datetime import datetime, timezone
@@ -94,7 +95,8 @@ async def refresh_watchlist_alerts(watchlist_id: str | None = None) -> int:
 
         ransomware = [dict(row) for row in await (await conn.execute(
             """SELECT id, victim_name, group_name, country, activity, domain,
-                      description, url, claim_url, discovered, updated_at
+                      description, url, claim_url, discovered, updated_at,
+                      incident_type, confidence_score, source_names, source_count
                FROM ransomware_victims"""
         )).fetchall()]
         news = [dict(row) for row in await (await conn.execute(
@@ -115,8 +117,11 @@ async def refresh_watchlist_alerts(watchlist_id: str | None = None) -> int:
 
             for row in ransomware:
                 matched_field = None
-                if target_type == "domain" and domain_matches(watched, row.get("domain")):
-                    matched_field = "domain"
+                if target_type == "domain" and (
+                    domain_matches(watched, row.get("domain"))
+                    or text_matches(watched, row.get("victim_name"), row.get("description"))
+                ):
+                    matched_field = "domain" if domain_matches(watched, row.get("domain")) else "domain mention"
                 elif target_type != "domain" and text_matches(
                     watched, row.get("victim_name"), row.get("domain"),
                     row.get("activity"), row.get("description"),
@@ -124,10 +129,16 @@ async def refresh_watchlist_alerts(watchlist_id: str | None = None) -> int:
                     matched_field = "victim disclosure"
                 if matched_field:
                     evidence = row.get("description") or row.get("domain") or row.get("victim_name")
+                    try:
+                        sources = json.loads(row.get("source_names") or "[]")
+                    except (TypeError, ValueError):
+                        sources = []
+                    source_label = " + ".join(str(source) for source in sources) or "Public Exposure CTI"
                     matches.append({
-                        "source_type": "ransomware", "source_name": "Ransomware.live",
+                        "source_type": "ransomware", "source_name": source_label,
                         "artifact_id": row["id"], "title": row.get("victim_name") or watched,
-                        "matched_field": matched_field, "severity": "CRITICAL",
+                        "matched_field": matched_field,
+                        "severity": "CRITICAL" if row.get("incident_type") == "ransomware_extortion" else "HIGH",
                         "evidence": evidence, "reference_url": row.get("url") or row.get("claim_url"),
                         "source_date": row.get("discovered") or row.get("updated_at"),
                     })

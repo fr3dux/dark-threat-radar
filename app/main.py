@@ -232,6 +232,10 @@ MANAGED_INTEGRATIONS = {
     "alienvault_otx": {"name": "AlienVault OTX", "category": "Malware & IOCs"},
     "phishtank": {"name": "PhishTank", "category": "Phishing"},
     "abuseipdb": {"name": "AbuseIPDB", "category": "Network Intelligence"},
+    "threatcluster": {
+        "name": "ThreatCluster", "category": "Ransomware & Data Breaches",
+        "env_var": "THREATCLUSTER_API_KEY",
+    },
 }
 
 
@@ -254,6 +258,9 @@ async def sync_managed_integration(provider: str) -> None:
     elif provider == "abuseipdb":
         from app.ingestion.abuseipdb import ingest_abuseipdb
         await ingest_abuseipdb()
+    elif provider == "threatcluster":
+        from app.ingestion.threatcluster import ingest_threatcluster
+        await ingest_threatcluster()
 
 
 @app.get("/api/admin/integrations", tags=["Administration"])
@@ -366,7 +373,7 @@ async def api_delete_integration_key(
         provider,
         metadata["category"],
         "auth_required",
-        last_error=f"{provider.upper()}_AUTH_KEY is not configured",
+        last_error=f"{metadata.get('env_var', provider.upper() + '_AUTH_KEY')} is not configured",
     )
     return {"provider": provider, "configured": False, "state": "auth_required"}
 
@@ -675,7 +682,7 @@ async def api_ransomware(
         row_br = await cur_br.fetchone()
         brazil_total = row_br["count"] if row_br else 0
 
-        query += " ORDER BY discovered DESC, updated_at DESC LIMIT ? OFFSET ?;"
+        query += " ORDER BY COALESCE(discovered, last_seen, updated_at) DESC, updated_at DESC LIMIT ? OFFSET ?;"
         params.extend([limit, offset])
 
         cur = await conn.execute(query, params)
@@ -1205,6 +1212,15 @@ async def api_artifact(artifact_type: str, identifier: str):
                     data["parsed_raw"] = json.loads(data["raw_json"])
                 except Exception:
                     data["parsed_raw"] = data["raw_json"]
+            sources = await (await conn.execute(
+                """SELECT source_name, source_record_id, incident_type, victim_name,
+                          group_name, domain, discovered, description, reference_url,
+                          first_seen, last_seen
+                   FROM exposure_incident_sources WHERE incident_id=?
+                   ORDER BY last_seen DESC, source_name""",
+                (identifier,),
+            )).fetchall()
+            data["source_observations"] = [dict(source) for source in sources]
             return {"type": "ransomware", "identifier": identifier, "data": data}
 
         elif artifact_type == "news":

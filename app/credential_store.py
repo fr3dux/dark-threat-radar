@@ -18,6 +18,7 @@ PROVIDER_ENV_VARS = {
     "alienvault_otx": "OTX_API_KEY",
     "phishtank": "PHISHTANK_API_KEY",
     "abuseipdb": "ABUSEIPDB_API_KEY",
+    "threatcluster": "THREATCLUSTER_API_KEY",
 }
 
 OPENPHISH_ENABLED_KEY = "openphish_enabled"

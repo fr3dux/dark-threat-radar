@@ -1071,12 +1071,13 @@ async function openArtifact(type, identifier) {
       `;
 
     } else if (type === 'ransomware') {
+      const observations = Array.isArray(d.source_observations) ? d.source_observations : [];
       const publicRecordUrl = safeHttpUrl(d.url);
       const claimUrl = safeHttpUrl(d.claim_url);
       const screenshotUrl = safeHttpUrl(d.screenshot);
       propsHtml = `
         <div class="drawer-section">
-          <div class="drawer-section-title">RANSOMWARE EXTORTION DISCLOSURE</div>
+          <div class="drawer-section-title">${d.incident_type === 'data_breach' ? 'PUBLIC DATA BREACH REPORT' : 'RANSOMWARE EXTORTION DISCLOSURE'}</div>
           <div class="property-list">
             <span class="property-key">VICTIM</span><span class="property-value font-bold">${escapeHtml(d.victim_name || 'Unknown')}</span>
             <span class="property-key">THREAT ACTOR</span><span class="property-value"><span class="badge badge-ransomware mono font-bold">${escapeHtml((d.group_name || 'UNKNOWN').toUpperCase())}</span></span>
@@ -1084,6 +1085,9 @@ async function openArtifact(type, identifier) {
             <span class="property-key">DOMAIN / ACTIVITY</span><span class="property-value mono">${escapeHtml(d.domain || d.activity || 'N/A')}</span>
             <span class="property-key">DISCOVERED</span><span class="property-value mono text-muted">${escapeHtml(d.discovered || 'N/A')}</span>
             <span class="property-key">ATTACK DATE</span><span class="property-value mono text-muted">${escapeHtml(d.attackdate || 'N/A')}</span>
+            <span class="property-key">INCIDENT TYPE</span><span class="property-value mono">${escapeHtml((d.incident_type || 'ransomware_extortion').replaceAll('_', ' ').toUpperCase())}</span>
+            <span class="property-key">CONFIDENCE</span><span class="property-value mono font-bold">${Number(d.confidence_score) || 55}% · ${Number(d.source_count) || 1} SOURCE${Number(d.source_count) === 1 ? '' : 'S'}</span>
+            <span class="property-key">FIRST / LAST SEEN</span><span class="property-value mono text-muted">${escapeHtml(d.first_seen || 'N/A')}<br>${escapeHtml(d.last_seen || 'N/A')}</span>
           </div>
         </div>
         ${d.description ? `
@@ -1092,10 +1096,18 @@ async function openArtifact(type, identifier) {
             <div style="font-size: 12px; line-height: 1.5; color: var(--text-secondary);">${escapeHtml(d.description)}</div>
           </div>
         ` : ''}
+        <div class="drawer-section">
+          <div class="drawer-section-title">SOURCE PROVENANCE (${observations.length})</div>
+          <div class="source-observation-list">${observations.map(source => `<div class="source-observation">
+            <div><strong class="mono">${escapeHtml(source.source_name || 'PUBLIC CTI')}</strong> <span class="badge badge-filetype">${escapeHtml((source.incident_type || '').replaceAll('_', ' ').toUpperCase())}</span></div>
+            <div class="mono text-muted">First seen ${escapeHtml(source.first_seen || 'N/A')} · Updated ${escapeHtml(source.last_seen || 'N/A')}</div>
+            ${safeHttpUrl(source.reference_url) ? `<a class="external-link" href="${escapeHtml(safeHttpUrl(source.reference_url))}" target="_blank" rel="noopener">Provider evidence &rarr;</a>` : ''}
+          </div>`).join('') || '<div class="text-muted">No source observations available.</div>'}</div>
+        </div>
       `;
 
       actionsHtml = `
-        ${publicRecordUrl ? `<a class="external-link" href="${escapeHtml(publicRecordUrl)}" target="_blank" rel="noopener">Ransomware.live Record &rarr;</a>` : ''}
+        ${publicRecordUrl ? `<a class="external-link" href="${escapeHtml(publicRecordUrl)}" target="_blank" rel="noopener">Provider Record &rarr;</a>` : ''}
         ${claimUrl ? `<a class="external-link" href="${escapeHtml(claimUrl)}" target="_blank" rel="noopener">Public Claim Source &rarr;</a>` : ''}
         ${screenshotUrl ? `<a class="external-link" href="${escapeHtml(screenshotUrl)}" target="_blank" rel="noopener">Evidence Screenshot &rarr;</a>` : ''}
         ${!publicRecordUrl && !claimUrl && !screenshotUrl ? '<span class="mono text-muted">No public pivot URL supplied by the source.</span>' : ''}
@@ -1424,7 +1436,7 @@ async function loadRansomware() {
     if (countTab) countTab.textContent = data.total;
 
     if (!data.items || data.items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No ransomware victims found for current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No public exposure incidents found for current filters.</td></tr>';
       return;
     }
 
@@ -1437,11 +1449,11 @@ async function loadRansomware() {
       return `
       <tr class="clickable-row" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">
         <td class="mono text-muted">${escapeHtml((item.discovered || item.attackdate || '').substring(0, 16))}</td>
-        <td><span class="badge badge-ransomware mono font-bold">${escapeHtml(item.group_name || 'UNKNOWN')}</span></td>
+        <td><span class="badge ${item.incident_type === 'data_breach' ? 'badge-warn' : 'badge-ransomware'} mono font-bold">${escapeHtml(item.incident_type === 'data_breach' ? 'DATA BREACH' : (item.group_name || 'UNKNOWN'))}</span></td>
         <td class="font-bold">${escapeHtml(item.victim_name)}</td>
         <td>${countryBadge}</td>
         <td class="mono" style="color: var(--accent-blue);">${escapeHtml(item.domain || item.activity || '-')}</td>
-        <td><button class="btn btn-sm btn-ghost" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">DETALHES</button></td>
+        <td><span class="badge ${Number(item.source_count) > 1 ? 'badge-kev' : 'badge-filetype'} mono">${Number(item.confidence_score) || 55}%</span> <span class="mono text-muted">${Number(item.source_count) || 1} SRC</span></td>
       </tr>
       `;
     }).join('');
@@ -1457,7 +1469,7 @@ function updateRansomwarePagination() {
   const start = ransomwareState.total === 0 ? 0 : (ransomwareState.page - 1) * ransomwareState.limit + 1;
   const end = Math.min(ransomwareState.page * ransomwareState.limit, ransomwareState.total);
 
-  const text = `Showing ${start} - ${end} of ${ransomwareState.total} victims`;
+  const text = `Showing ${start} - ${end} of ${ransomwareState.total} incidents`;
   const infoTop = document.getElementById('ransomware-page-info');
   const infoBottom = document.getElementById('ransomware-page-info-bottom');
   if (infoTop) infoTop.textContent = text;
@@ -2395,7 +2407,7 @@ function closeIntegrationSettings() {
     clearInterval(integrationSettingsPoll);
     integrationSettingsPoll = null;
   }
-  ['threatfox', 'urlhaus', 'alienvault_otx', 'phishtank', 'abuseipdb', 'openphish'].forEach(provider => {
+  ['threatfox', 'urlhaus', 'alienvault_otx', 'phishtank', 'abuseipdb', 'threatcluster', 'openphish'].forEach(provider => {
     const keyInput = document.getElementById(`integration-key-${provider}`);
     const saveButton = document.getElementById(`integration-save-${provider}`);
     const removeButton = document.getElementById(`integration-remove-${provider}`);

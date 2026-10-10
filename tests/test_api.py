@@ -250,6 +250,22 @@ def test_artifact_ransomware_returns_record_and_parsed_payload(client, monkeypat
             """
         )
         await conn.execute(
+            """CREATE TABLE exposure_incident_sources (
+                   id TEXT PRIMARY KEY, incident_id TEXT, source_name TEXT,
+                   source_record_id TEXT, incident_type TEXT, victim_name TEXT,
+                   group_name TEXT, domain TEXT, discovered TEXT, description TEXT,
+                   reference_url TEXT, first_seen TEXT, last_seen TEXT
+               )"""
+        )
+        await conn.execute(
+            """INSERT INTO exposure_incident_sources VALUES
+               (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("src-test", "victim-test-id", "Ransomware.live", "provider-1",
+             "ransomware_extortion", "Example Corp", "example-group", "example.test",
+             "2026-10-08", "Evidence", "https://example.test/record",
+             "2026-10-08", "2026-10-09"),
+        )
+        await conn.execute(
             """INSERT INTO ransomware_victims
                (id, victim_name, group_name, country, raw_json)
                VALUES (?, ?, ?, ?, ?)""",
@@ -271,6 +287,7 @@ def test_artifact_ransomware_returns_record_and_parsed_payload(client, monkeypat
     assert payload["data"]["victim_name"] == "Example Corp"
     assert payload["data"]["parsed_raw"] == {"source": "ransomware.live"}
     assert isinstance(payload["data"]["raw_json"], str)
+    assert payload["data"]["source_observations"][0]["source_name"] == "Ransomware.live"
 
 
 def test_index_page_version_injection(client):
@@ -291,8 +308,8 @@ def test_index_page_version_injection(client):
     assert 'MY THREAT RADAR' not in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
-    assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT RANSOMWARE EXTORTIONS")
-    assert html.index("RECENT RANSOMWARE EXTORTIONS") < html.index("VENDORS W/ CRITICAL CVES")
+    assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT PUBLIC EXPOSURES")
+    assert html.index("RECENT PUBLIC EXPOSURES") < html.index("VENDORS W/ CRITICAL CVES")
     assert html.index("VENDORS W/ CRITICAL CVES") < html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD")
     assert html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD") < html.index("CVSS SEVERITY DISTRIBUTION")
     assert html.index("CVSS SEVERITY DISTRIBUTION") < html.index("HIGH-CONFIDENCE IOC ACTIVITY")

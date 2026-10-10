@@ -33,6 +33,7 @@ SCHEMA_MIGRATIONS = [
     ("1.11.7", "Add normalized CTI news publication timestamps for chronological ordering"),
     ("1.12.0", "Add persistent organization exposure alerts to the Watchlist"),
     ("1.12.2", "Add acknowledgement lifecycle for Watchlist exposure alerts"),
+    ("1.13.0", "Correlate multi-source ransomware and data-breach exposure incidents"),
 ]
 
 async def apply_migrations(conn: aiosqlite.Connection):
@@ -87,6 +88,54 @@ async def apply_migrations(conn: aiosqlite.Connection):
     watchlist_alert_cols = [row[1] for row in await cur.fetchall()]
     if watchlist_alert_cols and "acknowledged_at" not in watchlist_alert_cols:
         await conn.execute("ALTER TABLE watchlist_alerts ADD COLUMN acknowledged_at TEXT;")
+
+    cur = await conn.execute("PRAGMA table_info(ransomware_victims);")
+    ransomware_cols = [row[1] for row in await cur.fetchall()]
+    if ransomware_cols:
+        additions = {
+            "incident_type": "TEXT NOT NULL DEFAULT 'ransomware_extortion'",
+            "canonical_key": "TEXT",
+            "first_seen": "TEXT",
+            "last_seen": "TEXT",
+            "confidence_score": "INTEGER NOT NULL DEFAULT 55",
+            "source_count": "INTEGER NOT NULL DEFAULT 1",
+            "source_names": "TEXT NOT NULL DEFAULT '[\"Ransomware.live\"]'",
+        }
+        for column, definition in additions.items():
+            if column not in ransomware_cols:
+                await conn.execute(
+                    f"ALTER TABLE ransomware_victims ADD COLUMN {column} {definition};"
+                )
+        await conn.execute(
+            """UPDATE ransomware_victims SET
+                   first_seen=COALESCE(first_seen, discovered, attackdate, updated_at),
+                   last_seen=COALESCE(last_seen, updated_at, discovered, attackdate),
+                   canonical_key=COALESCE(canonical_key, 'legacy:' || id),
+                   source_count=MAX(COALESCE(source_count, 1), 1),
+                   source_names=CASE WHEN source_names IS NULL OR source_names=''
+                                     THEN '[\"Ransomware.live\"]' ELSE source_names END"""
+        )
+        await conn.execute(
+            """INSERT OR IGNORE INTO exposure_incident_sources (
+                   id, incident_id, source_name, source_record_id, incident_type,
+                   victim_name, group_name, country, activity, domain, discovered,
+                   attackdate, description, claim_url, screenshot, reference_url,
+                   raw_json, first_seen, last_seen
+               )
+               SELECT 'legacy-' || id, id, 'Ransomware.live', id,
+                      COALESCE(incident_type, 'ransomware_extortion'), victim_name,
+                      group_name, country, activity, domain, discovered, attackdate,
+                      description, claim_url, screenshot, url, raw_json,
+                      COALESCE(first_seen, discovered, attackdate, updated_at),
+                      COALESCE(last_seen, updated_at, discovered, attackdate)
+               FROM ransomware_victims rv
+               WHERE NOT EXISTS (
+                   SELECT 1 FROM exposure_incident_sources src
+                   WHERE src.incident_id = rv.id
+               )"""
+        )
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_domain ON ransomware_victims(domain);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_canonical ON ransomware_victims(canonical_key);")
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     for version, description in SCHEMA_MIGRATIONS:
@@ -165,12 +214,47 @@ async def init_db():
                 screenshot TEXT,
                 url TEXT,
                 raw_json TEXT,
-                updated_at TEXT
+                updated_at TEXT,
+                incident_type TEXT NOT NULL DEFAULT 'ransomware_extortion',
+                canonical_key TEXT,
+                first_seen TEXT,
+                last_seen TEXT,
+                confidence_score INTEGER NOT NULL DEFAULT 55,
+                source_count INTEGER NOT NULL DEFAULT 1,
+                source_names TEXT NOT NULL DEFAULT '["Ransomware.live"]'
             );
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_group ON ransomware_victims(group_name);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_country ON ransomware_victims(country);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_ransomware_discovered ON ransomware_victims(discovered DESC);")
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS exposure_incident_sources (
+                id TEXT PRIMARY KEY,
+                incident_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                source_record_id TEXT NOT NULL,
+                incident_type TEXT NOT NULL DEFAULT 'ransomware_extortion',
+                victim_name TEXT NOT NULL,
+                group_name TEXT,
+                country TEXT,
+                activity TEXT,
+                domain TEXT,
+                discovered TEXT,
+                attackdate TEXT,
+                description TEXT,
+                claim_url TEXT,
+                screenshot TEXT,
+                reference_url TEXT,
+                raw_json TEXT,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                UNIQUE(source_name, source_record_id),
+                FOREIGN KEY(incident_id) REFERENCES ransomware_victims(id) ON DELETE CASCADE
+            );
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_exposure_source_incident ON exposure_incident_sources(incident_id);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_exposure_source_provider ON exposure_incident_sources(source_name, source_record_id);")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_exposure_source_domain ON exposure_incident_sources(domain);")
 
         # DShield Infocon
         await conn.execute("""
@@ -409,6 +493,10 @@ async def init_db():
             ("spamhaus_drop", "Network Intelligence"),
             ("openphish", "Phishing"),
             ("ransomware_live", "Ransomware"),
+            ("ransomfeed", "Ransomware & Data Breaches"),
+            ("ransomlook", "Ransomware & Data Breaches"),
+            ("databreaches_net", "Ransomware & Data Breaches"),
+            ("threatcluster", "Ransomware & Data Breaches"),
             ("news_feed", "News"),
             ("alienvault_otx", "Malware & IOCs"),
             ("circl_misp", "Malware & IOCs"),
@@ -432,6 +520,15 @@ async def init_db():
                 """UPDATE connector_health SET state='disabled',
                     last_error='Disabled by configuration', updated_at=?
                     WHERE source_name='openphish'""",
+                (now_str,),
+            )
+
+        from app.credential_store import provider_secret_is_configured
+        if not provider_secret_is_configured("threatcluster"):
+            await conn.execute(
+                """UPDATE connector_health SET state='auth_required',
+                    last_error='THREATCLUSTER_API_KEY is not configured', updated_at=?
+                    WHERE source_name='threatcluster'""",
                 (now_str,),
             )
 
@@ -532,6 +629,7 @@ async def get_all_connector_health() -> List[Dict[str, Any]]:
         "sslbl", "spamhaus_drop", "openphish", "ransomware_live", "news_feed",
         "alienvault_otx", "circl_misp", "phishtank", "abuseipdb",
         "blocklist_de", "msrc_csaf", "redhat_security", "mitre_attack",
+        "ransomfeed", "ransomlook", "databreaches_net", "threatcluster",
     }
     async with get_db() as conn:
         cursor = await conn.execute("""
@@ -801,9 +899,10 @@ async def get_dashboard_stats() -> Dict[str, Any]:
 
         # Recent Ransomware Victims (Top 5)
         cur = await conn.execute("""
-            SELECT id, victim_name, group_name, country, activity, domain, discovered, attackdate
+            SELECT id, victim_name, group_name, country, activity, domain, discovered,
+                   attackdate, incident_type, confidence_score, source_count, source_names
             FROM ransomware_victims
-            ORDER BY discovered DESC, updated_at DESC
+            ORDER BY COALESCE(discovered, last_seen, updated_at) DESC, updated_at DESC
             LIMIT 5;
         """)
         recent_ransomware_victims = [dict(r) for r in await cur.fetchall()]

@@ -1,143 +1,89 @@
+"""Ransomware.live v2 connector backed by canonical exposure correlation."""
+
 import hashlib
-import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+import time
+from typing import Any
 
 import httpx
 
-from app.database import get_db, update_feed_status
+from app.database import update_connector_health, update_feed_status
+from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_records
 
 logger = logging.getLogger("ingestion.ransomware_live")
-
 RECENT_VICTIMS_URL = "https://api.ransomware.live/v2/recentvictims"
 BRAZIL_VICTIMS_URL = "https://api.ransomware.live/v2/countryvictims/BR"
 
 
-def generate_victim_id(item: Dict[str, Any]) -> str:
-    """Generate a stable unique identifier for a ransomware victim entry."""
+def generate_victim_id(item: dict[str, Any]) -> str:
     if item.get("id"):
         return str(item["id"]).strip()
-    url = item.get("url", "")
+    url = str(item.get("url") or "")
     if "/id/" in url:
         return url.rstrip("/").split("/")[-1]
-    victim = item.get("victim") or item.get("victim_name") or "unknown"
-    group = item.get("group") or item.get("group_name") or "unknown"
-    disc = item.get("discovered") or item.get("attackdate") or ""
-    country = item.get("country") or ""
-    raw_key = f"{victim.lower()}_{group.lower()}_{disc}_{country.lower()}"
-    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:24]
+    material = "\0".join(str(item.get(key) or "") for key in ("victim", "group", "discovered", "country"))
+    return hashlib.sha256(material.encode()).hexdigest()[:24]
 
 
-async def fetch_endpoint(client: httpx.AsyncClient, url: str) -> List[Dict[str, Any]]:
-    """Fetch and parse JSON from Ransomware.live endpoints with graceful fallback."""
-    try:
-        resp = await client.get(url, follow_redirects=True)
-        if resp.status_code == 200:
-            content_type = resp.headers.get("content-type", "")
-            if "application/json" in content_type:
-                data = resp.json()
-                if isinstance(data, list):
-                    return data
-                elif isinstance(data, dict) and "victims" in data:
-                    return data["victims"]
-            else:
-                try:
-                    data = resp.json()
-                    if isinstance(data, list):
-                        return data
-                except Exception:
-                    logger.warning(f"Endpoint {url} returned non-JSON content: {resp.text[:100]}")
-        else:
-            logger.warning(f"Endpoint {url} responded with HTTP {resp.status_code}")
-    except Exception as e:
-        logger.warning(f"Failed to query {url}: {e}")
-    return []
+def parse_ransomware_live(items: list[dict[str, Any]]) -> list[ExposureRecord]:
+    records = []
+    for item in items:
+        victim = str(item.get("victim") or item.get("victim_name") or "")
+        if not victim.strip():
+            continue
+        records.append(ExposureRecord(
+            source_record_id=generate_victim_id(item), victim_name=victim,
+            group_name=str(item.get("group") or item.get("group_name") or "unknown"),
+            country=str(item.get("country") or ""), activity=str(item.get("activity") or ""),
+            domain=str(item.get("domain") or item.get("website") or ""),
+            discovered=str(item.get("discovered") or item.get("attackdate") or ""),
+            attackdate=str(item.get("attackdate") or ""),
+            description=str(item.get("description") or ""),
+            claim_url=str(item.get("claim_url") or ""), screenshot=str(item.get("screenshot") or ""),
+            reference_url=str(item.get("url") or "https://www.ransomware.live/"), raw=item,
+        ))
+    return records
+
+
+async def fetch_endpoint(client: httpx.AsyncClient, url: str) -> list[dict[str, Any]]:
+    response = await client.get(url, follow_redirects=True)
+    response.raise_for_status()
+    payload = response.json()
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict) and isinstance(payload.get("victims"), list):
+        return [item for item in payload["victims"] if isinstance(item, dict)]
+    raise ValueError("Ransomware.live returned an unexpected response schema")
 
 
 async def ingest_ransomware_live() -> int:
-    """Ingest recent victims and Brazil telemetry from Ransomware.live v2."""
-    logger.info("Starting Ransomware.live v2 ingestion...")
+    started = time.time()
     await update_feed_status("ransomware_live", "running", 0, "Ingesting Ransomware.live v2 catalog...")
-
-    count = 0
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
     try:
-        headers = {
-            "User-Agent": "ThreatRadar-CTI/1.2",
-            "Accept": "application/json",
-        }
-        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
-            recent_victims = await fetch_endpoint(client, RECENT_VICTIMS_URL)
-            brazil_victims = await fetch_endpoint(client, BRAZIL_VICTIMS_URL)
-
-        # Ensure country is tagged BR for victims from the Brazil endpoint
-        for b_item in brazil_victims:
-            if not b_item.get("country"):
-                b_item["country"] = "BR"
-
-        # Combine all victim records
-        all_victims: List[Dict[str, Any]] = recent_victims + brazil_victims
-        logger.info(f"Retrieved {len(recent_victims)} recent victims and {len(brazil_victims)} Brazil victims from Ransomware.live")
-
-        async with get_db() as conn:
-            for item in all_victims:
-                victim_name = item.get("victim") or item.get("victim_name") or ""
-                victim_name = victim_name.strip()
-                if not victim_name:
-                    continue
-
-                group_name = item.get("group") or item.get("group_name") or "unknown"
-                group_name = group_name.strip().lower()
-                discovered = item.get("discovered") or item.get("attackdate") or ""
-                attackdate = item.get("attackdate") or ""
-                country = (item.get("country") or "").strip().upper()
-                activity = item.get("activity") or ""
-                domain = item.get("domain") or ""
-                description = item.get("description") or ""
-                claim_url = item.get("claim_url") or ""
-                screenshot = item.get("screenshot") or ""
-                url = item.get("url") or ""
-                victim_id = generate_victim_id(item)
-                raw_json = json.dumps(item)
-
-                await conn.execute("""
-                    INSERT INTO ransomware_victims (
-                        id, victim_name, group_name, country, activity, domain,
-                        discovered, attackdate, description, claim_url, screenshot,
-                        url, raw_json, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        victim_name = excluded.victim_name,
-                        group_name = excluded.group_name,
-                        country = excluded.country,
-                        activity = excluded.activity,
-                        domain = excluded.domain,
-                        discovered = excluded.discovered,
-                        attackdate = excluded.attackdate,
-                        description = excluded.description,
-                        claim_url = excluded.claim_url,
-                        screenshot = excluded.screenshot,
-                        url = excluded.url,
-                        raw_json = excluded.raw_json,
-                        updated_at = excluded.updated_at;
-                """, (
-                    victim_id, victim_name, group_name, country, activity, domain,
-                    discovered, attackdate, description, claim_url, screenshot,
-                    url, raw_json, now_str
-                ))
-                count += 1
-
-            await conn.commit()
-
-        msg = f"Synced {count} ransomware victims successfully (including Brazil telemetry)."
-        logger.info(msg)
-        await update_feed_status("ransomware_live", "success", count, msg)
-        return count
-
-    except Exception as e:
-        err_msg = f"Error ingesting Ransomware.live: {str(e)}"
-        logger.error(err_msg, exc_info=True)
-        await update_feed_status("ransomware_live", "error", count, err_msg)
-        return count
+        headers = {"User-Agent": "DarkThreatRadar/1.13", "Accept": "application/json"}
+        async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+            recent = await fetch_endpoint(client, RECENT_VICTIMS_URL)
+            brazil = await fetch_endpoint(client, BRAZIL_VICTIMS_URL)
+        for item in brazil:
+            item.setdefault("country", "BR")
+        records = parse_ransomware_live(recent + brazil)
+        stats = await upsert_exposure_records("Ransomware.live", records)
+        total = stats["created"] + stats["updated"]
+        message = f"Correlated {len(records)} Ransomware.live observations."
+        await update_feed_status("ransomware_live", "success", len(records), message)
+        await update_connector_health(
+            "ransomware_live", "Ransomware & Data Breaches", "healthy",
+            duration_seconds=round(time.time() - started, 2), items_received=stats["received"],
+            items_created=stats["created"], items_updated=stats["updated"],
+            items_dropped=stats["dropped"], items_duplicated=stats["duplicated"], http_code=200,
+        )
+        return total
+    except Exception as exc:
+        logger.exception("Ransomware.live ingestion failed")
+        message = f"{type(exc).__name__}: Ransomware.live ingestion failed"
+        await update_feed_status("ransomware_live", "error", 0, message)
+        await update_connector_health(
+            "ransomware_live", "Ransomware & Data Breaches", "failed",
+            duration_seconds=round(time.time() - started, 2), last_error=message,
+        )
+        return 0

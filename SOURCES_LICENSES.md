@@ -23,6 +23,10 @@ deployment.
 | Red Hat Security Data | public CVE API | None | 1 hour | Public product-security metadata; preserve advisory links and review Red Hat API/data terms. |
 | CIRCL MISP OSINT | public TLP:CLEAR MISP feed | None | 6 hours | Ingests only recent public events. Respect event-level markings, attribution, and the CIRCL feed terms. |
 | MITRE ATT&CK | official Enterprise ATT&CK STIX data | None | 6 hours | ATT&CK is used under MITRE's applicable terms; preserve ATT&CK and MITRE attribution. |
+| RansomFeed | `https://api.ransomfeed.it/` | None | 1 hour | Public victim metadata remains attributed to RansomFeed; operators must review current API and data-use terms before redistribution. |
+| RansomLook | `https://www.ransomlook.io/api/recent` | None | 1 hour | RansomLook publishes its collected data under CC BY 4.0; preserve attribution and review current project terms. |
+| DataBreaches.net | public RSS feed | None | 1 hour | Stores bounded headline/summary metadata and links to the original report. Article content remains with its publisher. |
+| ThreatCluster | public ransomware victims API | `THREATCLUSTER_API_KEY` | 1 hour | Optional per-installation key. Do not redistribute feed data outside the local installation without verifying the provider's current plan and terms. |
 
 Existing 1.7 sources remain unchanged: CISA KEV, NIST NVD, EPSS,
 MalwareBazaar, SANS ISC DShield, ransomware.live and the configured news feeds.

@@ -42,6 +42,7 @@ class ConnectorHealth(BaseModel):
     items_created: int = 0
     items_updated: int = 0
     items_dropped: int = 0
+    items_duplicated: int = 0
     last_error: Optional[str] = None
     http_code: Optional[int] = None
 
@@ -349,6 +350,12 @@ class RansomwareVictim(BaseModel):
     screenshot: Optional[str] = None
     url: Optional[str] = None
     updated_at: Optional[str] = None
+    incident_type: str = "ransomware_extortion"
+    first_seen: Optional[str] = None
+    last_seen: Optional[str] = None
+    confidence_score: int = 55
+    source_count: int = 1
+    source_names: str = "[]"
 
 
 class RansomwareListResponse(BaseModel):
