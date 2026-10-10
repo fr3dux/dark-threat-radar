@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.5] - 2026-10-10
+
+### Fixed
+- **Wide Executive Dashboard**: Restores the dashboard's wide workspace so the global map, live telemetry, KPI rail, and paired intelligence cards retain their intended proportions.
+- **Focused Operational Pages**: Keeps the centered 1180px workspace introduced in v1.14.4 for explorers, Watchlist, Leak Check, and Settings.
+
 ## [1.14.4] - 2026-10-10
 
 ### Changed

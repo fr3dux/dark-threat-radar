@@ -2290,7 +2290,7 @@ main.main-content {
 .metrics-strip {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  padding: 12px max(16px, calc((100% - var(--workspace-max)) / 2));
+  padding: 12px max(16px, calc((100% - var(--content-max)) / 2 + 16px));
 }
 
 .metric-card {
@@ -2322,6 +2322,10 @@ main.main-content {
   max-width: calc(var(--workspace-max) + 32px);
   margin: 0 auto;
   padding-top: 18px;
+}
+
+main.main-content.dashboard-active {
+  max-width: var(--content-max);
 }
 
 .toolbar-bar {
@@ -3263,7 +3267,7 @@ main.main-content {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 1px;
-  padding: 6px max(16px, calc((100% - var(--workspace-max)) / 2));
+  padding: 6px max(16px, calc((100% - var(--content-max)) / 2 + 16px));
   margin-top: 8px;
   background: #080c12;
   border-top: 1px solid rgba(48, 54, 61, 0.72);

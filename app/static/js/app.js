@@ -427,6 +427,11 @@ function switchTab(panelId, btnElement) {
   const iocFilters = document.getElementById('ioc-filters');
   const attackFilters = document.getElementById('attack-filters');
   const metricsStrip = document.querySelector('.metrics-strip');
+  const mainContent = document.querySelector('main.main-content');
+
+  // The executive dashboard needs the wider canvas for the global map and
+  // live telemetry. Operational pages keep the focused 1180px workspace.
+  if (mainContent) mainContent.classList.toggle('dashboard-active', panelId === 'panel-dashboard');
 
   // The executive KPI strip belongs to the dashboard. Hiding it in explorer
   // views gives tables and filters the visual priority they need.
