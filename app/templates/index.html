@@ -709,7 +709,7 @@
             <button class="btn btn-sm" id="ioc-btn-next" onclick="iocNextPage()">NEXT &rarr;</button>
           </div>
         </div>
-        <div class="table-container"><table class="data-table"><thead><tr>
+        <div class="table-container"><table class="data-table operational-table"><thead><tr>
           <th style="width:95px;">TYPE</th><th>INDICATOR</th><th style="width:150px;">THREAT</th>
           <th style="width:105px;">CONFIDENCE</th><th style="width:190px;">SOURCES</th><th style="width:155px;">LAST SEEN</th>
         </tr></thead><tbody id="ioc-tbody"><tr><td colspan="6" class="loading-row">Loading correlated IOC intelligence...</td></tr></tbody></table></div>
@@ -731,7 +731,7 @@
             <button class="btn btn-sm" id="attack-btn-next" onclick="attackNextPage()">NEXT &rarr;</button>
           </div>
         </div>
-        <div class="table-container"><table class="data-table"><thead><tr>
+        <div class="table-container"><table class="data-table operational-table"><thead><tr>
           <th style="width:150px;">OBJECT TYPE</th><th style="width:130px;">ATT&amp;CK ID</th><th style="width:260px;">NAME</th>
           <th>DESCRIPTION</th><th style="width:180px;">TACTICS / PLATFORMS</th>
         </tr></thead><tbody id="attack-tbody"><tr><td colspan="5" class="loading-row">Loading MITRE ATT&amp;CK knowledge...</td></tr></tbody></table></div>
@@ -762,21 +762,26 @@
       </div>
 
       <div class="table-container">
-        <table class="data-table" id="cve-table">
+        <table class="data-table operational-table" id="cve-table">
+          <colgroup>
+            <col style="width: 125px;"><col style="width: 62px;"><col style="width: 175px;">
+            <col><col style="width: 60px;"><col style="width: 66px;">
+            <col style="width: 100px;"><col style="width: 100px;">
+          </colgroup>
           <thead>
             <tr>
-              <th style="width: 140px;">CVE ID</th>
-              <th style="width: 100px;">SOURCE</th>
-              <th style="width: 170px;">VENDOR / PRODUCT</th>
+              <th>CVE ID</th>
+              <th>SOURCE</th>
+              <th>VENDOR / PRODUCT</th>
               <th>VULNERABILITY DESCRIPTION</th>
-              <th style="width: 75px;">CVSS</th>
-              <th style="width: 75px;">EPSS</th>
-              <th style="width: 110px;">RANSOMWARE</th>
-              <th style="width: 110px;">ADDED DATE</th>
+              <th>CVSS</th>
+              <th>EPSS</th>
+              <th>RANSOMWARE</th>
+              <th>ADDED DATE</th>
             </tr>
           </thead>
           <tbody id="cve-tbody">
-            <tr><td colspan="7" class="loading-row">Querying CVE intelligence index...</td></tr>
+            <tr><td colspan="8" class="loading-row">Querying CVE intelligence index...</td></tr>
           </tbody>
         </table>
       </div>
@@ -815,10 +820,10 @@
       </div>
 
       <div class="table-container">
-        <table class="data-table" id="malware-table">
+        <table class="data-table operational-table" id="malware-table">
           <thead>
             <tr>
-              <th style="width: 160px;">FIRST SEEN (UTC)</th>
+              <th style="width: 190px;">FIRST SEEN</th>
               <th style="width: 220px;">SHA256 HASH</th>
               <th style="width: 200px;">FILE NAME</th>
               <th style="width: 90px;">TYPE</th>
@@ -862,7 +867,7 @@
             <span class="mono" id="dshield-sources-count" style="color: var(--accent-cyan);">--</span>
           </div>
           <div class="table-container" style="border: none;">
-            <table class="data-table" id="dshield-sources-table">
+            <table class="data-table operational-table" id="dshield-sources-table">
               <thead>
                 <tr>
                   <th>SOURCE IP</th>
@@ -886,7 +891,7 @@
             <span class="mono" id="dshield-ports-count" style="color: var(--accent-orange);">--</span>
           </div>
           <div class="table-container" style="border: none;">
-            <table class="data-table" id="dshield-ports-table">
+            <table class="data-table operational-table" id="dshield-ports-table">
               <thead>
                 <tr>
                   <th>PORT</th>
@@ -928,15 +933,19 @@
       </div>
 
       <div class="table-container">
-        <table class="data-table" id="ransomware-table">
+        <table class="data-table operational-table" id="ransomware-table">
+          <colgroup>
+            <col style="width: 190px;"><col style="width: 110px;"><col>
+            <col style="width: 70px;"><col style="width: 220px;"><col style="width: 135px;">
+          </colgroup>
           <thead>
             <tr>
-              <th style="width: 130px;">DISCOVERED</th>
-              <th style="width: 140px;">THREAT GROUP</th>
+              <th>DISCOVERED</th>
+              <th>THREAT GROUP</th>
               <th>VICTIM NAME</th>
-              <th style="width: 100px;">COUNTRY</th>
-              <th style="width: 180px;">DOMAIN / TARGET</th>
-              <th style="width: 155px;">CONFIDENCE / SOURCES</th>
+              <th>COUNTRY</th>
+              <th>DOMAIN / TARGET</th>
+              <th>CONFIDENCE / SOURCES</th>
             </tr>
           </thead>
           <tbody id="ransomware-tbody">

@@ -888,6 +888,25 @@ table.data-table td {
   white-space: nowrap;
 }
 
+table.data-table.operational-table {
+  table-layout: fixed;
+}
+
+table.data-table.operational-table td {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#cve-table,
+#ransomware-table {
+  min-width: 980px;
+}
+
+#malware-table {
+  min-width: 940px;
+}
+
 table.data-table tr:hover td {
   background: rgba(88, 166, 255, 0.04);
   cursor: pointer;

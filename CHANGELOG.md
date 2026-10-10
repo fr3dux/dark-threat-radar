@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.7] - 2026-10-10
+
+### Fixed
+- **Accurate RansomLook Times**: Interprets RansomLook's timezone-less timestamps in `Europe/Paris` before normalizing them to UTC, preventing future-dated incidents when displayed in `America/Sao_Paulo`.
+- **CVE Column Alignment**: Restores the missing EPSS value cell so EPSS, Ransomware, and Added Date data remain under their correct headers.
+- **Operational Table Legibility**: Uses stable column layouts, ellipsis, full-value tooltips, and responsive horizontal overflow so long domains, victim names, hashes, descriptions, and dates no longer cover adjacent fields.
+- **Timezone-Neutral Malware Header**: Renames the Malware timestamp column from `FIRST SEEN (UTC)` to `FIRST SEEN`, since presentation follows the configured display timezone.
+
 ## [1.14.6] - 2026-10-10
 
 ### Fixed

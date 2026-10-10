@@ -2,6 +2,8 @@
 
 import logging
 import time
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -10,6 +12,21 @@ from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_rec
 
 logger = logging.getLogger("ingestion.ransomlook")
 API_URL = "https://www.ransomlook.io/api/recent"
+RANSOMLOOK_TIMEZONE = ZoneInfo("Europe/Paris")
+
+
+def normalize_ransomlook_timestamp(value: object) -> str:
+    """Convert RansomLook's timezone-less Europe/Paris timestamps to UTC."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=RANSOMLOOK_TIMEZONE)
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def parse_ransomlook(payload: object) -> list[ExposureRecord]:
@@ -25,7 +42,9 @@ def parse_ransomlook(payload: object) -> list[ExposureRecord]:
             continue
         victim = str(item.get("post_title") or item.get("title") or item.get("victim") or "")
         group = str(item.get("group_name") or item.get("group") or item.get("gang") or "unknown")
-        discovered = str(item.get("discovered") or item.get("date") or item.get("published") or "")
+        discovered = normalize_ransomlook_timestamp(
+            item.get("discovered") or item.get("date") or item.get("published")
+        )
         source_id = str(item.get("misp_uuid") or item.get("id") or item.get("uuid") or item.get("post_url") or f"{group}:{victim}:{discovered}")
         if not victim:
             continue

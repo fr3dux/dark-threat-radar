@@ -359,6 +359,9 @@ def test_index_page_version_injection(client):
     ):
         assert f'id="{search_id}"' in html
     assert 'id="global-search"' not in html
+    assert 'class="data-table operational-table" id="cve-table"' in html
+    assert 'class="data-table operational-table" id="ransomware-table"' in html
+    assert '<tr><td colspan="8" class="loading-row">Querying CVE intelligence index...</td></tr>' in html
     assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
     assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT PUBLIC EXPOSURES")
     assert html.index("RECENT PUBLIC EXPOSURES") < html.index("VENDORS W/ CRITICAL CVES")

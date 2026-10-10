@@ -222,6 +222,12 @@ def test_exposure_provider_parsers():
         "discovered": "2026-10-09T11:00:00Z",
     }])
     assert ransomlook[0].victim_name == "Example Corp"
+    assert ransomlook[0].discovered == "2026-10-09T11:00:00Z"
+    ransomlook_local = parse_ransomlook([{
+        "id": "rl-11", "post_title": "Local Time Corp", "group_name": "redact",
+        "discovered": "2026-10-10 18:26:21.908102",
+    }])
+    assert ransomlook_local[0].discovered == "2026-10-10T16:26:21.908102Z"
     rss = b"""<?xml version='1.0'?><rss version='2.0'><channel><title>DataBreaches</title>
       <item><guid>db-10</guid><title>Example Corp reports data exposure</title>
       <link>https://databreaches.net/example</link><pubDate>Fri, 09 Oct 2026 12:00:00 +0000</pubDate>

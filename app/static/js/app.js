@@ -673,7 +673,7 @@ async function loadCves() {
   const severity = document.getElementById('filter-cve-severity').value;
 
   const tbody = document.getElementById('cve-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" class="loading-row">Querying CVE intelligence index...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="loading-row">Querying CVE intelligence index...</td></tr>';
 
   const offset = (cveState.page - 1) * cveState.limit;
 
@@ -694,7 +694,7 @@ async function loadCves() {
     updateCvePagination();
 
     if (!data.items || data.items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No CVE records match the current filter criteria.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No CVE records match the current filter criteria.</td></tr>';
       return;
     }
 
@@ -720,24 +720,30 @@ async function loadCves() {
         ? '<span class="badge badge-ransomware">KNOWN</span>'
         : '<span class="mono" style="color: var(--text-muted);">-</span>';
 
+      const epssValue = Number(item.epss_score);
+      const epssBadge = Number.isFinite(epssValue) && epssValue >= 0
+        ? `<span class="mono ${epssValue >= 0.5 ? 'crit' : (epssValue >= 0.1 ? 'warn' : 'text-muted')}">${(epssValue * 100).toFixed(1)}%</span>`
+        : '<span class="mono text-muted">-</span>';
+
       const vendor = escapeHtml((item.vendor_project || '') + (item.product ? ` / ${item.product}` : '')) || 'n/a';
       const desc = escapeHtml(item.short_description || item.vulnerability_name || '');
 
       return `
         <tr class="clickable-row" data-artifact-type="cve" data-artifact-id="${escapeHtml(item.cve_id)}">
-          <td class="mono font-bold" style="color: var(--accent-blue);">${escapeHtml(item.cve_id)}</td>
+          <td class="mono font-bold" style="color: var(--accent-blue);" title="${escapeHtml(item.cve_id)}">${escapeHtml(item.cve_id)}</td>
           <td>${srcBadge}</td>
           <td title="${vendor}">${vendor.length > 28 ? vendor.slice(0, 26) + '..' : vendor}</td>
           <td title="${desc}">${desc.length > 95 ? desc.slice(0, 92) + '...' : desc}</td>
           <td>${cvssBadge}</td>
+          <td>${epssBadge}</td>
           <td>${rwBadge}</td>
-          <td class="mono text-muted">${escapeHtml(item.date_added || '')}</td>
+          <td class="mono text-muted" title="${escapeHtml(item.date_added || '')}">${escapeHtml(item.date_added || '')}</td>
         </tr>
       `;
     }).join('');
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-row" style="color: var(--accent-red);">Error loading CVEs: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color: var(--accent-red);">Error loading CVEs: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -1596,11 +1602,11 @@ async function loadRansomware() {
 
       return `
       <tr class="clickable-row" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">
-        <td class="mono text-muted">${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}</td>
+        <td class="mono text-muted" title="${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}">${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}</td>
         <td><span class="badge ${item.incident_type === 'data_breach' ? 'badge-warn' : 'badge-ransomware'} mono font-bold">${escapeHtml(item.incident_type === 'data_breach' ? 'DATA BREACH' : (item.group_name || 'UNKNOWN'))}</span></td>
-        <td class="font-bold">${escapeHtml(item.victim_name)}</td>
+        <td class="font-bold" title="${escapeHtml(item.victim_name)}">${escapeHtml(item.victim_name)}</td>
         <td>${countryBadge}</td>
-        <td class="mono" style="color: var(--accent-blue);">${escapeHtml(item.domain || item.activity || '-')}</td>
+        <td class="mono" style="color: var(--accent-blue);" title="${escapeHtml(item.domain || item.activity || '-')}">${escapeHtml(item.domain || item.activity || '-')}</td>
         <td><span class="badge ${Number(item.source_count) > 1 ? 'badge-kev' : 'badge-filetype'} mono">${Number(item.confidence_score) || 55}%</span> <span class="mono text-muted">${Number(item.source_count) || 1} SRC</span></td>
       </tr>
       `;
