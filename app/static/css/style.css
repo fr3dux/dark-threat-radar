@@ -934,6 +934,20 @@ table.data-table.operational-table td.timestamp-cell {
   min-width: 980px;
 }
 
+#ransomware-table td.country-cell {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.watchlist-country-badge {
+  max-width: 100%;
+  border-color: var(--accent-red);
+  background: rgba(248, 81, 73, 0.2);
+  color: var(--accent-red);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 #malware-table {
   min-width: 940px;
 }

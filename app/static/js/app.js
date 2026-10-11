@@ -1594,17 +1594,25 @@ async function loadRansomware() {
     }
 
     tbody.innerHTML = data.items.map(item => {
-      const isBR = (item.country && (item.country.toUpperCase() === 'BR' || item.country.toUpperCase() === 'BRAZIL'));
-      const countryBadge = isBR 
-        ? '<span class="badge badge-crit font-bold" style="background: rgba(248, 81, 73, 0.2);">🇧🇷 BRASIL</span>'
-        : (item.country ? `<span class="badge badge-filetype mono">${escapeHtml(item.country)}</span>` : '<span class="mono text-muted">-</span>');
+      const countryValue = String(item.country || '').trim();
+      const normalizedCountry = countryValue.toUpperCase();
+      const isBR = ['BR', 'BRA', 'BRAZIL', 'BRASIL'].includes(normalizedCountry);
+      const countryCode = normalizedCountry.length === 2 ? normalizedCountry : (isBR ? 'BR' : '');
+      const countryFlag = countryCode && /^[A-Z]{2}$/.test(countryCode)
+        ? String.fromCodePoint(...countryCode.split('').map(character => 127397 + character.charCodeAt(0)))
+        : '';
+      const countryLabel = isBR ? 'BRASIL' : countryValue;
+      const highlightedCountry = isBR || Boolean(item.country_watched);
+      const countryBadge = countryValue
+        ? `<span class="badge ${highlightedCountry ? 'badge-crit watchlist-country-badge' : 'badge-filetype'} mono${highlightedCountry ? ' font-bold' : ''}" title="${escapeHtml(countryLabel)}">${countryFlag ? `${countryFlag} ` : ''}${escapeHtml(countryLabel)}</span>`
+        : '<span class="mono text-muted">-</span>';
 
       return `
       <tr class="clickable-row" data-artifact-type="ransomware" data-artifact-id="${escapeHtml(item.id)}">
         <td class="mono text-muted timestamp-cell" title="${escapeHtml(formatDateTime(item.discovered || item.attackdate || item.updated_at))}">${tableTimestampMarkup(item.discovered || item.attackdate || item.updated_at)}</td>
         <td><span class="badge ${item.incident_type === 'data_breach' ? 'badge-warn' : 'badge-ransomware'} mono font-bold">${escapeHtml(item.incident_type === 'data_breach' ? 'DATA BREACH' : (item.group_name || 'UNKNOWN'))}</span></td>
         <td class="font-bold wrap-cell" title="${escapeHtml(item.victim_name)}">${escapeHtml(item.victim_name)}</td>
-        <td>${countryBadge}</td>
+        <td class="country-cell">${countryBadge}</td>
         <td class="mono wrap-cell" style="color: var(--accent-blue);" title="${escapeHtml(item.domain || item.activity || '-')}">${escapeHtml(item.domain || item.activity || '-')}</td>
         <td><span class="badge ${Number(item.source_count) > 1 ? 'badge-kev' : 'badge-filetype'} mono">${Number(item.confidence_score) || 55}%</span> <span class="mono text-muted">${Number(item.source_count) || 1} SRC</span></td>
       </tr>
@@ -2071,13 +2079,13 @@ function toggleWatchlistEditor(forceState) {
 }
 
 function watchlistCategory(itemType) {
-  return ['company', 'brand', 'domain', 'keyword'].includes(itemType) ? 'organization' : 'technology';
+  return ['company', 'brand', 'domain', 'keyword', 'country'].includes(itemType) ? 'organization' : 'technology';
 }
 
 function watchlistTypeLabel(itemType) {
   const labels = {
     company: 'COMPANY', brand: 'BRAND', domain: 'DOMAIN', keyword: 'KEYWORD',
-    vendor: 'VENDOR', product: 'PRODUCT', cve: 'CVE'
+    country: 'COUNTRY', vendor: 'VENDOR', product: 'PRODUCT', cve: 'CVE'
   };
   return labels[itemType] || String(itemType || '').toUpperCase();
 }
@@ -2177,13 +2185,13 @@ function renderWatchlistWorkspace() {
           return '<article class="wl-interest-card ' + stateClass + (selectedWatchlistId === item.id ? ' selected' : '') + '" data-watchlist-interest="' + escapeHtml(item.id) + '">' +
             '<div class="wl-interest-main"><span class="badge badge-filetype mono">' + escapeHtml(watchlistTypeLabel(item.item_type)) + '</span>' +
               '<strong>' + escapeHtml(item.value) + '</strong></div>' +
-            '<div class="wl-interest-context">' + escapeHtml(item.notes || (watchlistCategory(item.item_type) === 'organization' ? 'Organization monitoring' : 'Technology monitoring')) + '</div>' +
+            '<div class="wl-interest-context">' + escapeHtml(item.notes || (item.item_type === 'country' ? 'Geographic focus' : (watchlistCategory(item.item_type) === 'organization' ? 'Organization monitoring' : 'Technology monitoring'))) + '</div>' +
             '<div class="wl-interest-status"><span class="wl-status-dot"></span>' + escapeHtml(stateText) + '</div>' +
             '<button class="wl-delete-btn mono font-bold" data-watchlist-delete="' + escapeHtml(item.id) + '" title="Delete interest">✕</button>' +
           '</article>';
         }).join('') + '</div>';
     };
-    container.innerHTML = renderGroup('ORGANIZATIONS & DOMAINS', organizationItems) + renderGroup('TECHNOLOGIES & CVES', technologyItems);
+    container.innerHTML = renderGroup('ORGANIZATIONS, DOMAINS & COUNTRIES', organizationItems) + renderGroup('TECHNOLOGIES & CVES', technologyItems);
   }
 
   const exposureAlerts = (watchlistData.exposure_alerts || []).filter(alertItem =>

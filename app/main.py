@@ -122,6 +122,18 @@ def _country_aliases_for_search(value: str) -> tuple[str, ...]:
             return aliases
     return ()
 
+
+def _country_code_for_value(value: str | None) -> str | None:
+    normalized = _normalized_country_term(value or "")
+    if not normalized:
+        return None
+    for code, aliases in COUNTRY_SEARCH_ALIASES.items():
+        if normalized == _normalized_country_term(code) or normalized in {
+            _normalized_country_term(alias) for alias in aliases
+        }:
+            return code
+    return None
+
 DISPLAY_TIMEZONES = [
     "UTC",
     "America/Sao_Paulo", "America/Manaus", "America/Recife", "America/Fortaleza",
@@ -825,6 +837,14 @@ async def api_ransomware(
         row = await cur.fetchone()
         total = row["count"] if row else 0
 
+        watched_country_cur = await conn.execute(
+            "SELECT value FROM watchlist WHERE item_type = 'country'"
+        )
+        watched_country_codes = {
+            code for watched_row in await watched_country_cur.fetchall()
+            if (code := _country_code_for_value(watched_row["value"]))
+        }
+
         cur_br = await conn.execute("SELECT COUNT(*) as count FROM ransomware_victims WHERE UPPER(country) = 'BR' OR UPPER(country) = 'BRAZIL';")
         row_br = await cur_br.fetchone()
         brazil_total = row_br["count"] if row_br else 0
@@ -834,7 +854,11 @@ async def api_ransomware(
 
         cur = await conn.execute(query, params)
         rows = await cur.fetchall()
-        items = [dict(r) for r in rows]
+        items = []
+        for ransomware_row in rows:
+            item = dict(ransomware_row)
+            item["country_watched"] = _country_code_for_value(item.get("country")) in watched_country_codes
+            items.append(item)
 
     return {
         "total": total,
@@ -1085,7 +1109,7 @@ async def api_get_watchlist():
             val = item["value"].strip()
             itype = item["item_type"].strip().lower()
 
-            if itype in EXPOSURE_TYPES:
+            if itype in EXPOSURE_TYPES or itype == "country":
                 continue
 
             if itype == "cve":
@@ -1253,6 +1277,12 @@ async def api_add_watchlist(
     itype = payload.item_type
     value = payload.value
     notes = payload.notes
+
+    if itype == "country" and not _country_code_for_value(value):
+        raise HTTPException(
+            status_code=422,
+            detail="Enter a supported country name or two-letter country code",
+        )
 
     item_id = f"wl-{uuid.uuid4().hex[:10]}"
     now = datetime.now(timezone.utc).isoformat()

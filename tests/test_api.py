@@ -389,6 +389,7 @@ def test_index_page_version_injection(client):
     assert html.count("NO FILE SELECTED") == 3
     assert "DISPLAY &amp; REGIONAL SETTINGS" in html
     assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
+    assert '<option value="country">Country / Region</option>' in html
     assert 'id="integration-modal-overlay"' not in html
     for search_id in (
         "cve-search",
@@ -524,6 +525,16 @@ def test_api_ransomware_searches_country_codes_and_localized_names(client, monke
         conn = await aiosqlite.connect(":memory:")
         conn.row_factory = aiosqlite.Row
         await conn.execute(
+            """CREATE TABLE watchlist (
+                   id TEXT PRIMARY KEY, item_type TEXT NOT NULL, value TEXT NOT NULL,
+                   notes TEXT, created_at TEXT NOT NULL
+               )"""
+        )
+        await conn.execute(
+            "INSERT INTO watchlist (id, item_type, value, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+            ("wl-country-de", "country", "Germany", "European focus", "2026-10-11"),
+        )
+        await conn.execute(
             """
             CREATE TABLE ransomware_victims (
                 id TEXT PRIMARY KEY, victim_name TEXT NOT NULL, group_name TEXT NOT NULL,
@@ -566,6 +577,11 @@ def test_api_ransomware_searches_country_codes_and_localized_names(client, monke
     country_code = client.get("/api/ransomware?q=DE")
     assert country_code.status_code == 200
     assert [item["id"] for item in country_code.json()["items"]] == ["de-victim"]
+    assert country_code.json()["items"][0]["country_watched"] is True
+
+    not_watched = client.get("/api/ransomware?q=US")
+    assert not_watched.status_code == 200
+    assert not_watched.json()["items"][0]["country_watched"] is False
 
 
 def test_schema_migration_120(client):
@@ -681,12 +697,26 @@ def test_api_watchlist_crud(client):
     assert add_res.status_code == 200
     item_id = add_res.json()["id"]
 
+    country_res = client.post(
+        "/api/watchlist",
+        headers=headers,
+        json={"item_type": "country", "value": "Brazil", "notes": "Regional focus"},
+    )
+    assert country_res.status_code == 200
+    country_item_id = country_res.json()["id"]
+    assert client.post(
+        "/api/watchlist",
+        headers=headers,
+        json={"item_type": "country", "value": "Not a real country"},
+    ).status_code == 422
+
     # 2. Get list and verify matching
     get_res = client.get("/api/watchlist")
     assert get_res.status_code == 200
     data = get_res.json()
     assert data["total_items"] >= 1
     assert any(w["value"] == "Citrix" for w in data["watchlist"])
+    assert any(w["value"] == "Brazil" and w["item_type"] == "country" for w in data["watchlist"])
     assert "exposure_alerts" in data
     assert "total_exposure_alerts" in data
     assert "total_vulnerability_alerts" in data
@@ -694,6 +724,7 @@ def test_api_watchlist_crud(client):
     # 3. Delete item
     del_res = client.delete(f"/api/watchlist/{item_id}", headers=headers)
     assert del_res.status_code == 200
+    assert client.delete(f"/api/watchlist/{country_item_id}", headers=headers).status_code == 200
 
 
 def test_watchlist_correlated_alert_acknowledgement(client):

@@ -82,7 +82,7 @@ class EmailLeakCheckRequest(BaseModel):
 
 
 class WatchlistCreate(BaseModel):
-    item_type: Literal["vendor", "product", "cve", "company", "brand", "domain", "keyword"] = "vendor"
+    item_type: Literal["vendor", "product", "cve", "company", "brand", "domain", "keyword", "country"] = "vendor"
     value: str = Field(..., min_length=1, max_length=200)
     notes: str = Field(default="", max_length=500)
 
@@ -348,6 +348,7 @@ class RansomwareVictim(BaseModel):
     victim_name: str
     group_name: str
     country: Optional[str] = None
+    country_watched: bool = False
     activity: Optional[str] = None
     domain: Optional[str] = None
     discovered: Optional[str] = None
