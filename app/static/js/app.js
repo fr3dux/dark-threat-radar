@@ -1454,21 +1454,6 @@ async function pollStatus() {
       // Mirror the dashboard's public DShield Top Targeted Ports widget.
       renderMapTopTargetedPorts(s.top_ports);
 
-      // Update Nav tab badges
-      const tcCves = document.getElementById('tab-count-cves');
-      if (tcCves) tcCves.textContent = s.total_cves;
-
-      const tcMal = document.getElementById('tab-count-malware');
-      if (tcMal) tcMal.textContent = s.total_malware;
-
-      const tcIocs = document.getElementById('tab-count-iocs');
-      if (tcIocs) tcIocs.textContent = s.total_active_iocs;
-
-      const tcDsh = document.getElementById('tab-count-dshield');
-      if (tcDsh) tcDsh.textContent = s.total_dshield_ips + s.total_dshield_ports;
-
-      const tcNews = document.getElementById('tab-count-news');
-      if (tcNews) tcNews.textContent = s.total_news;
     }
 
     // Update connector health without adding another dashboard widget.

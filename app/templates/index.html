@@ -87,22 +87,22 @@
         <span class="tab-icon">◈</span> DASHBOARD
       </button>
       <button class="tab-btn" id="tab-cves" data-target="panel-cves" onclick="switchTab('panel-cves', this)">
-        <span class="tab-icon">⛨</span> CVES <span class="tab-count mono" id="tab-count-cves">{{ stats.total_cves }}</span>
+        <span class="tab-icon">⛨</span> CVES
       </button>
       <button class="tab-btn" id="tab-intel" data-target="panel-intel" onclick="switchTab('panel-intel', this)">
-        <span class="tab-icon">⌾</span> IOCS <span class="tab-count mono" id="tab-count-iocs">{{ stats.total_active_iocs }}</span>
+        <span class="tab-icon">⌾</span> IOCS
       </button>
       <button class="tab-btn" id="tab-malware" data-target="panel-malware" onclick="switchTab('panel-malware', this)">
-        <span class="tab-icon">☣</span> MALWARE <span class="tab-count mono" id="tab-count-malware">{{ stats.total_malware }}</span>
+        <span class="tab-icon">☣</span> MALWARE
       </button>
       <button class="tab-btn" id="tab-dshield" data-target="panel-dshield" onclick="switchTab('panel-dshield', this)">
-        <span class="tab-icon">☵</span> TELEMETRY <span class="tab-count mono" id="tab-count-dshield">{{ stats.total_dshield_ips + stats.total_dshield_ports }}</span>
+        <span class="tab-icon">☵</span> TELEMETRY
       </button>
       <button class="tab-btn" id="tab-ransomware" data-target="panel-ransomware" onclick="switchTab('panel-ransomware', this)">
-        <span class="tab-icon">☠</span> RANSOMWARE <span class="tab-count mono" id="tab-count-ransomware">{{ stats.total_ransomware_victims or 0 }}</span>
+        <span class="tab-icon">☠</span> RANSOMWARE
       </button>
       <button class="tab-btn" id="tab-news" data-target="panel-news" onclick="switchTab('panel-news', this)">
-        <span class="tab-icon">✦</span> ADVISORIES <span class="tab-count mono" id="tab-count-news">{{ stats.total_news }}</span>
+        <span class="tab-icon">✦</span> ADVISORIES
       </button>
     <button class="tab-btn" id="tab-watchlist" data-target="panel-watchlist" onclick="switchTab('panel-watchlist', this)">
         <span class="tab-icon">⊞</span> WATCHLIST <span class="tab-count mono" id="tab-count-watchlist">0</span>
@@ -274,11 +274,8 @@
           <div class="header-with-badge">
             <span class="dash-card-title"><span class="widget-bullet crit">●</span> GLOBAL INTERNET ACTIVITY</span>
             <span class="badge badge-crit">LIVE TELEMETRY</span>
-            <span class="badge badge-filetype mono">SANS ISC DSHIELD</span>
           </div>
-          <div class="header-actions-inline">
-            <span class="mono text-muted" style="font-size: 11px;">REAL-TIME PROBES // 60 FPS VECTOR</span>
-          </div>
+          <span class="badge badge-filetype mono attackmap-source-badge">SANS ISC DSHIELD</span>
         </div>
         <div class="dash-card-body" style="padding: 10px;">
           <div class="attack-map-container" style="height: 480px; max-height: 480px;">

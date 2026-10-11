@@ -488,6 +488,11 @@ main.main-content {
   gap: 10px;
 }
 
+.attackmap-source-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .widget-bullet {
   font-size: 9px;
 }
@@ -3238,6 +3243,10 @@ main.main-content.dashboard-active {
   .header-with-badge {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .attackmap-source-badge {
+    margin-left: auto;
   }
 
   .header-actions-inline {

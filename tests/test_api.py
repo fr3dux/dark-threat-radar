@@ -363,6 +363,18 @@ def test_index_page_version_injection(client):
     assert 'MY THREAT RADAR' not in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     assert 'id="tab-settings"' in html
+    for redundant_count_id in (
+        "tab-count-cves",
+        "tab-count-iocs",
+        "tab-count-malware",
+        "tab-count-dshield",
+        "tab-count-ransomware",
+        "tab-count-news",
+    ):
+        assert f'id="{redundant_count_id}"' not in html
+    assert 'id="tab-count-watchlist"' in html
+    assert "REAL-TIME PROBES" not in html
+    assert 'class="badge badge-filetype mono attackmap-source-badge">SANS ISC DSHIELD</span>' in html
     assert 'id="panel-settings"' in html
     assert 'id="settings-admin-access"' in html
     assert 'class="settings-action-card"' in html
