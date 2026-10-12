@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-10-12
+
+### Added
+- **Animated Source Health Topology**: Adds a dashboard-wide operational view below the Global Internet Activity map, grouping all CTI connectors by category and animating their ingestion paths into the DTR engine.
+- **Live Connector Context**: Displays per-source state, category health, scheduler activity, refresh time, error and attention totals, and direct access to Feed Settings.
+
+### Changed
+- **Focused Application Header**: Removes the redundant `SOURCES HEALTHY` and `SCHEDULED SYNC` controls from the top bar now that their operational detail is available in the dashboard topology.
+- **Responsive Health Visualization**: Preserves the source-to-DTR layout on desktop and adapts the topology for tablets, mobile devices, and reduced-motion preferences.
+
+### Fixed
+- **Centered Watchlist Cells**: Vertically centers the smaller CVE-related honeycomb inside its panel when displayed beside the larger general-interest map.
+
 ## [1.16.2] - 2026-10-12
 
 ### Changed

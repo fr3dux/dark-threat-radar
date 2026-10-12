@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.16.2-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.17.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -43,6 +43,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - **Analyst IOC Explorer:** Search and filter active indicators by type or provider, inspect confidence and lifecycle, and see every public source that independently observed the artifact.
 - **MITRE ATT&CK Knowledge:** Browse locally synchronized techniques, threat groups, malware, tools, campaigns, tactics, and platforms from the same intelligence workspace.
 - **Global Internet Activity Map:** 60 FPS HTML5 Canvas vector radar featuring real cartographic coastlines (287 country polygons) with ballistic laser trajectories connecting real SANS ISC DShield scanner IPs to targeted global ports.
+- **Animated Source Health Topology:** Presents all CTI connectors by category below the activity map, with live state indicators, animated ingestion paths into the DTR engine, scheduler visibility, and direct access to feed settings.
 - **Critical Vendor Threat Spotlight:** Current visibility into high-impact vulnerabilities and actively exploited CISA KEV entries published or updated in recent weeks.
 - **Asset Watchlist and Official Remediation:** Register internal vendors, operating systems, or specific CVEs to cross-reference against CISA KEV and NVD feeds, automatically delivering required mitigation directives and official patch due dates.
 - **Ransomware Extortion Tracker:** Dedicated monitoring of active ransomware gang victim disclosures (LockBit, Akira, Qilin, MedusaLocker) with specialized country filtering and immediate highlighting for Brazilian targets.
