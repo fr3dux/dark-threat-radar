@@ -380,6 +380,15 @@ def test_index_page_version_injection(client):
         assert f'id="{redundant_count_id}"' not in html
     assert 'id="tab-count-watchlist"' in html
     assert "REAL-TIME PROBES" not in html
+    assert 'id="feed-summary-btn"' not in html
+    assert "SCHEDULED SYNC" not in html
+    assert 'id="source-health-card"' in html
+    assert 'id="source-health-categories"' in html
+    assert 'id="source-health-flow"' in html
+    assert 'id="source-health-core"' in html
+    app_js = client.get('/static/js/app.js').text
+    assert 'renderSourceHealth(data.connectors, data.sync || {})' in app_js
+    assert "prefers-reduced-motion: reduce" in app_js
     assert 'class="badge badge-filetype mono attackmap-source-badge">SANS ISC DSHIELD</span>' in html
     assert 'id="panel-settings"' in html
     assert 'id="settings-admin-access"' in html
@@ -410,7 +419,8 @@ def test_index_page_version_injection(client):
     assert 'class="data-table operational-table" id="cve-table"' in html
     assert 'class="data-table operational-table" id="ransomware-table"' in html
     assert '<tr><td colspan="8" class="loading-row">Querying CVE intelligence index...</td></tr>' in html
-    assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
+    assert html.index("GLOBAL INTERNET ACTIVITY") < html.index("SOURCE HEALTH")
+    assert html.index("SOURCE HEALTH") < html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES")
     assert html.index("CTI INTEL SPOTLIGHT: LATEST ADVISORIES") < html.index("RECENT PUBLIC EXPOSURES")
     assert html.index("RECENT PUBLIC EXPOSURES") < html.index("VENDORS W/ CRITICAL CVES")
     assert html.index("VENDORS W/ CRITICAL CVES") < html.index("KEV SPOTLIGHT: RECENT EXPLOITS IN THE WILD")
@@ -442,7 +452,7 @@ def test_source_health_summary_uses_red_only_for_real_failures(client, monkeypat
 
     monkeypatch.setattr(main_module, "get_all_connector_health", attention_connectors)
     attention_html = client.get("/").text
-    assert 'id="feed-summary-btn" data-health="attention"' in attention_html
+    assert 'id="source-health-card" data-health="attention"' in attention_html
     assert '<span class="health-count attention">1 attention</span>' in attention_html
     assert '<span class="health-count failed">' not in attention_html
 
@@ -454,7 +464,7 @@ def test_source_health_summary_uses_red_only_for_real_failures(client, monkeypat
 
     monkeypatch.setattr(main_module, "get_all_connector_health", failed_connectors)
     failed_html = client.get("/").text
-    assert 'id="feed-summary-btn" data-health="failed"' in failed_html
+    assert 'id="source-health-card" data-health="failed"' in failed_html
     assert '<span class="health-count failed">1 error</span>' in failed_html
 
 

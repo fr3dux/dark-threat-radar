@@ -204,14 +204,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       closeUpdateModal();
       closeDrawer();
-      const menu = document.getElementById('feeds-dropdown-menu');
-      const button = document.getElementById('feed-summary-btn');
-      if (menu) menu.style.display = 'none';
-      if (button) button.setAttribute('aria-expanded', 'false');
     }
   });
 
   // Start periodic status check (every 15s)
+  pollStatus();
   setInterval(pollStatus, 15000);
   pollWatchlistAlerts();
   setInterval(pollWatchlistAlerts, 60000);
@@ -1417,6 +1414,121 @@ async function triggerManualSync() {
   }
 }
 
+function connectorStateLabel(state) {
+  if (state === 'failed') return 'ERROR';
+  return String(state || 'never_run').replaceAll('_', ' ').toUpperCase();
+}
+
+function connectorGroupState(connectors) {
+  const rank = {
+    healthy: 0,
+    disabled: 1,
+    never_run: 2,
+    auth_required: 3,
+    degraded: 4,
+    rate_limited: 4,
+    failed: 5
+  };
+  const worst = [...connectors].sort((a, b) => (rank[b.state] ?? 2) - (rank[a.state] ?? 2))[0];
+  if (!worst || worst.state === 'healthy') return 'healthy';
+  if (worst.state === 'failed') return 'failed';
+  if (worst.state === 'disabled') return 'muted';
+  return 'attention';
+}
+
+function renderSourceHealthFlow(groupEntries) {
+  const flow = document.getElementById('source-health-flow');
+  if (!flow) return;
+  const height = 320;
+  const targetY = height / 2;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const routes = groupEntries.map(([category, connectors], index) => {
+    const y = groupEntries.length === 1 ? targetY : 20 + (index * ((height - 40) / (groupEntries.length - 1)));
+    const state = connectorGroupState(connectors);
+    const pathId = `source-route-${index}`;
+    const path = `M 4 ${y.toFixed(1)} C 105 ${y.toFixed(1)}, 176 ${targetY.toFixed(1)}, 316 ${targetY.toFixed(1)}`;
+    const packet = reduceMotion ? '' : `
+      <circle class="source-flow-packet ${state}" r="3.2">
+        <animateMotion dur="${(3.2 + (index * 0.22)).toFixed(2)}s" begin="-${(index * 0.48).toFixed(2)}s" repeatCount="indefinite">
+          <mpath href="#${pathId}"></mpath>
+        </animateMotion>
+      </circle>`;
+    return `
+      <path class="source-flow-track" d="${path}"></path>
+      <path id="${pathId}" class="source-flow-route ${state}" d="${path}"></path>
+      ${packet}`;
+  }).join('');
+  flow.innerHTML = `<svg viewBox="0 0 320 ${height}" preserveAspectRatio="none" focusable="false">${routes}</svg>`;
+}
+
+function renderSourceHealth(connectors, sync = {}) {
+  if (!Array.isArray(connectors)) return;
+  const groups = connectors.reduce((result, connector) => {
+    (result[connector.category || 'Other'] ||= []).push(connector);
+    return result;
+  }, {});
+  const groupEntries = Object.entries(groups);
+  const healthy = connectors.filter(c => c.state === 'healthy').length;
+  const needsKeys = connectors.filter(c => c.state === 'auth_required').length;
+  const disabled = connectors.filter(c => c.state === 'disabled').length;
+  const attention = connectors.filter(c => ['degraded', 'rate_limited'].includes(c.state)).length;
+  const failed = connectors.filter(c => c.state === 'failed').length;
+  const overallState = failed ? 'failed' : (healthy === connectors.length ? 'healthy' : 'attention');
+
+  const card = document.getElementById('source-health-card');
+  if (card) {
+    card.dataset.health = overallState;
+    card.classList.toggle('is-syncing', Boolean(sync.is_syncing));
+  }
+  const summary = document.getElementById('source-health-summary');
+  if (summary) {
+    summary.textContent = `${healthy}/${connectors.length} HEALTHY`;
+    summary.className = `badge mono ${overallState === 'failed' ? 'badge-crit' : (overallState === 'attention' ? 'badge-warn' : 'badge-nvd')}`;
+  }
+  const categories = document.getElementById('source-health-categories');
+  if (categories) {
+    categories.innerHTML = groupEntries.map(([category, items]) => {
+      const categoryHealthy = items.filter(item => item.state === 'healthy').length;
+      const groupState = connectorGroupState(items);
+      return `<section class="source-category-group ${groupState}">
+        <div class="source-category-heading mono"><span>${escapeHtml(category.toUpperCase())}</span><strong>${categoryHealthy}/${items.length}</strong></div>
+        <div class="source-category-items">${items.map(item => {
+          const detail = item.last_error || `Last success: ${formatDateTime(item.last_success)}`;
+          return `<div class="source-health-item ${escapeHtml(item.state)}" title="${escapeHtml(detail)}">
+            <i class="status-dot ${escapeHtml(item.state)}"></i>
+            <span class="mono">${escapeHtml(item.source_name.replaceAll('_', ' ').toUpperCase())}</span>
+            <small class="mono">${escapeHtml(connectorStateLabel(item.state))}</small>
+          </div>`;
+        }).join('')}</div>
+      </section>`;
+    }).join('');
+  }
+
+  const meta = document.getElementById('source-health-meta');
+  if (meta) {
+    meta.innerHTML = `
+      <span class="health-count healthy">${healthy} healthy</span>
+      ${needsKeys ? `<span class="health-count attention">${needsKeys} need keys</span>` : ''}
+      ${attention ? `<span class="health-count attention">${attention} attention</span>` : ''}
+      ${failed ? `<span class="health-count failed">${failed} error</span>` : ''}
+      ${disabled ? `<span class="health-count muted">${disabled} disabled</span>` : ''}
+    `;
+  }
+  const syncState = document.getElementById('source-health-sync-state');
+  if (syncState) {
+    const schedulerState = sync.scheduler_running === false ? 'SCHEDULER STOPPED' : 'SCHEDULED INGESTION';
+    syncState.innerHTML = `<i class="status-indicator-dot pulse-sync"></i>${sync.is_syncing ? 'SYNCING NOW' : schedulerState}`;
+    syncState.classList.toggle('failed', sync.scheduler_running === false);
+  }
+  const coreStatus = document.getElementById('source-core-status');
+  if (coreStatus) coreStatus.textContent = failed ? 'SOURCE ERROR' : (overallState === 'healthy' ? 'ALL SOURCES HEALTHY' : 'MONITORING ATTENTION');
+  const coreCount = document.getElementById('source-core-count');
+  if (coreCount) coreCount.textContent = `${connectors.length} CONNECTORS`;
+  const updated = document.getElementById('source-health-updated');
+  if (updated) updated.textContent = `LIVE HEALTH · UPDATED ${formatDateTime(new Date().toISOString())}`;
+  renderSourceHealthFlow(groupEntries);
+}
+
 async function pollStatus() {
   try {
     const res = await fetch('/api/stats');
@@ -1462,44 +1574,9 @@ async function pollStatus() {
 
     }
 
-    // Update connector health without adding another dashboard widget.
+    // Update the animated dashboard source-health topology.
     if (data.connectors) {
-      const healthy = data.connectors.filter(c => c.state === 'healthy').length;
-      const needsKeys = data.connectors.filter(c => c.state === 'auth_required').length;
-      const disabled = data.connectors.filter(c => c.state === 'disabled').length;
-      const attention = data.connectors.filter(c => ['degraded', 'rate_limited'].includes(c.state)).length;
-      const failed = data.connectors.filter(c => c.state === 'failed').length;
-      const summary = document.getElementById('feed-summary-text');
-      if (summary) summary.textContent = `${healthy}/${data.connectors.length} SOURCES HEALTHY`;
-      const summaryButton = document.getElementById('feed-summary-btn');
-      if (summaryButton) summaryButton.dataset.health = failed > 0 ? 'failed' : (healthy === data.connectors.length ? 'healthy' : 'attention');
-      const meta = document.getElementById('connector-health-meta');
-      if (meta) {
-        meta.innerHTML = `
-          <span class="health-count healthy">${healthy} healthy</span>
-          ${needsKeys ? `<span class="health-count attention">${needsKeys} need keys</span>` : ''}
-          ${attention ? `<span class="health-count attention">${attention} attention</span>` : ''}
-          ${failed ? `<span class="health-count failed">${failed} error</span>` : ''}
-          ${disabled ? `<span class="health-count muted">${disabled} disabled</span>` : ''}
-        `;
-      }
-      const container = document.querySelector('.dropdown-feed-grid');
-      if (container) {
-        const groups = data.connectors.reduce((result, connector) => {
-          (result[connector.category] ||= []).push(connector);
-          return result;
-        }, {});
-        container.innerHTML = Object.entries(groups).map(([category, connectors]) => `
-          <div class="connector-category mono">${escapeHtml(category.toUpperCase())}</div>
-          ${connectors.map(c => `
-            <div class="dropdown-feed-item" title="${escapeHtml(c.last_error || `Last success: ${formatDateTime(c.last_success)}`)}">
-              <span class="status-dot ${escapeHtml(c.state)}"></span>
-              <span class="feed-name mono">${escapeHtml(c.source_name.replaceAll('_', ' ').toUpperCase())}</span>
-              <span class="connector-state ${escapeHtml(c.state)} mono">${escapeHtml(c.state === 'failed' ? 'error' : c.state.replaceAll('_', ' '))}</span>
-            </div>
-          `).join('')}
-        `).join('');
-      }
+      renderSourceHealth(data.connectors, data.sync || {});
     }
 
     const isSyncing = data.sync && data.sync.is_syncing;
@@ -2697,10 +2774,6 @@ function clearTlsFileInputs() {
 }
 
 function openIntegrationSettings() {
-  const menu = document.getElementById('feeds-dropdown-menu');
-  const summaryButton = document.getElementById('feed-summary-btn');
-  if (menu) menu.style.display = 'none';
-  if (summaryButton) summaryButton.setAttribute('aria-expanded', 'false');
   switchTab('panel-settings', document.getElementById('tab-settings'));
   document.getElementById('settings-integrations-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setTimeout(() => document.getElementById('integration-admin-token')?.focus(), 350);
@@ -3056,22 +3129,3 @@ async function removeIntegrationKey(provider) {
     setIntegrationMessage(error.message, 'error');
   }
 }
-
-function toggleFeedDropdown() {
-  const menu = document.getElementById('feeds-dropdown-menu');
-  const button = document.getElementById('feed-summary-btn');
-  if (!menu) return;
-  const willOpen = menu.style.display === 'none';
-  menu.style.display = willOpen ? 'block' : 'none';
-  if (button) button.setAttribute('aria-expanded', String(willOpen));
-}
-
-document.addEventListener('click', (e) => {
-  const wrapper = document.querySelector('.feeds-dropdown-wrapper');
-  const menu = document.getElementById('feeds-dropdown-menu');
-  if (wrapper && menu && !wrapper.contains(e.target)) {
-    menu.style.display = 'none';
-    const button = document.getElementById('feed-summary-btn');
-    if (button) button.setAttribute('aria-expanded', 'false');
-  }
-});

@@ -8,7 +8,7 @@
 </head>
 <body data-version="{{ version }}" data-timezone="{{ app_settings.timezone or 'UTC' }}" data-locale="{{ app_settings.locale or 'en' }}">
 
-  <!-- ==================== APP HEADER WITH RESTORED FEEDS RIBBON ==================== -->
+  <!-- ==================== APPLICATION HEADER ==================== -->
   <header class="app-header">
     <div class="header-top">
       <!-- Left: Brand Section & Semantic Version -->
@@ -16,63 +16,13 @@
         <span class="brand-title"><span class="brand-name">DARK THREAT RADAR</span> <span class="brand-tag">CTI ENGINE</span> <span class="version-badge">v{{ version }}</span></span>
       </div>
 
-      <!-- Right: Aligned Status Indicators & Documentation -->
+      <!-- Right: Update state and documentation -->
       <div class="header-actions">
         <!-- Persistent application update state -->
         <button type="button" class="update-status-pill is-checking" id="update-available-pill" onclick="openUpdateModal()" aria-live="polite" title="Checking the official stable release channel">
           <span class="status-indicator-dot"></span>
           <span class="mono font-bold" id="update-pill-text">CHECKING UPDATES</span>
         </button>
-
-        <!-- Consolidated Expandable Feeds Indicator -->
-        <div class="feeds-dropdown-wrapper">
-          {% set healthy_connectors = connectors | selectattr('state', 'equalto', 'healthy') | list | length %}
-          {% set auth_connectors = connectors | selectattr('state', 'equalto', 'auth_required') | list | length %}
-          {% set disabled_connectors = connectors | selectattr('state', 'equalto', 'disabled') | list | length %}
-          {% set degraded_connectors = connectors | selectattr('state', 'equalto', 'degraded') | list | length %}
-          {% set limited_connectors = connectors | selectattr('state', 'equalto', 'rate_limited') | list | length %}
-          {% set failed_connectors = connectors | selectattr('state', 'equalto', 'failed') | list | length %}
-          {% set attention_connectors = degraded_connectors + limited_connectors %}
-          <button type="button" class="feed-summary-pill" id="feed-summary-btn" data-health="{{ 'failed' if failed_connectors else ('healthy' if healthy_connectors == (connectors | length) else 'attention') }}" aria-expanded="false" aria-controls="feeds-dropdown-menu" onclick="toggleFeedDropdown()">
-            <span class="status-indicator-dot pulse-sync"></span>
-            <span class="mono font-bold" id="feed-summary-text">{{ healthy_connectors }}/{{ connectors | length }} SOURCES HEALTHY</span>
-            <span class="dropdown-arrow">▾</span>
-          </button>
-          <div class="feeds-dropdown-menu" id="feeds-dropdown-menu" role="region" aria-label="Threat feed health" style="display: none;">
-            <div class="dropdown-header">
-              <div class="mono dropdown-title">SOURCE HEALTH</div>
-              <div class="connector-health-meta mono" id="connector-health-meta">
-                <span class="health-count healthy">{{ healthy_connectors }} healthy</span>
-                {% if auth_connectors %}<span class="health-count attention">{{ auth_connectors }} need keys</span>{% endif %}
-                {% if attention_connectors %}<span class="health-count attention">{{ attention_connectors }} attention</span>{% endif %}
-                {% if failed_connectors %}<span class="health-count failed">{{ failed_connectors }} error</span>{% endif %}
-                {% if disabled_connectors %}<span class="health-count muted">{{ disabled_connectors }} disabled</span>{% endif %}
-              </div>
-            </div>
-            <div class="dropdown-feed-grid">
-              {% for category, category_connectors in connectors | groupby('category') %}
-              <div class="connector-category mono">{{ category | upper }}</div>
-                {% for connector in category_connectors %}
-                <div class="dropdown-feed-item" title="{{ connector.last_error or ('Last success: ' ~ (connector.last_success or 'never')) }}">
-                  <span class="status-dot {{ connector.state }}"></span>
-                  <span class="feed-name mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
-                  <span class="connector-state {{ connector.state }} mono">{{ 'error' if connector.state == 'failed' else (connector.state | replace('_', ' ')) }}</span>
-                </div>
-                {% endfor %}
-              {% endfor %}
-            </div>
-            <div class="dropdown-footer mono">
-              <button type="button" class="btn btn-sm integration-settings-trigger" onclick="openIntegrationSettings()">⚙ FEED SETTINGS</button>
-              <span>LIVE HEALTH · UPDATED EVERY 15S</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Provider-aware synchronization status -->
-        <div class="auto-sync-badge" title="Provider-aware schedules: core 5m, IOC 15m, hourly and slow enrichment">
-          <span class="status-indicator-dot pulse-sync"></span>
-          <span class="mono font-bold">SCHEDULED SYNC</span>
-        </div>
 
         <!-- Interactive API Documentation -->
         <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation (Swagger/OpenAPI)">API DOCS</a>
@@ -324,6 +274,83 @@
           </div>
         </div>
       </div>
+
+      {% set healthy_connectors = connectors | selectattr('state', 'equalto', 'healthy') | list | length %}
+      {% set auth_connectors = connectors | selectattr('state', 'equalto', 'auth_required') | list | length %}
+      {% set disabled_connectors = connectors | selectattr('state', 'equalto', 'disabled') | list | length %}
+      {% set degraded_connectors = connectors | selectattr('state', 'equalto', 'degraded') | list | length %}
+      {% set limited_connectors = connectors | selectattr('state', 'equalto', 'rate_limited') | list | length %}
+      {% set failed_connectors = connectors | selectattr('state', 'equalto', 'failed') | list | length %}
+      {% set attention_connectors = degraded_connectors + limited_connectors %}
+
+      <!-- Animated connector health topology replaces the compact header indicators. -->
+      <section class="dash-card source-health-card" id="source-health-card" data-health="{{ 'failed' if failed_connectors else ('healthy' if healthy_connectors == (connectors | length) else 'attention') }}" aria-labelledby="source-health-title">
+        <div class="dash-card-header source-health-header">
+          <div class="header-with-badge">
+            <span class="dash-card-title" id="source-health-title"><span class="widget-bullet cyan">●</span> SOURCE HEALTH</span>
+            <span class="badge badge-nvd mono" id="source-health-summary">{{ healthy_connectors }}/{{ connectors | length }} HEALTHY</span>
+          </div>
+          <div class="source-health-header-actions">
+            <span class="source-sync-state mono" id="source-health-sync-state">
+              <i class="status-indicator-dot pulse-sync"></i>{{ 'SYNCING NOW' if sync_state.is_syncing else 'SCHEDULED INGESTION' }}
+            </span>
+            <button type="button" class="dash-action-btn" onclick="openIntegrationSettings()">FEED SETTINGS &rarr;</button>
+          </div>
+        </div>
+        <div class="source-health-body">
+          <div class="source-health-topology">
+            <div class="source-health-categories" id="source-health-categories" aria-label="Threat intelligence sources grouped by category">
+              {% for category, category_connectors in connectors | groupby('category') %}
+              {% set category_failed = category_connectors | selectattr('state', 'equalto', 'failed') | list | length %}
+              {% set category_degraded = category_connectors | selectattr('state', 'equalto', 'degraded') | list | length %}
+              {% set category_limited = category_connectors | selectattr('state', 'equalto', 'rate_limited') | list | length %}
+              {% set category_auth = category_connectors | selectattr('state', 'equalto', 'auth_required') | list | length %}
+              {% set category_disabled = category_connectors | selectattr('state', 'equalto', 'disabled') | list | length %}
+              <section class="source-category-group {{ 'failed' if category_failed else ('attention' if (category_degraded + category_limited + category_auth) else ('muted' if category_disabled else 'healthy')) }}">
+                <div class="source-category-heading mono">
+                  <span>{{ category | upper }}</span><strong>{{ category_connectors | selectattr('state', 'equalto', 'healthy') | list | length }}/{{ category_connectors | length }}</strong>
+                </div>
+                <div class="source-category-items">
+                  {% for connector in category_connectors %}
+                  <div class="source-health-item {{ connector.state }}" title="{{ connector.last_error or ('Last success: ' ~ (connector.last_success or 'never')) }}">
+                    <i class="status-dot {{ connector.state }}"></i>
+                    <span class="mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
+                    <small class="mono">{{ 'error' if connector.state == 'failed' else (connector.state | replace('_', ' ')) }}</small>
+                  </div>
+                  {% endfor %}
+                </div>
+              </section>
+              {% endfor %}
+            </div>
+
+            <div class="source-health-flow" id="source-health-flow" aria-hidden="true">
+              <div class="source-flow-placeholder mono">CONNECTING SOURCES...</div>
+            </div>
+
+            <div class="source-health-core" id="source-health-core">
+              <div class="dtr-orbit" aria-hidden="true">
+                <div class="dtr-orbit-ring outer"></div>
+                <div class="dtr-orbit-ring middle"></div>
+                <div class="dtr-orbit-points"></div>
+                <div class="dtr-core-mark"><strong>DTR</strong><span>CTI ENGINE</span></div>
+              </div>
+              <strong class="source-core-status mono" id="source-core-status">{{ 'SOURCE ERROR' if failed_connectors else ('ALL SOURCES HEALTHY' if healthy_connectors == (connectors | length) else 'MONITORING ATTENTION') }}</strong>
+              <span class="source-core-count mono" id="source-core-count">{{ connectors | length }} CONNECTORS</span>
+            </div>
+          </div>
+
+          <div class="source-health-footer">
+            <div class="connector-health-meta mono" id="source-health-meta">
+              <span class="health-count healthy">{{ healthy_connectors }} healthy</span>
+              {% if auth_connectors %}<span class="health-count attention">{{ auth_connectors }} need keys</span>{% endif %}
+              {% if attention_connectors %}<span class="health-count attention">{{ attention_connectors }} attention</span>{% endif %}
+              {% if failed_connectors %}<span class="health-count failed">{{ failed_connectors }} error</span>{% endif %}
+              {% if disabled_connectors %}<span class="health-count muted">{{ disabled_connectors }} disabled</span>{% endif %}
+            </div>
+            <span class="source-health-updated mono" id="source-health-updated">LIVE HEALTH · REFRESHED EVERY 15S</span>
+          </div>
+        </div>
+      </section>
 
       <!-- Priority intelligence: latest cybersecurity news is intentionally the
            first surface below the global activity map. -->
