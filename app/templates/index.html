@@ -288,13 +288,18 @@
         <div class="dash-card-header source-health-header">
           <div class="header-with-badge">
             <span class="dash-card-title" id="source-health-title"><span class="widget-bullet cyan">●</span> SOURCE HEALTH</span>
-            <span class="badge badge-nvd mono" id="source-health-summary">{{ healthy_connectors }}/{{ connectors | length }} HEALTHY</span>
           </div>
           <div class="source-health-header-actions">
             <span class="source-sync-state mono" id="source-health-sync-state">
               <i class="status-indicator-dot pulse-sync"></i>{{ 'SYNCING NOW' if sync_state.is_syncing else 'SCHEDULED INGESTION' }}
             </span>
-            <button type="button" class="dash-action-btn" onclick="openIntegrationSettings()">FEED SETTINGS &rarr;</button>
+            <div class="connector-health-meta mono" id="source-health-meta">
+              <span class="health-count healthy" id="source-health-summary">{{ healthy_connectors }}/{{ connectors | length }} healthy</span>
+              {% if auth_connectors %}<span class="health-count attention">{{ auth_connectors }} need keys</span>{% endif %}
+              {% if attention_connectors %}<span class="health-count attention">{{ attention_connectors }} attention</span>{% endif %}
+              {% if failed_connectors %}<span class="health-count failed">{{ failed_connectors }} error</span>{% endif %}
+              {% if disabled_connectors %}<span class="health-count muted">{{ disabled_connectors }} disabled</span>{% endif %}
+            </div>
           </div>
         </div>
         <div class="source-health-body">
@@ -343,16 +348,6 @@
             <div class="source-health-flow right" id="source-health-flow-right" aria-hidden="true"></div>
           </div>
 
-          <div class="source-health-footer">
-            <div class="connector-health-meta mono" id="source-health-meta">
-              <span class="health-count healthy">{{ healthy_connectors }} healthy</span>
-              {% if auth_connectors %}<span class="health-count attention">{{ auth_connectors }} need keys</span>{% endif %}
-              {% if attention_connectors %}<span class="health-count attention">{{ attention_connectors }} attention</span>{% endif %}
-              {% if failed_connectors %}<span class="health-count failed">{{ failed_connectors }} error</span>{% endif %}
-              {% if disabled_connectors %}<span class="health-count muted">{{ disabled_connectors }} disabled</span>{% endif %}
-            </div>
-            <span class="source-health-updated mono" id="source-health-updated">LIVE HEALTH · REFRESHED EVERY 15S</span>
-          </div>
         </div>
       </section>
 

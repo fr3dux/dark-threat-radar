@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.1] - 2026-10-12
+
+### Changed
+- **Balanced Source Topology**: Centers the DTR engine and distributes connector categories across both sides according to their source count, with animated ingestion paths converging from left and right.
+- **Compact Operational Source Lists**: Replaces large category cards with dense category and provider rows, live state labels, and subtle activity sparklines.
+- **Focused Source Health Header**: Removes the redundant Feed Settings shortcut and card footer, moving the healthy, credential, error, attention, and disabled indicators into the card header beside scheduler state.
+- **Responsive Source Overview**: Preserves the centered topology on desktop and simplifies the visualization progressively for tablet and mobile widths.
+
 ## [1.17.0] - 2026-10-12
 
 ### Added

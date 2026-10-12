@@ -1515,18 +1515,13 @@ function renderSourceHealth(connectors, sync = {}) {
     card.dataset.health = overallState;
     card.classList.toggle('is-syncing', Boolean(sync.is_syncing));
   }
-  const summary = document.getElementById('source-health-summary');
-  if (summary) {
-    summary.textContent = `${healthy}/${connectors.length} HEALTHY`;
-    summary.className = `badge mono ${overallState === 'failed' ? 'badge-crit' : (overallState === 'attention' ? 'badge-warn' : 'badge-nvd')}`;
-  }
   renderSourceHealthColumn('left', leftGroups);
   renderSourceHealthColumn('right', rightGroups);
 
   const meta = document.getElementById('source-health-meta');
   if (meta) {
     meta.innerHTML = `
-      <span class="health-count healthy">${healthy} healthy</span>
+      <span class="health-count healthy" id="source-health-summary">${healthy}/${connectors.length} healthy</span>
       ${needsKeys ? `<span class="health-count attention">${needsKeys} need keys</span>` : ''}
       ${attention ? `<span class="health-count attention">${attention} attention</span>` : ''}
       ${failed ? `<span class="health-count failed">${failed} error</span>` : ''}
@@ -1543,8 +1538,6 @@ function renderSourceHealth(connectors, sync = {}) {
   if (coreStatus) coreStatus.textContent = failed ? 'SOURCE ERROR' : (overallState === 'healthy' ? 'ALL SOURCES HEALTHY' : 'MONITORING ATTENTION');
   const coreCount = document.getElementById('source-core-count');
   if (coreCount) coreCount.textContent = `${connectors.length} CONNECTORS`;
-  const updated = document.getElementById('source-health-updated');
-  if (updated) updated.textContent = `LIVE HEALTH · UPDATED ${formatDateTime(new Date().toISOString())}`;
   renderSourceHealthFlow('left', leftGroups);
   renderSourceHealthFlow('right', rightGroups);
 }

@@ -388,6 +388,11 @@ def test_index_page_version_injection(client):
     assert 'id="source-health-flow-left"' in html
     assert 'id="source-health-flow-right"' in html
     assert 'id="source-health-core"' in html
+    assert 'id="source-health-meta"' in html
+    assert 'id="source-health-summary"' in html
+    assert 'source-health-footer' not in html
+    assert 'source-health-updated' not in html
+    assert 'FEED SETTINGS' not in html
     app_js = client.get('/static/js/app.js').text
     assert 'renderSourceHealth(data.connectors, data.sync || {})' in app_js
     assert 'splitSourceHealthGroups' in app_js

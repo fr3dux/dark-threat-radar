@@ -3646,6 +3646,7 @@ main.main-content.dashboard-active {
 }
 
 .source-health-header-actions { gap: 14px; }
+.source-health-header-actions .connector-health-meta { flex-wrap: nowrap; }
 .source-sync-state { gap: 7px; color: var(--accent-green); font-size: 9px; white-space: nowrap; }
 .source-sync-state.failed { color: var(--accent-red); }
 .source-sync-state .status-indicator-dot { width: 6px; height: 6px; }
@@ -3869,20 +3870,6 @@ main.main-content.dashboard-active {
 .source-health-card.is-syncing .dtr-orbit-ring.middle { animation-duration: 4s; }
 .source-health-card.is-syncing .source-flow-route { animation-duration: 0.9s; }
 
-.source-health-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 33px;
-  margin-top: 8px;
-  padding-top: 9px;
-  border-top: 1px solid var(--border-color);
-}
-
-.source-health-footer .connector-health-meta { margin: 0; }
-.source-health-updated { color: var(--text-muted); font-size: 7px; white-space: nowrap; }
-
 @keyframes sourceRoutePulse { to { stroke-dashoffset: -30; } }
 @keyframes sourceSpark { 0%, 100% { opacity: 0.28; } 45% { opacity: 1; } }
 @keyframes dtrOrbitSpin { to { transform: rotate(360deg); } }
@@ -3902,7 +3889,8 @@ main.main-content.dashboard-active {
     gap: 8px;
   }
   .source-health-flow { display: none; }
-  .source-health-header-actions { margin-left: auto; }
+  .source-health-header-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+  .source-health-header-actions .connector-health-meta { flex-wrap: wrap; justify-content: flex-end; }
 }
 
 @media (max-width: 620px) {
@@ -3914,8 +3902,6 @@ main.main-content.dashboard-active {
   .source-health-categories { max-height: none; }
   .source-health-core { padding: 14px 0 4px; }
   .dtr-orbit { width: 180px; }
-  .source-health-footer { align-items: flex-start; flex-direction: column; }
-  .source-health-updated { white-space: normal; }
 }
 
 @media (prefers-reduced-motion: reduce) {
