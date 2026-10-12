@@ -3671,10 +3671,8 @@ main.main-content.dashboard-active {
   flex-direction: column;
   justify-content: center;
   gap: 3px;
-  max-height: 360px;
   padding: 3px 5px;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 .source-health-categories.left { grid-area: left-sources; }
 .source-health-categories.right { grid-area: right-sources; }
@@ -3773,7 +3771,8 @@ main.main-content.dashboard-active {
 .source-health-flow {
   align-self: stretch;
   min-width: 0;
-  height: 350px;
+  min-height: 350px;
+  height: auto;
   overflow: hidden;
 }
 .source-health-flow.left { grid-area: left-flow; }

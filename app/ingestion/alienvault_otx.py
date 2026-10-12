@@ -95,6 +95,30 @@ async def ingest_alienvault_otx() -> int:
             http_code=response.status_code,
         )
         return stats["created"] + stats["updated"]
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        provider_outage = status_code is not None and status_code >= 500
+        state = "degraded" if provider_outage else "failed"
+        error = (
+            f"AlienVault OTX temporarily unavailable (HTTP {status_code})"
+            if provider_outage
+            else f"AlienVault OTX request failed (HTTP {status_code or 'unknown'})"
+        )
+        logger.warning(error)
+        await update_connector_health(
+            "alienvault_otx", "Malware & IOCs", state,
+            duration_seconds=round(time.time() - started, 2),
+            last_error=error, http_code=status_code,
+        )
+        return 0
+    except httpx.RequestError as exc:
+        logger.warning("AlienVault OTX network request failed: %s", type(exc).__name__)
+        await update_connector_health(
+            "alienvault_otx", "Malware & IOCs", "degraded",
+            duration_seconds=round(time.time() - started, 2),
+            last_error=f"AlienVault OTX network request failed: {type(exc).__name__}",
+        )
+        return 0
     except Exception as exc:
         logger.exception("AlienVault OTX ingestion failed")
         await update_connector_health(

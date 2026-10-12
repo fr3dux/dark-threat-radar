@@ -5,12 +5,13 @@ import stat
 from datetime import datetime, timedelta, timezone
 
 import aiosqlite
+import httpx
 
 from app import database
 from app import credential_store
 from app.ingestion import _run_group
 from app import ingestion
-from app.ingestion import abuseipdb, ransomware_live, threatfox, urlhaus
+from app.ingestion import abuseipdb, alienvault_otx, ransomware_live, threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
@@ -422,6 +423,30 @@ def test_rejected_urlhaus_key_is_error_not_auth_required(monkeypatch):
 
     asyncio.run(urlhaus.ingest_urlhaus())
     assert states == ["failed"]
+
+
+def test_alienvault_otx_provider_outage_is_degraded_with_http_code(monkeypatch):
+    captured = {}
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return None
+        async def get(self, *_args, **_kwargs):
+            request = httpx.Request("GET", alienvault_otx.API_URL)
+            return httpx.Response(503, request=request)
+
+    async def capture_state(_source, _category, state, **kwargs):
+        captured.update(state=state, **kwargs)
+
+    monkeypatch.setattr(alienvault_otx, "get_provider_secret", lambda _provider: "test-key")
+    monkeypatch.setattr(alienvault_otx.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(alienvault_otx, "update_connector_health", capture_state)
+
+    asyncio.run(alienvault_otx.ingest_alienvault_otx())
+
+    assert captured["state"] == "degraded"
+    assert captured["http_code"] == 503
+    assert "temporarily unavailable" in captured["last_error"]
 
 
 def test_abuseipdb_persistent_quota_guard():
