@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.4] - 2026-10-12
+
+### Fixed
+- **Legacy Updater Migration**: Allows the isolated validation suite launched by pre-1.17.3 native updaters to replace their historical test-only administrative token, so existing installations can safely validate and install the hardened release. The 32-character minimum remains enforced for every running application.
+
 ## [1.17.3] - 2026-10-12
 
 ### Security
