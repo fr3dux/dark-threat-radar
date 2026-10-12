@@ -2112,9 +2112,9 @@ table.data-table tr:last-child td {
 .wl-honeycomb-cell.warning .wl-honeycomb-inner { background: linear-gradient(145deg, rgba(210, 153, 34, 0.22), rgba(13, 17, 23, 0.96) 62%); }
 .wl-honeycomb-cell.danger .wl-honeycomb-inner { background: linear-gradient(145deg, rgba(248, 81, 73, 0.23), rgba(13, 17, 23, 0.96) 62%); }
 .wl-honeycomb-cell.selected .wl-honeycomb-inner { background: linear-gradient(145deg, rgba(88, 166, 255, 0.25), rgba(13, 17, 23, 0.96) 64%); }
-.wl-honeycomb-type { color: var(--text-muted); font-family: var(--font-mono); font-size: 7.5px; font-weight: 700; letter-spacing: 0.1em; }
-.wl-honeycomb-value { display: -webkit-box; max-width: 100%; overflow: hidden; color: var(--text-primary); font-family: var(--font-mono); font-size: 9.5px; line-height: 1.15; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.wl-honeycomb-status { display: flex; align-items: center; gap: 4px; color: var(--text-secondary); font-family: var(--font-mono); font-size: 7.5px; white-space: nowrap; }
+.wl-honeycomb-type { color: var(--text-muted); font-family: var(--font-mono); font-size: 6px; font-weight: 700; letter-spacing: 0.08em; }
+.wl-honeycomb-value { display: -webkit-box; max-width: 100%; overflow: hidden; color: var(--text-primary); font-family: var(--font-mono); font-size: 8px; line-height: 1.12; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.wl-honeycomb-status { display: flex; align-items: center; gap: 3px; color: var(--text-secondary); font-family: var(--font-mono); font-size: 6px; white-space: nowrap; }
 .wl-honeycomb-status i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-green); }
 .wl-honeycomb-cell.warning .wl-honeycomb-status i { background: var(--accent-orange); }
 .wl-honeycomb-cell.danger .wl-honeycomb-status i { background: var(--accent-red); box-shadow: 0 0 6px rgba(248, 81, 73, 0.8); }
@@ -2319,7 +2319,7 @@ table.data-table tr:last-child td {
   .wl-alert-banner .btn { grid-column: 2; justify-self: start; }
   .wl-view-tabs button { flex: 1; min-width: 0; }
   .wl-honeycomb-card { padding: 13px 10px 15px; }
-  .wl-honeycomb-value { font-size: 8.5px; }
+  .wl-honeycomb-value { font-size: 7px; }
 }
 
 /* ==================== CONSOLIDATED FEEDS DROPDOWN (v1.7.9) ==================== */

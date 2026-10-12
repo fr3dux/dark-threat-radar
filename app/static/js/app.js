@@ -2170,7 +2170,7 @@ function renderWatchlistHoneycombGroup(containerId, items, countPrefix, emptyMes
   }
 
   const availableWidth = Math.max(280, Math.floor(container.clientWidth || 1000));
-  const cellWidth = availableWidth < 430 ? 94 : (availableWidth < 760 ? 106 : 122);
+  const cellWidth = availableWidth < 430 ? 76 : (availableWidth < 760 ? 84 : 92);
   const cellHeight = Math.round(cellWidth * 0.866);
   const horizontalStep = Math.round(cellWidth * 0.76);
   const verticalGap = 7;
@@ -2205,17 +2205,21 @@ function renderWatchlistHoneycombGroup(containerId, items, countPrefix, emptyMes
 
 function renderWatchlistHoneycombs() {
   const allItems = watchlistData.watchlist || [];
+  const cveItems = allItems.filter(item =>
+    item.item_type === 'cve' || watchlistCountsFor(item).vulnerability > 0
+  );
+  const otherItems = allItems.filter(item => !cveItems.includes(item));
   renderWatchlistHoneycombGroup(
     'wl-honeycomb-interests',
-    allItems.filter(item => item.item_type !== 'cve'),
+    otherItems,
     'wl-honeycomb-interests',
     'ADD AN INTEREST TO START YOUR VISUAL MONITORING MAP'
   );
   renderWatchlistHoneycombGroup(
     'wl-honeycomb-cves',
-    allItems.filter(item => item.item_type === 'cve'),
+    cveItems,
     'wl-honeycomb-cves',
-    'NO CVES HAVE BEEN ADDED TO YOUR WATCHLIST'
+    'NO CVE-RELATED WATCHLIST ITEMS FOUND'
   );
 }
 
