@@ -299,8 +299,11 @@
         </div>
         <div class="source-health-body">
           <div class="source-health-topology">
-            <div class="source-health-categories" id="source-health-categories" aria-label="Threat intelligence sources grouped by category">
+            {% set left_source_categories = ['Vulnerabilities', 'Ransomware & Data Breaches', 'Phishing', 'Threat Knowledge'] %}
+            {% for side in ['left', 'right'] %}
+            <div class="source-health-categories {{ side }}" id="source-health-categories-{{ side }}" aria-label="Threat intelligence sources on the {{ side }} of DTR">
               {% for category, category_connectors in connectors | groupby('category') %}
+              {% if (category in left_source_categories and side == 'left') or (category not in left_source_categories and side == 'right') %}
               {% set category_failed = category_connectors | selectattr('state', 'equalto', 'failed') | list | length %}
               {% set category_degraded = category_connectors | selectattr('state', 'equalto', 'degraded') | list | length %}
               {% set category_limited = category_connectors | selectattr('state', 'equalto', 'rate_limited') | list | length %}
@@ -316,17 +319,17 @@
                     <i class="status-dot {{ connector.state }}"></i>
                     <span class="mono">{{ connector.source_name | replace('_', ' ') | upper }}</span>
                     <small class="mono">{{ 'error' if connector.state == 'failed' else (connector.state | replace('_', ' ')) }}</small>
+                    <span class="source-health-sparkline" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
                   </div>
                   {% endfor %}
                 </div>
               </section>
+              {% endif %}
               {% endfor %}
             </div>
+            {% endfor %}
 
-            <div class="source-health-flow" id="source-health-flow" aria-hidden="true">
-              <div class="source-flow-placeholder mono">CONNECTING SOURCES...</div>
-            </div>
-
+            <div class="source-health-flow left" id="source-health-flow-left" aria-hidden="true"></div>
             <div class="source-health-core" id="source-health-core">
               <div class="dtr-orbit" aria-hidden="true">
                 <div class="dtr-orbit-ring outer"></div>
@@ -337,6 +340,7 @@
               <strong class="source-core-status mono" id="source-core-status">{{ 'SOURCE ERROR' if failed_connectors else ('ALL SOURCES HEALTHY' if healthy_connectors == (connectors | length) else 'MONITORING ATTENTION') }}</strong>
               <span class="source-core-count mono" id="source-core-count">{{ connectors | length }} CONNECTORS</span>
             </div>
+            <div class="source-health-flow right" id="source-health-flow-right" aria-hidden="true"></div>
           </div>
 
           <div class="source-health-footer">

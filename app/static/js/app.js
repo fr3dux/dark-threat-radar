@@ -1436,8 +1436,40 @@ function connectorGroupState(connectors) {
   return 'attention';
 }
 
-function renderSourceHealthFlow(groupEntries) {
-  const flow = document.getElementById('source-health-flow');
+function splitSourceHealthGroups(groupEntries) {
+  const totals = [0, 0];
+  return [...groupEntries].sort((a, b) => b[1].length - a[1].length).reduce((columns, entry) => {
+    const target = totals[0] <= totals[1] ? 0 : 1;
+    columns[target].push(entry);
+    totals[target] += entry[1].length;
+    return columns;
+  }, [[], []]);
+}
+
+function sourceHealthGroupMarkup(category, items) {
+  const categoryHealthy = items.filter(item => item.state === 'healthy').length;
+  const groupState = connectorGroupState(items);
+  return `<section class="source-category-group ${groupState}">
+    <div class="source-category-heading mono"><span>${escapeHtml(category.toUpperCase())}</span><strong>${categoryHealthy}/${items.length}</strong></div>
+    <div class="source-category-items">${items.map(item => {
+      const detail = item.last_error || `Last success: ${formatDateTime(item.last_success)}`;
+      return `<div class="source-health-item ${escapeHtml(item.state)}" title="${escapeHtml(detail)}">
+        <i class="status-dot ${escapeHtml(item.state)}"></i>
+        <span class="mono">${escapeHtml(item.source_name.replaceAll('_', ' ').toUpperCase())}</span>
+        <small class="mono">${escapeHtml(connectorStateLabel(item.state))}</small>
+        <span class="source-health-sparkline" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      </div>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+function renderSourceHealthColumn(side, groupEntries) {
+  const categories = document.getElementById(`source-health-categories-${side}`);
+  if (categories) categories.innerHTML = groupEntries.map(([category, items]) => sourceHealthGroupMarkup(category, items)).join('');
+}
+
+function renderSourceHealthFlow(side, groupEntries) {
+  const flow = document.getElementById(`source-health-flow-${side}`);
   if (!flow) return;
   const height = 320;
   const targetY = height / 2;
@@ -1445,8 +1477,10 @@ function renderSourceHealthFlow(groupEntries) {
   const routes = groupEntries.map(([category, connectors], index) => {
     const y = groupEntries.length === 1 ? targetY : 20 + (index * ((height - 40) / (groupEntries.length - 1)));
     const state = connectorGroupState(connectors);
-    const pathId = `source-route-${index}`;
-    const path = `M 4 ${y.toFixed(1)} C 105 ${y.toFixed(1)}, 176 ${targetY.toFixed(1)}, 316 ${targetY.toFixed(1)}`;
+    const pathId = `source-route-${side}-${index}`;
+    const path = side === 'left'
+      ? `M 4 ${y.toFixed(1)} C 105 ${y.toFixed(1)}, 176 ${targetY.toFixed(1)}, 316 ${targetY.toFixed(1)}`
+      : `M 316 ${y.toFixed(1)} C 215 ${y.toFixed(1)}, 144 ${targetY.toFixed(1)}, 4 ${targetY.toFixed(1)}`;
     const packet = reduceMotion ? '' : `
       <circle class="source-flow-packet ${state}" r="3.2">
         <animateMotion dur="${(3.2 + (index * 0.22)).toFixed(2)}s" begin="-${(index * 0.48).toFixed(2)}s" repeatCount="indefinite">
@@ -1468,6 +1502,7 @@ function renderSourceHealth(connectors, sync = {}) {
     return result;
   }, {});
   const groupEntries = Object.entries(groups);
+  const [leftGroups, rightGroups] = splitSourceHealthGroups(groupEntries);
   const healthy = connectors.filter(c => c.state === 'healthy').length;
   const needsKeys = connectors.filter(c => c.state === 'auth_required').length;
   const disabled = connectors.filter(c => c.state === 'disabled').length;
@@ -1485,24 +1520,8 @@ function renderSourceHealth(connectors, sync = {}) {
     summary.textContent = `${healthy}/${connectors.length} HEALTHY`;
     summary.className = `badge mono ${overallState === 'failed' ? 'badge-crit' : (overallState === 'attention' ? 'badge-warn' : 'badge-nvd')}`;
   }
-  const categories = document.getElementById('source-health-categories');
-  if (categories) {
-    categories.innerHTML = groupEntries.map(([category, items]) => {
-      const categoryHealthy = items.filter(item => item.state === 'healthy').length;
-      const groupState = connectorGroupState(items);
-      return `<section class="source-category-group ${groupState}">
-        <div class="source-category-heading mono"><span>${escapeHtml(category.toUpperCase())}</span><strong>${categoryHealthy}/${items.length}</strong></div>
-        <div class="source-category-items">${items.map(item => {
-          const detail = item.last_error || `Last success: ${formatDateTime(item.last_success)}`;
-          return `<div class="source-health-item ${escapeHtml(item.state)}" title="${escapeHtml(detail)}">
-            <i class="status-dot ${escapeHtml(item.state)}"></i>
-            <span class="mono">${escapeHtml(item.source_name.replaceAll('_', ' ').toUpperCase())}</span>
-            <small class="mono">${escapeHtml(connectorStateLabel(item.state))}</small>
-          </div>`;
-        }).join('')}</div>
-      </section>`;
-    }).join('');
-  }
+  renderSourceHealthColumn('left', leftGroups);
+  renderSourceHealthColumn('right', rightGroups);
 
   const meta = document.getElementById('source-health-meta');
   if (meta) {
@@ -1526,7 +1545,8 @@ function renderSourceHealth(connectors, sync = {}) {
   if (coreCount) coreCount.textContent = `${connectors.length} CONNECTORS`;
   const updated = document.getElementById('source-health-updated');
   if (updated) updated.textContent = `LIVE HEALTH · UPDATED ${formatDateTime(new Date().toISOString())}`;
-  renderSourceHealthFlow(groupEntries);
+  renderSourceHealthFlow('left', leftGroups);
+  renderSourceHealthFlow('right', rightGroups);
 }
 
 async function pollStatus() {

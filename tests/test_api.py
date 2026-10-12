@@ -383,11 +383,16 @@ def test_index_page_version_injection(client):
     assert 'id="feed-summary-btn"' not in html
     assert "SCHEDULED SYNC" not in html
     assert 'id="source-health-card"' in html
-    assert 'id="source-health-categories"' in html
-    assert 'id="source-health-flow"' in html
+    assert 'id="source-health-categories-left"' in html
+    assert 'id="source-health-categories-right"' in html
+    assert 'id="source-health-flow-left"' in html
+    assert 'id="source-health-flow-right"' in html
     assert 'id="source-health-core"' in html
     app_js = client.get('/static/js/app.js').text
     assert 'renderSourceHealth(data.connectors, data.sync || {})' in app_js
+    assert 'splitSourceHealthGroups' in app_js
+    assert "renderSourceHealthFlow('left', leftGroups)" in app_js
+    assert "renderSourceHealthFlow('right', rightGroups)" in app_js
     assert "prefers-reduced-motion: reduce" in app_js
     assert 'class="badge badge-filetype mono attackmap-source-badge">SANS ISC DSHIELD</span>' in html
     assert 'id="panel-settings"' in html
