@@ -362,6 +362,7 @@ def test_index_page_version_injection(client):
     assert 'id="wl-honeycomb-interests"' in html
     assert 'id="wl-honeycomb-cves"' in html
     assert 'class="wl-honeycomb-grid"' in html
+    assert 'centerSideBySideHoneycombs' in client.get('/static/js/app.js').text
     assert 'id="wl-honeycomb-interests-clear-count"' in html
     assert 'aria-label="Watchlist status legend"' in html
     assert 'INTELLIGENCE FOR YOU' in html

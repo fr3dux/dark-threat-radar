@@ -2145,7 +2145,7 @@ function watchlistVisualState(item) {
 
 function renderWatchlistHoneycombGroup(containerId, items, countPrefix, emptyMessage) {
   const container = document.getElementById(containerId);
-  if (!container) return;
+  if (!container) return null;
   items = [...items].sort((a, b) => {
     const stateRank = { danger: 2, warning: 1, clear: 0 };
     const stateDiff = stateRank[watchlistVisualState(b).state] - stateRank[watchlistVisualState(a).state];
@@ -2166,7 +2166,7 @@ function renderWatchlistHoneycombGroup(containerId, items, countPrefix, emptyMes
   if (!items.length) {
     container.style.height = '84px';
     container.innerHTML = `<div class="wl-honeycomb-empty mono">${escapeHtml(emptyMessage)}</div>`;
-    return;
+    return { container, height: 84, hasItems: false };
   }
 
   const availableWidth = Math.max(280, Math.floor(container.clientWidth || 1000));
@@ -2200,7 +2200,24 @@ function renderWatchlistHoneycombGroup(containerId, items, countPrefix, emptyMes
         `<span class="wl-honeycomb-status"><i></i>${escapeHtml(itemState.status)}</span>` +
       '</span></button>';
   }).join('');
-  container.style.height = `${requiredHeight + 4}px`;
+  const renderedHeight = requiredHeight + 4;
+  container.style.height = `${renderedHeight}px`;
+  return { container, height: renderedHeight, hasItems: true };
+}
+
+function centerSideBySideHoneycombs(layouts) {
+  if (!window.matchMedia('(min-width: 851px)').matches) return;
+  const populatedLayouts = layouts.filter(layout => layout?.hasItems);
+  if (populatedLayouts.length < 2) return;
+
+  const targetHeight = Math.max(...populatedLayouts.map(layout => layout.height));
+  populatedLayouts.forEach(layout => {
+    const verticalOffset = Math.max(0, Math.floor((targetHeight - layout.height) / 2));
+    layout.container.querySelectorAll('.wl-honeycomb-cell').forEach(cell => {
+      cell.style.top = `${Number.parseFloat(cell.style.top || '0') + verticalOffset}px`;
+    });
+    layout.container.style.height = `${targetHeight}px`;
+  });
 }
 
 function renderWatchlistHoneycombs() {
@@ -2209,18 +2226,19 @@ function renderWatchlistHoneycombs() {
     item.item_type === 'cve' || watchlistCountsFor(item).vulnerability > 0
   );
   const otherItems = allItems.filter(item => !cveItems.includes(item));
-  renderWatchlistHoneycombGroup(
+  const interestLayout = renderWatchlistHoneycombGroup(
     'wl-honeycomb-interests',
     otherItems,
     'wl-honeycomb-interests',
     'ADD AN INTEREST TO START YOUR VISUAL MONITORING MAP'
   );
-  renderWatchlistHoneycombGroup(
+  const cveLayout = renderWatchlistHoneycombGroup(
     'wl-honeycomb-cves',
     cveItems,
     'wl-honeycomb-cves',
     'NO CVE-RELATED WATCHLIST ITEMS FOUND'
   );
+  centerSideBySideHoneycombs([interestLayout, cveLayout]);
 }
 
 async function loadWatchlist() {
