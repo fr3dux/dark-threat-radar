@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.credential_store import get_provider_secret
 from app.database import update_connector_health
 from app.ingestion.common import IOCRecord, upsert_ioc_records
@@ -36,9 +38,12 @@ async def ingest_alienvault_otx() -> int:
         return 0
     modified_since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     try:
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            response = await client.get(
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await safe_get(
+                client,
                 API_URL,
+                allowed_hosts={"otx.alienvault.com"},
+                max_bytes=10 * 1024 * 1024,
                 params={"modified_since": modified_since, "limit": 50},
                 headers={"X-OTX-API-KEY": key, "User-Agent": "DarkThreatRadar/1.10"},
             )

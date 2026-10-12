@@ -58,6 +58,7 @@ def test_certificate_key_hostname_validation_and_safe_status(tmp_path):
 
     control = tmp_path / "control"
     control.mkdir()
+    (control / "inbox" / "uploads").mkdir(parents=True)
     (control / "ready").write_text("ready\n", encoding="utf-8")
     queued = queue_tls_configuration(
         "radar.example.com", 80, 443, True, certificate, private_key,
@@ -89,9 +90,26 @@ def test_nginx_configuration_supports_custom_ports_and_redirect():
     assert "ssl_protocols TLSv1.2 TLSv1.3" in rendered
 
 
+def test_tls_worker_rejects_symlinked_request_and_upload_directory(tmp_path):
+    real_request = tmp_path / "real-request.json"
+    real_request.write_text("{}", encoding="utf-8")
+    request_link = tmp_path / "request.json"
+    request_link.symlink_to(real_request)
+    with pytest.raises(OSError):
+        tls_manager_daemon.read_request(request_link)
+
+    real_upload = tmp_path / "real-upload"
+    real_upload.mkdir()
+    (real_upload / "fullchain.pem").write_text("certificate", encoding="ascii")
+    upload_link = tmp_path / "upload-link"
+    upload_link.symlink_to(real_upload, target_is_directory=True)
+    with pytest.raises(OSError):
+        tls_manager_daemon.read_untrusted_upload(upload_link, "fullchain.pem")
+
+
 def test_tls_worker_rolls_back_nginx_and_certificates_on_failed_health_check(tmp_path, monkeypatch):
     control = tmp_path / "control"
-    request_dir = control / "uploads" / ("a" * 32)
+    request_dir = control / "inbox" / "uploads" / ("a" * 32)
     request_dir.mkdir(parents=True)
     source_cert = request_dir / "fullchain.pem"
     source_key = request_dir / "private.key"

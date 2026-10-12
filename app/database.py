@@ -1,20 +1,45 @@
 import aiosqlite
 import json
+import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from app.config import DB_PATH
 from app.credential_store import openphish_is_enabled
 from app.news_dates import normalize_news_date
 
+
+_URL_DIAGNOSTIC_RE = re.compile(r"https?://[^\s]+", re.I)
+_SECRET_DIAGNOSTIC_RE = re.compile(
+    r"(?i)\b(token|api[_ -]?key|auth[_ -]?key|secret|password)\b\s*[:=]\s*[^\s,;]+"
+)
+_LONG_TOKEN_RE = re.compile(r"\b[A-Za-z0-9_./+=-]{32,}\b")
+
+
+def sanitize_diagnostic(value: str | None, limit: int = 500) -> str | None:
+    """Keep operator diagnostics useful without persisting credentials or URLs."""
+    if not value:
+        return None
+    text = " ".join(str(value).replace("\x00", "").split())
+    text = _URL_DIAGNOSTIC_RE.sub("[redacted-url]", text)
+    text = _SECRET_DIAGNOSTIC_RE.sub(lambda match: f"{match.group(1)}=[redacted]", text)
+    text = _LONG_TOKEN_RE.sub("[redacted-value]", text)
+    return text[:limit]
+
 @asynccontextmanager
 async def get_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     conn = await aiosqlite.connect(DB_PATH)
     conn.row_factory = aiosqlite.Row
     await conn.execute("PRAGMA foreign_keys = ON;")
     await conn.execute("PRAGMA journal_mode = WAL;")
     await conn.execute("PRAGMA busy_timeout = 30000;")
     await conn.execute("PRAGMA synchronous = NORMAL;")
+    for database_file in (DB_PATH, Path(f"{DB_PATH}-wal"), Path(f"{DB_PATH}-shm")):
+        if database_file.exists():
+            os.chmod(database_file, 0o600)
     try:
         yield conn
     finally:
@@ -153,6 +178,21 @@ get_db_connection = get_db
 
 async def init_db():
     async with get_db() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS security_audit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                occurred_at TEXT NOT NULL,
+                client_address TEXT NOT NULL,
+                method TEXT NOT NULL,
+                path TEXT NOT NULL,
+                status_code INTEGER NOT NULL,
+                user_agent TEXT
+            );
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_security_audit_time "
+            "ON security_audit(occurred_at DESC);"
+        )
         # CVE Records table
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS cve_records (
@@ -609,7 +649,7 @@ async def update_connector_health(
         raise ValueError(f"Unsupported connector state: {state}")
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    safe_error = last_error[:500] if last_error else None
+    safe_error = sanitize_diagnostic(last_error)
     async with get_db() as conn:
         cursor = await conn.execute(
             "SELECT last_success FROM connector_health WHERE source_name = ?",
@@ -697,11 +737,12 @@ async def get_all_connector_health() -> List[Dict[str, Any]]:
             connector["last_attempt"] = old["last_sync"]
             connector["last_success"] = old["last_sync"] if connector["state"] == "healthy" else connector["last_success"]
             connector["items_received"] = old["items_count"]
-            connector["last_error"] = old["message"] if connector["state"] == "failed" else None
+            connector["last_error"] = sanitize_diagnostic(old["message"]) if connector["state"] == "failed" else None
     return connectors
 
 async def update_feed_status(feed_name: str, status: str, items_count: int = 0, message: str = ""):
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    safe_message = sanitize_diagnostic(message) or ""
     async with get_db() as conn:
         await conn.execute("""
             INSERT INTO ingestion_status (feed_name, last_sync, status, items_count, message)
@@ -711,7 +752,7 @@ async def update_feed_status(feed_name: str, status: str, items_count: int = 0, 
                 status = excluded.status,
                 items_count = excluded.items_count,
                 message = excluded.message;
-        """, (feed_name, now_str, status, items_count, message))
+        """, (feed_name, now_str, status, items_count, safe_message))
         await conn.commit()
 
 async def get_all_feed_statuses() -> List[Dict[str, Any]]:

@@ -4,6 +4,8 @@ Uses THREATFOX_AUTH_KEY from environment variables.
 """
 
 import httpx
+
+from app.http_security import safe_post
 import logging
 import time
 from datetime import datetime, timezone
@@ -65,7 +67,10 @@ async def ingest_threatfox() -> int:
 
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-            resp = await client.post(API_URL, json=payload, headers=headers)
+            resp = await safe_post(
+                client, API_URL, allowed_hosts={"threatfox-api.abuse.ch"},
+                max_bytes=10 * 1024 * 1024, json=payload, headers=headers,
+            )
             http_code = resp.status_code
 
             if resp.status_code != 200:

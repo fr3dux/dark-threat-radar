@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import get_db, update_connector_health
 
 logger = logging.getLogger("ingestion.mitre_attack")
@@ -18,8 +20,12 @@ async def ingest_mitre_attack() -> int:
     started = time.time()
     created = updated = dropped = 0
     try:
-        async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
-            response = await client.get(STIX_URL, headers={"User-Agent": "DarkThreatRadar/1.10"})
+        async with httpx.AsyncClient(timeout=90) as client:
+            response = await safe_get(
+                client, STIX_URL, allowed_hosts={"raw.githubusercontent.com"},
+                max_bytes=50 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.10"},
+            )
         response.raise_for_status()
         objects = response.json().get("objects") or []
         now = datetime.now(timezone.utc).isoformat()

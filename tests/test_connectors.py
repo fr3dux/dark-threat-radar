@@ -428,18 +428,15 @@ def test_rejected_urlhaus_key_is_error_not_auth_required(monkeypatch):
 def test_alienvault_otx_provider_outage_is_degraded_with_http_code(monkeypatch):
     captured = {}
 
-    class FakeClient:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *_args): return None
-        async def get(self, *_args, **_kwargs):
-            request = httpx.Request("GET", alienvault_otx.API_URL)
-            return httpx.Response(503, request=request)
+    async def fake_safe_get(*_args, **_kwargs):
+        request = httpx.Request("GET", alienvault_otx.API_URL)
+        return httpx.Response(503, request=request)
 
     async def capture_state(_source, _category, state, **kwargs):
         captured.update(state=state, **kwargs)
 
     monkeypatch.setattr(alienvault_otx, "get_provider_secret", lambda _provider: "test-key")
-    monkeypatch.setattr(alienvault_otx.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(alienvault_otx, "safe_get", fake_safe_get)
     monkeypatch.setattr(alienvault_otx, "update_connector_health", capture_state)
 
     asyncio.run(alienvault_otx.ingest_alienvault_otx())
@@ -487,10 +484,8 @@ def test_abuseipdb_429_preserves_provider_reset(monkeypatch):
             "retry-after": "3600",
         }
 
-    class FakeClient:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *_args): return None
-        async def get(self, *_args, **_kwargs): return LimitedResponse()
+    async def fake_safe_get(*_args, **_kwargs):
+        return LimitedResponse()
 
     async def no_previous_health(_source):
         return None
@@ -500,7 +495,7 @@ def test_abuseipdb_429_preserves_provider_reset(monkeypatch):
 
     monkeypatch.setattr(abuseipdb, "get_provider_secret", lambda _provider: "test-key")
     monkeypatch.setattr(abuseipdb, "get_connector_health", no_previous_health)
-    monkeypatch.setattr(abuseipdb.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(abuseipdb, "safe_get", fake_safe_get)
     monkeypatch.setattr(abuseipdb, "update_connector_health", capture_state)
 
     asyncio.run(abuseipdb.ingest_abuseipdb())

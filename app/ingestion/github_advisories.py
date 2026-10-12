@@ -5,6 +5,8 @@ Complements existing NVD records without duplicating independent CVE records.
 
 import json
 import httpx
+
+from app.http_security import safe_get
 import logging
 import time
 from datetime import datetime, timezone
@@ -48,8 +50,11 @@ async def ingest_github_advisories() -> int:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            resp = await client.get(API_URL, headers=headers, params=params)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await safe_get(
+                client, API_URL, allowed_hosts={"api.github.com"},
+                max_bytes=10 * 1024 * 1024, headers=headers, params=params,
+            )
             http_code = resp.status_code
 
             if resp.status_code != 200:

@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.config import ABUSEIPDB_INTERVAL_SECONDS
 from app.credential_store import get_provider_secret
 from app.database import get_connector_health, update_connector_health
@@ -78,9 +80,12 @@ async def ingest_abuseipdb() -> int:
         logger.info("AbuseIPDB request deferred to preserve the daily blacklist quota")
         return 0
     try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            response = await client.get(
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await safe_get(
+                client,
                 API_URL,
+                allowed_hosts={"api.abuseipdb.com"},
+                max_bytes=15 * 1024 * 1024,
                 params={"confidenceMinimum": 90, "limit": 10000},
                 headers={"Key": key, "Accept": "application/json", "User-Agent": "DarkThreatRadar/1.10"},
             )

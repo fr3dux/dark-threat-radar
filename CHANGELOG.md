@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.3] - 2026-10-12
+
+### Security
+- **Bounded Trusted Egress**: Routes connector traffic through HTTPS-only, exact-host allowlists with validated redirects, response-size limits, and timeouts to reduce SSRF, redirect, and resource-exhaustion exposure.
+- **Hardened Administrative APIs**: Enforces secure transport for remote administrative secrets, bounded request bodies, rate limits, stricter input validation, sanitized diagnostics, and security response headers.
+- **Signed Release Chain**: Bundles only the official public release key and requires signed annotated tags verified by a root-protected keyring and verifier before native updates can run.
+- **Privilege-Separated Maintenance**: Runs update validation and release code as the unprivileged application account while reserving narrowly scoped service operations for the protected worker.
+- **Reproducible Dependencies**: Pins production and development dependencies with hashes, updates the supported runtime to Python 3.12, and hardens the default container with a non-root user, read-only filesystem, and dropped capabilities.
+
+### Fixed
+- **Persistent Exposure State**: Acknowledging a Watchlist alert clears the notification without incorrectly turning an existing exposure card or honeycomb cell green.
+- **Watchlist Classification**: Keeps organizations, domains, and other monitored entities in the entity honeycomb while placing vendors and products in the CVE-focused technology honeycomb.
+- **Sensitive Diagnostic Data**: Prevents raw provider payloads, local paths, secret-bearing errors, and unrestricted runtime details from being returned by public API responses.
+
+### Changed
+- **Safer Defaults**: Binds the application to localhost by default, disables interactive API documentation unless explicitly enabled, and documents HTTPS reverse-proxy deployment for remote access.
+- **Protected Native Updater**: Installs the official public verification material automatically, validates a clean forward-only release path, tests updates in isolation, and preserves database and environment rollback controls.
+
 ## [1.17.2] - 2026-10-12
 
 ### Fixed

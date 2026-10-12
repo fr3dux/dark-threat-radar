@@ -1,6 +1,8 @@
 import logging
 import json
 import httpx
+
+from app.http_security import safe_get
 from datetime import datetime, timedelta, timezone
 from app.database import get_db, update_feed_status
 from app.config import NVD_API_KEY
@@ -52,7 +54,10 @@ async def ingest_nvd_cve(days_back: int = 7) -> int:
     count = 0
     try:
         async with httpx.AsyncClient(timeout=45.0, headers=headers) as client:
-            resp = await client.get(NVD_BASE_URL, params=params)
+            resp = await safe_get(
+                client, NVD_BASE_URL, allowed_hosts={"services.nvd.nist.gov"},
+                max_bytes=20 * 1024 * 1024, params=params,
+            )
             if resp.status_code == 403 or resp.status_code == 429:
                 # Rate limited - log warning
                 logger.warning(f"NVD rate limit hit (HTTP {resp.status_code})")

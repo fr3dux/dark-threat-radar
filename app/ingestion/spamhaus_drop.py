@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import get_db, update_connector_health
 from app.ingestion.confidence import calculate_confidence, get_confidence_severity_label
 from app.ingestion.normalization import TYPE_ASN, TYPE_CIDR, generate_ioc_id
@@ -62,10 +64,14 @@ async def ingest_spamhaus_drop() -> int:
     received = created = updated = dropped = 0
     response_codes = []
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             responses = []
             for url, indicator_type, family in DROP_FEEDS:
-                response = await client.get(url, headers={"User-Agent": "DarkThreatRadar/1.8.1"})
+                response = await safe_get(
+                    client, url, allowed_hosts={"www.spamhaus.org"},
+                    max_bytes=10 * 1024 * 1024,
+                    headers={"User-Agent": "DarkThreatRadar/1.8.1"},
+                )
                 response_codes.append(response.status_code)
                 response.raise_for_status()
                 responses.append((url, indicator_type, family, parse_ndjson(response.text)))

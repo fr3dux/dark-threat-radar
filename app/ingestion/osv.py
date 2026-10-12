@@ -5,6 +5,8 @@ URL: https://api.osv.dev/v1/query
 
 import json
 import httpx
+
+from app.http_security import safe_post
 import logging
 import time
 from datetime import datetime, timezone
@@ -30,7 +32,10 @@ async def query_osv_package(package_name: str, ecosystem: Optional[str] = None) 
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(OSV_QUERY_URL, json=payload)
+            resp = await safe_post(
+                client, OSV_QUERY_URL, allowed_hosts={"api.osv.dev"},
+                max_bytes=10 * 1024 * 1024, json=payload,
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("vulns") or []

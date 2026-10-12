@@ -82,6 +82,9 @@ def test_newer_tag_wins_over_outdated_latest_release(monkeypatch):
             return FakeResponse(200, [{"name": "v1.9.0"}, {"name": "v1.8.8"}])
 
     monkeypatch.setattr(updater.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    async def fake_safe_get(client, url, **kwargs):
+        return await client.get(url, params=kwargs.get("params"))
+    monkeypatch.setattr(updater, "safe_get", fake_safe_get)
     release = asyncio.run(updater._fetch_latest_release())
     assert release["version"] == "1.9.0"
     assert release["tag"] == "v1.9.0"
@@ -107,6 +110,9 @@ def test_rate_limited_api_uses_public_latest_release_redirect(monkeypatch):
             )
 
     monkeypatch.setattr(updater.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    async def fake_safe_get(client, url, **kwargs):
+        return await client.get(url, params=kwargs.get("params"))
+    monkeypatch.setattr(updater, "safe_get", fake_safe_get)
     release = asyncio.run(updater._fetch_latest_release())
 
     assert release["version"] == "1.14.3"

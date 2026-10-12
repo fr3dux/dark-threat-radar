@@ -1,4 +1,4 @@
-FROM python:3.11-slim@sha256:e41613d42d4891e4930f79523f93f81bbc7632584ec65e36ab055f41a800b41e
+FROM python:3.12.14-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e
 
 # Labels & Metadata
 LABEL maintainer="ThreatRadar Core Team" \
@@ -22,15 +22,15 @@ RUN groupadd -g 10001 threatradar && \
     chown threatradar:threatradar /app/data
 
 # Install dependencies
-COPY requirements-prod.txt .
+COPY requirements-prod.lock .
 RUN apt-get update && \
     apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-prod.txt && \
+    pip install --no-cache-dir pip==26.2.1 && \
+    pip install --no-cache-dir --require-hashes -r requirements-prod.lock && \
     pip uninstall --yes setuptools wheel && \
     python -m pip uninstall --yes pip && \
-    rm -rf /usr/local/lib/python3.11/ensurepip
+    rm -rf /usr/local/lib/python3.12/ensurepip
 
 # Copy application source code
 COPY . .

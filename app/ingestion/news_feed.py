@@ -6,6 +6,8 @@ import re
 import html
 from datetime import datetime, timezone
 import httpx
+
+from app.http_security import safe_get
 import feedparser
 from app.database import get_db, update_feed_status
 from app.config import LOCAL_NEWS_FILE
@@ -19,6 +21,13 @@ FEEDS = {
     "SecurityWeek": "https://www.securityweek.com/feed/",
     "CISO Advisor": "https://www.cisoadvisor.com.br/feed/",
     "CERT.br": "https://www.cert.br/rss/certbr-rss.xml"
+}
+FEED_HOSTS = {
+    "thehackernews.com",
+    "www.bleepingcomputer.com",
+    "www.securityweek.com",
+    "www.cisoadvisor.com.br",
+    "www.cert.br",
 }
 
 def clean_html(raw_html: str) -> str:
@@ -82,7 +91,10 @@ async def ingest_news_feed() -> int:
         async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": "ThreatRadar-CTI/1.0"}) as client:
             for source_name, feed_url in FEEDS.items():
                 try:
-                    resp = await client.get(feed_url)
+                    resp = await safe_get(
+                        client, feed_url, allowed_hosts=FEED_HOSTS,
+                        max_bytes=5 * 1024 * 1024,
+                    )
                     if resp.status_code == 200:
                         parsed = feedparser.parse(resp.text)
                         for entry in parsed.entries[:25]:

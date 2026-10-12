@@ -61,6 +61,31 @@ def _write_private(path: Path, content: bytes) -> None:
     path.chmod(0o600)
 
 
+def _certificate_matches_hostname(decoded: dict[str, Any], fqdn: str) -> bool:
+    """Match DNS SANs without relying on ssl.match_hostname (removed in 3.12)."""
+    names = [
+        value.lower().rstrip(".")
+        for kind, value in decoded.get("subjectAltName", ())
+        if kind == "DNS"
+    ]
+    if not names:
+        names = [
+            value.lower().rstrip(".")
+            for group in decoded.get("subject", ())
+            for key, value in group
+            if key == "commonName"
+        ]
+    hostname = fqdn.lower().rstrip(".")
+    for pattern in names:
+        if pattern == hostname:
+            return True
+        if pattern.startswith("*."):
+            suffix = pattern[1:]
+            if hostname.endswith(suffix) and hostname.count(".") == pattern.count("."):
+                return True
+    return False
+
+
 def validate_certificate_bundle(
     certificate: bytes,
     private_key: bytes,
@@ -88,7 +113,8 @@ def validate_certificate_bundle(
     try:
         context.load_cert_chain(certfile=cert_path, keyfile=key_path)
         decoded = ssl._ssl._test_decode_cert(str(cert_path))  # type: ignore[attr-defined]
-        ssl.match_hostname(decoded, fqdn)
+        if not _certificate_matches_hostname(decoded, fqdn):
+            raise ValueError("Certificate does not match the configured hostname")
     except (ssl.SSLError, ssl.CertificateError, ValueError) as exc:
         raise ValueError(f"Certificate validation failed: {exc}") from exc
 
@@ -150,11 +176,14 @@ def queue_tls_configuration(
     http_port, https_port = validate_ports(http_port, https_port, upstream_port)
     if not (control_dir / "ready").is_file():
         raise RuntimeError("TLS manager is not installed on this host")
-    if tls_public_status(control_dir).get("state") in {"queued", "applying"}:
+    inbox = control_dir / "inbox"
+    request_path = inbox / "request.json"
+    if request_path.exists() or tls_public_status(control_dir).get("state") == "applying":
         raise RuntimeError("A TLS configuration change is already in progress")
 
-    uploads = control_dir / "uploads"
-    uploads.mkdir(parents=True, exist_ok=True)
+    uploads = inbox / "uploads"
+    if not uploads.is_dir():
+        raise RuntimeError("TLS manager inbox is not available")
     request_id = uuid.uuid4().hex
     request_dir = uploads / request_id
     request_dir.mkdir(mode=0o700)
@@ -177,17 +206,23 @@ def queue_tls_configuration(
         "requested_at": now,
     }
     try:
-        atomic_json(control_dir / "status.json", {
-            **request,
-            "certificate_path": None,
-            "private_key_path": None,
-            "state": "queued",
-            "configured": False,
-            "message": "TLS configuration queued for validation and activation",
-            "updated_at": now,
-        })
-        atomic_json(control_dir / "request.json", request)
+        atomic_json(request_path, request)
     except Exception:
         shutil.rmtree(request_dir, ignore_errors=True)
         raise
-    return tls_public_status(control_dir)
+    return {
+        "manager_ready": True,
+        "state": "queued",
+        "configured": bool(tls_public_status(control_dir).get("configured")),
+        "application_port": upstream_port,
+        "request_id": request_id,
+        "fqdn": fqdn,
+        "http_port": http_port,
+        "https_port": https_port,
+        "redirect_http": redirect_http,
+        "expires_at": metadata.get("expires_at"),
+        "issuer": metadata.get("issuer"),
+        "subject": metadata.get("subject"),
+        "message": "TLS configuration queued for validation and activation",
+        "updated_at": now,
+    }

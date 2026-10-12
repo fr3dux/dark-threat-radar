@@ -1,6 +1,8 @@
 import logging
 import json
 import httpx
+
+from app.http_security import safe_get
 from datetime import datetime, timezone
 from app.database import get_db, update_feed_status
 
@@ -15,7 +17,10 @@ async def ingest_cisa_kev() -> int:
     count = 0
     try:
         async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": "ThreatRadar-CTI/1.0"}) as client:
-            resp = await client.get(CISA_KEV_URL)
+            resp = await safe_get(
+                client, CISA_KEV_URL, allowed_hosts={"www.cisa.gov"},
+                max_bytes=15 * 1024 * 1024,
+            )
             resp.raise_for_status()
             data = resp.json()
 

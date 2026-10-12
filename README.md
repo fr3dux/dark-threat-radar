@@ -1,7 +1,7 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.17.2-blue.svg)](app/version.py)
-[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.17.3-blue.svg)](app/version.py)
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
@@ -186,7 +186,7 @@ Dark Threat Radar is designed as a lightweight standalone CTI service, but its 2
 Software and platform requirements:
 
 - 64-bit Linux host; current Debian or Ubuntu LTS is recommended.
-- Python 3.11 or newer for native installation, or a current Docker Engine with Docker Compose v2.
+- Python 3.12 or newer for native installation, or a current Docker Engine with Docker Compose v2.
 - Reliable outbound HTTPS access to the configured intelligence providers and GitHub release channel.
 - TCP port `9220` available locally, or published only through a reverse proxy/firewall policy.
 - SSD-backed persistent storage for the SQLite database and runtime credential store.
@@ -219,7 +219,8 @@ docker compose up -d
 docker compose logs -f
 ```
 
-Open your browser at `http://localhost:9220` (or your server's IP).
+Open your browser at `http://localhost:9220`. Remote deployments should keep
+this listener private and publish it through an HTTPS reverse proxy.
 
 The built-in HTTPS manager targets native Linux/systemd installations. Docker users should keep port 9220 private and terminate TLS in their existing Caddy, Nginx, Traefik, or load-balancer deployment.
 
@@ -236,7 +237,7 @@ cd dark-threat-radar
 
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
-./venv/bin/pip install -r requirements-prod.txt
+./venv/bin/pip install --require-hashes -r requirements-prod.lock
 
 # Generate this installation's unique admin access code
 ./venv/bin/python scripts/setup_admin.py
@@ -284,17 +285,29 @@ sudo /opt/dark-threat-radar/venv/bin/python /opt/dark-threat-radar/scripts/insta
   --service threat-radar.service
 ```
 
-The installer copies the worker to a root-owned system location and runs it with the system Python interpreter, outside the application environment. The web application never receives permission to execute arbitrary commands; it can only create a validated request for the fixed external updater. Adjust `/opt/dark-threat-radar` if the repository is installed elsewhere.
+The installer validates the bundled public release key against the official
+fingerprint, installs a root-owned verification keyring, and fails closed if a
+tag is unsigned or signed by any other key. No private signing key is included
+in the project or installed on the server. The installer copies the worker to a
+root-owned system location and runs it with the system Python interpreter,
+outside the application environment. The web application never receives
+permission to execute arbitrary commands; it can only create a validated
+request for the fixed external updater. Adjust
+`/opt/dark-threat-radar` if the repository is installed elsewhere.
 
 ### 5. Optional Managed HTTPS, FQDN, and Public Ports
 
 Native Linux installations can enable the Settings HTTPS section with a one-time root-owned Nginx manager installation:
 
 ```bash
-sudo ./venv/bin/python scripts/install_tls_manager.py --project-root "$(pwd)" --app-user root --install-nginx
+sudo ./venv/bin/python scripts/install_tls_manager.py --project-root "$(pwd)" --app-user ubuntu --install-nginx
 ```
 
-After installation, open **Settings → HTTPS & Access**, unlock administration, and provide:
+Replace `ubuntu` with the unprivileged account configured in the systemd unit.
+For the first activation, connect locally or through an SSH tunnel (for example,
+forward local port 9220 to `127.0.0.1:9220`); administrative secrets are rejected
+over remote plain HTTP. Then open **Settings → HTTPS & Access**, unlock
+administration, and provide:
 
 - the application FQDN, with DNS already pointing to the server;
 - the public HTTP and HTTPS ports (defaults: 80 and 443);
@@ -309,7 +322,7 @@ The FastAPI service remains on its upstream port (9220 by default). Restrict tha
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `HOST` | `0.0.0.0` | Network binding interface. |
+| `HOST` | `127.0.0.1` | Network binding interface; expose only through a protected HTTPS proxy. |
 | `PORT` | `9220` | Listening HTTP port. |
 | `TLS_CONTROL_DIR` | `/var/lib/dark-threat-radar/tls` | Request/status directory shared with the optional root-owned TLS manager. |
 | `SYNC_INTERVAL_SECONDS` | `300` | Core connector interval: CISA, NVD, EPSS, DShield, MalwareBazaar, ransomware.live, and news. |
@@ -342,7 +355,7 @@ The FastAPI service remains on its upstream port (9220 by default). Restrict tha
 
 Run `python3 scripts/setup_admin.py` once after cloning. The command creates `.env` with owner-only permissions, generates a cryptographically random code, and displays it once so it can be saved in a password manager. Neither `.env` nor the runtime API key store is committed to Git, so every clone receives a different code.
 
-If the code is lost, the server owner can replace `SETTINGS_ADMIN_TOKEN` in `.env` with a new long random value and restart the application. Existing managed provider keys remain in the local runtime secret store. Docker installations persist that store in the `threat-radar-data` volume.
+If the code is lost, the server owner can replace `SETTINGS_ADMIN_TOKEN` in `.env` with a new random value of at least 32 printable ASCII characters and restart the application. Existing managed provider keys remain in the local runtime secret store. Docker installations persist that store in the `threat-radar-data` volume.
 
 ---
 
@@ -352,7 +365,7 @@ The dashboard checks the official stable release channel every six hours and dis
 
 On native systemd installations where the optional updater is installed, the administrator can review the version and release notes, enter the administrative access code, and select `INSTALL UPDATE`. The external worker then:
 
-1. Validates the fixed Git origin, stable annotated tag, clean `main` branch, and forward-only commit ancestry.
+1. Validates the fixed Git origin, stable annotated tag, trusted cryptographic tag signature, clean `main` branch, and forward-only commit ancestry.
 2. Creates an isolated Git worktree and fresh Python environment.
 3. Runs the complete test suite and JavaScript syntax validation before downtime.
 4. Creates an online SQLite backup and a local rollback branch.
@@ -365,7 +378,9 @@ Docker installations intentionally receive update notifications only. A containe
 
 ## REST API Reference
 
-Interactive documentation with live OpenAPI testing is available at `/docs` (Swagger UI) and `/redoc`.
+Interactive documentation is disabled by default on exposed installations. Set
+`ENABLE_API_DOCS=true` only on a trusted network to enable `/docs`, `/redoc`, and
+`/openapi.json`.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -409,7 +424,7 @@ Dark Threat Radar includes a `pytest` regression suite for critical API endpoint
 
 ```bash
 # Execute test suite
-./venv/bin/pip install -r requirements-dev.txt
+./venv/bin/pip install --require-hashes -r requirements-dev.lock
 ./venv/bin/pytest -v tests/
 ```
 

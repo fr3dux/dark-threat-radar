@@ -5,6 +5,8 @@ URL: https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/fee
 """
 
 import httpx
+
+from app.http_security import safe_get
 import logging
 import time
 from urllib.parse import urlparse
@@ -37,8 +39,11 @@ async def ingest_openphish() -> int:
     feed_url = COMMUNITY_FEED_URL
     headers = {"User-Agent": "DarkThreatRadar/1.9.2"}
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            resp = await client.get(feed_url, headers=headers)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await safe_get(
+                client, feed_url, allowed_hosts={"raw.githubusercontent.com"},
+                max_bytes=10 * 1024 * 1024, headers=headers,
+            )
             http_code = resp.status_code
 
             if resp.status_code != 200:

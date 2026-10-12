@@ -8,6 +8,8 @@ import time
 import feedparser
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import update_connector_health
 from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_records
 
@@ -44,11 +46,13 @@ def parse_databreaches_feed(payload: bytes) -> list[ExposureRecord]:
 async def ingest_databreaches_net() -> int:
     started = time.time()
     try:
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            response = await client.get(FEED_URL, headers={"Accept": "application/rss+xml, application/xml", "User-Agent": "DarkThreatRadar/1.13"})
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await safe_get(
+                client, FEED_URL, allowed_hosts={"databreaches.net"},
+                max_bytes=5 * 1024 * 1024,
+                headers={"Accept": "application/rss+xml, application/xml", "User-Agent": "DarkThreatRadar/1.13"},
+            )
         response.raise_for_status()
-        if len(response.content) > 5_000_000:
-            raise ValueError("DataBreaches.net feed exceeded the 5 MB safety limit")
         records = parse_databreaches_feed(response.content)
         if not records:
             raise ValueError("DataBreaches.net returned no valid feed records")

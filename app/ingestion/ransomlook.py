@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import update_connector_health
 from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_records
 
@@ -65,8 +67,12 @@ def parse_ransomlook(payload: object) -> list[ExposureRecord]:
 async def ingest_ransomlook() -> int:
     started = time.time()
     try:
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            response = await client.get(API_URL, headers={"Accept": "application/json", "User-Agent": "DarkThreatRadar/1.13"})
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await safe_get(
+                client, API_URL, allowed_hosts={"www.ransomlook.io"},
+                max_bytes=10 * 1024 * 1024,
+                headers={"Accept": "application/json", "User-Agent": "DarkThreatRadar/1.13"},
+            )
         if response.status_code == 429:
             await update_connector_health("ransomlook", "Ransomware & Data Breaches", "rate_limited", last_error="RansomLook rate limit reached", http_code=429)
             return 0

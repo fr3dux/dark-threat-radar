@@ -10,6 +10,8 @@ from typing import Any
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.config import (
     ENABLE_WEB_UPDATES,
     GITHUB_TOKEN,
@@ -83,8 +85,11 @@ async def _fetch_latest_release() -> dict[str, Any]:
     if GITHUB_TOKEN:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
-    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
-        release_response = await client.get(f"{api_base}/releases/latest")
+    async with httpx.AsyncClient(timeout=8.0, headers=headers) as client:
+        release_response = await safe_get(
+            client, f"{api_base}/releases/latest", allowed_hosts={"api.github.com"},
+            max_bytes=2 * 1024 * 1024,
+        )
         if release_response.status_code in {403, 429}:
             return await _fetch_latest_release_from_web(client)
         release_data = None
@@ -111,7 +116,10 @@ async def _fetch_latest_release() -> dict[str, Any]:
 
         # Tags remain a fallback for installations whose latest authored
         # Release is older than the running version.
-        tags_response = await client.get(f"{api_base}/tags", params={"per_page": 30})
+        tags_response = await safe_get(
+            client, f"{api_base}/tags", allowed_hosts={"api.github.com"},
+            max_bytes=2 * 1024 * 1024, params={"per_page": 30},
+        )
         if tags_response.status_code in {403, 429}:
             return await _fetch_latest_release_from_web(client)
         tags_response.raise_for_status()
@@ -141,7 +149,10 @@ async def _fetch_latest_release() -> dict[str, Any]:
 
 async def _fetch_latest_release_from_web(client: httpx.AsyncClient) -> dict[str, Any]:
     """Resolve GitHub's public latest-release redirect without using REST quota."""
-    response = await client.get(f"https://github.com/{UPDATE_REPOSITORY}/releases/latest")
+    response = await safe_get(
+        client, f"https://github.com/{UPDATE_REPOSITORY}/releases/latest",
+        allowed_hosts={"github.com"}, max_bytes=2 * 1024 * 1024,
+    )
     response.raise_for_status()
     match = re.search(r"/releases/tag/(v?\d+\.\d+\.\d+)$", str(response.url).rstrip("/"))
     if not match:

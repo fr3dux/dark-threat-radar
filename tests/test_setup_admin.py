@@ -3,6 +3,8 @@
 import re
 import stat
 
+import pytest
+
 from scripts.setup_admin import setup_environment
 
 
@@ -23,3 +25,14 @@ def test_setup_environment_generates_and_preserves_unique_code(tmp_path):
 
     assert generated_again is False
     assert existing_token == token
+
+
+def test_setup_environment_refuses_symlinked_env(tmp_path):
+    (tmp_path / ".env.example").write_text("SETTINGS_ADMIN_TOKEN=\n", encoding="utf-8")
+    target = tmp_path / "unrelated"
+    target.write_text("do not replace", encoding="utf-8")
+    (tmp_path / ".env").symlink_to(target)
+
+    with pytest.raises(OSError):
+        setup_environment(tmp_path)
+    assert target.read_text(encoding="utf-8") == "do not replace"

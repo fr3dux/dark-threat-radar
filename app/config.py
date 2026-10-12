@@ -7,7 +7,7 @@ RUNTIME_SECRETS_PATH = Path(os.getenv("RUNTIME_SECRETS_PATH", BASE_DIR / ".runti
 LOCAL_NEWS_FILE = Path(os.getenv("LOCAL_NEWS_FILE", "/root/news_history.json" if os.path.exists("/root/news_history.json") else BASE_DIR / "news_history.json"))
 
 # The network binding is explicitly operator-configurable for server/container use.
-HOST = os.getenv("HOST", "0.0.0.0")  # nosec B104
+HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "9220"))
 
 # Core connector interval in seconds (default 5 minutes)
@@ -26,8 +26,24 @@ OTX_API_KEY = os.getenv("OTX_API_KEY", "")
 PHISHTANK_API_KEY = os.getenv("PHISHTANK_API_KEY", "")
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
 THREATCLUSTER_API_KEY = os.getenv("THREATCLUSTER_API_KEY", "")
-SETTINGS_ADMIN_TOKEN = os.getenv("SETTINGS_ADMIN_TOKEN", "")
+SETTINGS_ADMIN_TOKEN = os.getenv("SETTINGS_ADMIN_TOKEN", "").strip()
+if SETTINGS_ADMIN_TOKEN and (
+    len(SETTINGS_ADMIN_TOKEN) < 32
+    or len(SETTINGS_ADMIN_TOKEN) > 512
+    or any(ord(character) < 33 or ord(character) > 126 for character in SETTINGS_ADMIN_TOKEN)
+):
+    raise RuntimeError(
+        "SETTINGS_ADMIN_TOKEN must contain 32 to 512 printable ASCII characters"
+    )
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+
+# Public deployments are private-by-default. The demo may explicitly expose
+# its synthetic Watchlist, but normal installations must authenticate reads.
+WATCHLIST_PUBLIC_READ = os.getenv("WATCHLIST_PUBLIC_READ", "false").lower() in {"1", "true", "yes"}
+ALLOW_INSECURE_SENSITIVE_TRANSPORT = os.getenv(
+    "ALLOW_INSECURE_SENSITIVE_TRANSPORT", "false"
+).lower() in {"1", "true", "yes"}
+ENABLE_API_DOCS = os.getenv("ENABLE_API_DOCS", "false").lower() in {"1", "true", "yes"}
 
 # Release discovery is always read-only. One-click installation remains off
 # until the root-owned external updater has been explicitly installed.

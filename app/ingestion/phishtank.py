@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.credential_store import get_provider_secret
 from app.database import update_connector_health
 from app.ingestion.common import IOCRecord, upsert_ioc_records
@@ -25,8 +27,12 @@ async def ingest_phishtank() -> int:
         return 0
     url = f"https://data.phishtank.com/data/{key}/online-valid.json"
     try:
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            response = await client.get(url, headers={"User-Agent": "DarkThreatRadar/1.10"})
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await safe_get(
+                client, url, allowed_hosts={"data.phishtank.com"},
+                max_bytes=25 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.10"},
+            )
         if response.status_code in {401, 403, 404}:
             await update_connector_health(
                 "phishtank", "Phishing", "failed",

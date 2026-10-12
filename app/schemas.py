@@ -63,11 +63,11 @@ class GeneralSettingsUpdate(BaseModel):
 
 class PasswordLeakCheckRequest(BaseModel):
     sha1_prefix: str = Field(..., pattern=r"^[A-Fa-f0-9]{5}$")
-    sha1_suffix: str = Field(..., pattern=r"^[A-Fa-f0-9]{35}$")
 
 
 class EmailLeakCheckRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
+    consent: bool
 
     @field_validator("email")
     @classmethod
@@ -79,6 +79,13 @@ class EmailLeakCheckRequest(BaseModel):
         if not local or not domain or "." not in domain or any(ch.isspace() for ch in normalized):
             raise ValueError("A valid email address is required")
         return normalized
+
+    @field_validator("consent")
+    @classmethod
+    def require_consent(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("Explicit consent is required for the external breach lookup")
+        return value
 
 
 class WatchlistCreate(BaseModel):
@@ -143,7 +150,6 @@ class StatusResponse(BaseModel):
 class InfoconStatus(BaseModel):
     status: str
     updated_at: Optional[str] = None
-    raw_json: Optional[str] = None
 
 
 class TopVendor(BaseModel):
@@ -248,7 +254,6 @@ class CVERecord(BaseModel):
     known_ransomware_campaign_use: Optional[str] = None
     cvss_score: Optional[float] = None
     cvss_severity: Optional[str] = None
-    raw_json: Optional[str] = None
     updated_at: Optional[str] = None
 
 
@@ -275,7 +280,6 @@ class MalwareSample(BaseModel):
     reporter: Optional[str] = None
     delivery_method: Optional[str] = None
     tags: Optional[str] = None
-    raw_json: Optional[str] = None
     updated_at: Optional[str] = None
 
 

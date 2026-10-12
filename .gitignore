@@ -38,6 +38,16 @@ ENV/
 .env.local
 *.env
 .runtime-secrets.json
+*.pem
+*.key
+*.p12
+*.pfx
+authorized_keys
+id_rsa
+id_ed25519
+*private*backup*.asc
+*-secret-key*.asc
+*.sec.asc
 
 # SQLite databases & lock files
 *.db

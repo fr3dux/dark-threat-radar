@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import update_connector_health, update_feed_status
 from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_records
 
@@ -46,7 +48,10 @@ def parse_ransomware_live(items: list[dict[str, Any]]) -> list[ExposureRecord]:
 
 
 async def fetch_endpoint(client: httpx.AsyncClient, url: str) -> list[dict[str, Any]]:
-    response = await client.get(url, follow_redirects=True)
+    response = await safe_get(
+        client, url, allowed_hosts={"api.ransomware.live"},
+        max_bytes=15 * 1024 * 1024,
+    )
     response.raise_for_status()
     payload = response.json()
     if isinstance(payload, list):

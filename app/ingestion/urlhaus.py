@@ -5,6 +5,8 @@ Uses URLHAUS_AUTH_KEY from environment variables.
 
 import csv
 import httpx
+
+from app.http_security import safe_get
 import logging
 import time
 from datetime import datetime, timezone
@@ -71,7 +73,11 @@ async def ingest_urlhaus() -> int:
 
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-            resp = await client.get(EXPORT_URL.format(auth_key=auth_key), headers=headers)
+            resp = await safe_get(
+                client, EXPORT_URL.format(auth_key=auth_key),
+                allowed_hosts={"urlhaus-api.abuse.ch"}, max_bytes=25 * 1024 * 1024,
+                headers=headers,
+            )
             http_code = resp.status_code
 
             if resp.status_code != 200:

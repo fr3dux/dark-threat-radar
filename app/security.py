@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from dataclasses import dataclass
 
 from fastapi import Request
@@ -26,6 +26,10 @@ RATE_LIMIT_RULES = {
     "sync": RateLimitRule(3, 300),
     "leak_check": RateLimitRule(20, 60),
     "watchlist_write": RateLimitRule(20, 60),
+    "watchlist_read": RateLimitRule(120, 60),
+    "update_check": RateLimitRule(20, 300),
+    "artifact_read": RateLimitRule(120, 60),
+    "api_read": RateLimitRule(600, 60),
 }
 
 
@@ -36,15 +40,23 @@ class InMemoryRateLimiter:
     multiple workers should enforce the same limits at the reverse proxy too.
     """
 
-    def __init__(self) -> None:
-        self._events: dict[str, deque[float]] = defaultdict(deque)
+    def __init__(self, max_keys: int = 10_000) -> None:
+        self._events: OrderedDict[str, deque[float]] = OrderedDict()
         self._lock = asyncio.Lock()
+        self._max_keys = max_keys
 
     async def allow(self, key: str, rule: RateLimitRule) -> tuple[bool, int]:
         now = time.monotonic()
         cutoff = now - rule.window_seconds
         async with self._lock:
-            events = self._events[key]
+            events = self._events.get(key)
+            if events is None:
+                if len(self._events) >= self._max_keys:
+                    self._events.popitem(last=False)
+                events = deque()
+                self._events[key] = events
+            else:
+                self._events.move_to_end(key)
             while events and events[0] <= cutoff:
                 events.popleft()
             if len(events) >= rule.requests:
@@ -138,13 +150,59 @@ def _rate_limit_scope(request: Request) -> str | None:
         return "sync"
     if path.startswith("/api/leak-check/") and method == "POST":
         return "leak_check"
+    if path in {"/api/watchlist", "/api/watchlist/summary"} and method == "GET":
+        return "watchlist_read"
+    if path == "/api/update/status" and method == "GET":
+        return "update_check"
+    if path.startswith("/api/artifact/") and method == "GET":
+        return "artifact_read"
     if path == "/api/watchlist" and method == "POST":
         return "watchlist_write"
     if path == "/api/watchlist/alerts/acknowledge" and method == "POST":
         return "watchlist_write"
     if path.startswith("/api/watchlist/") and method == "DELETE":
         return "watchlist_write"
+    if path.startswith("/api/") and method == "GET":
+        return "api_read"
     return None
+
+
+def _is_audited_operation(request: Request) -> bool:
+    path = request.url.path
+    method = request.method.upper()
+    return (
+        path.startswith("/api/admin/")
+        or (path == "/api/sync" and method == "POST")
+        or (path.startswith("/api/watchlist") and method in {"POST", "PUT", "DELETE"})
+    )
+
+
+async def _record_audit(request: Request, status_code: int) -> None:
+    try:
+        from app.database import get_db
+
+        async with get_db() as conn:
+            await conn.execute(
+                """INSERT INTO security_audit (
+                       occurred_at, client_address, method, path, status_code, user_agent
+                   ) VALUES (datetime('now'), ?, ?, ?, ?, ?)""",
+                (
+                    _client_key(request)[:128],
+                    request.method.upper()[:10],
+                    request.url.path[:512],
+                    status_code,
+                    request.headers.get("user-agent", "")[:256],
+                ),
+            )
+            await conn.execute(
+                """DELETE FROM security_audit WHERE id NOT IN (
+                       SELECT id FROM security_audit ORDER BY id DESC LIMIT 5000
+                   )"""
+            )
+            await conn.commit()
+    except Exception:
+        # Auditing must never disclose request data or take the service down.
+        return
 
 
 async def security_middleware(request: Request, call_next):
@@ -163,16 +221,23 @@ async def security_middleware(request: Request, call_next):
             )
 
     response = await call_next(request)
+    if _is_audited_operation(request):
+        await _record_audit(request, response.status_code)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; base-uri 'none'; object-src 'none'; "
         "frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; "
         "connect-src 'self'; script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'"
     )
-    if request.url.path.startswith("/api/admin/"):
+    if request.url.path.startswith(("/api/admin/", "/api/watchlist", "/api/leak-check/", "/api/artifact/")):
         response.headers["Cache-Control"] = "no-store"
     return response

@@ -8,6 +8,8 @@ import json
 import os
 import re
 import shutil
+import ssl
+import stat
 import subprocess
 import tempfile
 import time
@@ -16,6 +18,7 @@ from pathlib import Path
 
 FQDN_RE = re.compile(r"^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])$", re.I)
 REQUEST_ID_RE = re.compile(r"^[a-f0-9]{32}$")
+MAX_PEM_BYTES = 32 * 1024
 
 
 def utc_now() -> str:
@@ -92,12 +95,73 @@ server {{
 """
 
 
-def safe_request_path(value: str, control_dir: Path) -> Path:
-    path = Path(value).resolve()
-    uploads = (control_dir / "uploads").resolve()
-    if uploads not in path.parents:
-        raise ValueError("Certificate request path is outside the TLS control directory")
-    return path
+def read_untrusted_regular_file(
+    path: Path, max_bytes: int = MAX_PEM_BYTES, *, directory_fd: int | None = None
+) -> bytes:
+    """Read an application-owned file without following its final filesystem link."""
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, dir_fd=directory_fd)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > max_bytes:
+            raise ValueError("TLS upload is not a bounded regular file")
+        payload = os.read(descriptor, max_bytes + 1)
+        if len(payload) > max_bytes:
+            raise ValueError("TLS upload exceeded the safety limit")
+        return payload
+    finally:
+        os.close(descriptor)
+
+
+def read_untrusted_upload(request_dir: Path, filename: str) -> bytes:
+    """Reject a symlinked upload directory as well as symlinked PEM files."""
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_DIRECTORY", 0)
+    )
+    directory_fd = os.open(request_dir, directory_flags)
+    try:
+        metadata = os.fstat(directory_fd)
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise ValueError("TLS upload location is not a regular directory")
+        return read_untrusted_regular_file(Path(filename), directory_fd=directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def read_request(path: Path, max_bytes: int = 16 * 1024) -> dict:
+    payload = read_untrusted_regular_file(path, max_bytes=max_bytes)
+    request = json.loads(payload.decode("utf-8"))
+    if not isinstance(request, dict):
+        raise ValueError("TLS request must be a JSON object")
+    return request
+
+
+def certificate_matches_hostname(decoded: dict, fqdn: str) -> bool:
+    names = [
+        value.lower().rstrip(".")
+        for kind, value in decoded.get("subjectAltName", ())
+        if kind == "DNS"
+    ]
+    if not names:
+        names = [
+            value.lower().rstrip(".")
+            for group in decoded.get("subject", ())
+            for key, value in group
+            if key == "commonName"
+        ]
+    hostname = fqdn.lower().rstrip(".")
+    return any(
+        pattern == hostname
+        or (
+            pattern.startswith("*.")
+            and hostname.endswith(pattern[1:])
+            and hostname.count(".") == pattern.count(".")
+        )
+        for pattern in names
+    )
 
 
 def validate_request(request: dict, upstream_port: int) -> None:
@@ -126,13 +190,17 @@ def apply_request(control_dir: Path, nginx_path: Path, cert_dir: Path, request: 
     status = {**request, "certificate_path": None, "private_key_path": None, "state": "applying", "configured": False, "updated_at": utc_now()}
     atomic_json(status_path, status)
     try:
-        source_cert = safe_request_path(request["certificate_path"], control_dir)
-        source_key = safe_request_path(request["private_key_path"], control_dir)
+        request_dir = control_dir / "inbox" / "uploads" / request["request_id"]
+        certificate = read_untrusted_upload(request_dir, "fullchain.pem")
+        private_key = read_untrusted_upload(request_dir, "private.key")
         cert_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_cert, cert_dir / "fullchain.pem")
-        shutil.copyfile(source_key, cert_dir / "private.key")
-        os.chmod(cert_dir / "fullchain.pem", 0o600)
-        os.chmod(cert_dir / "private.key", 0o600)
+        atomic_write(cert_dir / "fullchain.pem", certificate.decode("ascii"), 0o600)
+        atomic_write(cert_dir / "private.key", private_key.decode("ascii"), 0o600)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(cert_dir / "fullchain.pem", cert_dir / "private.key")
+        decoded = ssl._ssl._test_decode_cert(str(cert_dir / "fullchain.pem"))  # type: ignore[attr-defined]
+        if not certificate_matches_hostname(decoded, request["fqdn"]):
+            raise ValueError("Certificate does not match the requested hostname")
         atomic_write(nginx_path, nginx_config(request, cert_dir / "fullchain.pem", cert_dir / "private.key"), 0o644)
         run(["nginx", "-t"])
         run(["systemctl", "reload", "nginx"])
@@ -177,19 +245,19 @@ def main() -> int:
     parser.add_argument("--upstream-port", type=int, default=9220)
     args = parser.parse_args()
     control_dir = Path(args.control_dir)
-    request_path = control_dir / "request.json"
+    request_path = control_dir / "inbox" / "request.json"
     processed = None
     while True:
         try:
             if request_path.is_file():
-                request = json.loads(request_path.read_text(encoding="utf-8"))
+                request = read_request(request_path)
                 request_id = request.get("request_id")
                 if request_id and request_id != processed:
                     validate_request(request, args.upstream_port)
                     apply_request(control_dir, Path(args.nginx_config), Path(args.certificate_dir), request)
                     processed = request_id
                     request_path.unlink(missing_ok=True)
-                    request_dir = control_dir / "uploads" / request_id
+                    request_dir = control_dir / "inbox" / "uploads" / request_id
                     if REQUEST_ID_RE.fullmatch(str(request_id)):
                         shutil.rmtree(request_dir, ignore_errors=True)
         except Exception as exc:

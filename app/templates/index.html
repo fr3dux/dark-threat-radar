@@ -24,8 +24,9 @@
           <span class="mono font-bold" id="update-pill-text">CHECKING UPDATES</span>
         </button>
 
-        <!-- Interactive API Documentation -->
+        {% if enable_api_docs %}
         <a href="/docs" target="_blank" class="nav-link-docs mono" title="Interactive REST API Documentation (Swagger/OpenAPI)">API DOCS</a>
+        {% endif %}
       </div>
     </div>
   </header>
@@ -1048,7 +1049,10 @@
             </div>
 
             <div class="source-transparency-note" style="margin-top: 10px; margin-bottom: 14px;">
-              <span class="mono text-muted" style="font-size: 11px;">🔍 <strong>Data Source:</strong> XposedOrNot Community Breach Intelligence (Open Data).</span>
+              <label class="mono text-muted" style="font-size: 11px; display: flex; gap: 8px; align-items: flex-start;">
+                <input type="checkbox" id="leak-email-consent">
+                <span>I understand that the full email address will be sent to XposedOrNot for this lookup. It is not stored by Dark Threat Radar.</span>
+              </label>
             </div>
 
             <!-- Results Container -->
@@ -1067,7 +1071,7 @@
           </div>
           <div class="dash-card-body">
             <p class="text-muted" style="font-size: 12px; margin-bottom: 12px;">
-              Validate whether a password has been compromised in global dumps. In compliance with <strong>NIST SP 800-63B</strong>, your password is <strong>never transmitted in cleartext</strong> (only the first 5 characters of the SHA-1 hash are queried).
+              Validate whether a password has been compromised in global dumps. Your password and complete hash remain in this browser; only the first 5 characters of the SHA-1 hash are sent for the K-Anonymity query.
             </p>
 
             <div class="leak-input-group">
@@ -1560,7 +1564,7 @@
   <!-- Application Footer -->
   <footer class="app-footer">
     <div class="footer-content">
-      <span>Dark Threat Radar v{{ version }} // SOC Engine // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a></span>
+      <span>Dark Threat Radar v{{ version }} // SOC Engine{% if enable_api_docs %} // <a href="/docs" target="_blank" class="footer-link">API Docs (/docs)</a>{% endif %}</span>
     </div>
   </footer>
 

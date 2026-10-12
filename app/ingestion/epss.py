@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, timezone
 import httpx
+
+from app.http_security import safe_get
 from app.database import get_db, update_feed_status
 
 logger = logging.getLogger("ingestion.epss")
@@ -41,7 +43,10 @@ async def ingest_epss(batch_size: int = 80) -> int:
                 batch = cve_ids[i:i + batch_size]
                 cve_param = ",".join(batch)
                 try:
-                    resp = await client.get(EPSS_API_URL, params={"cve": cve_param})
+                    resp = await safe_get(
+                        client, EPSS_API_URL, allowed_hosts={"api.first.org"},
+                        max_bytes=10 * 1024 * 1024, params={"cve": cve_param},
+                    )
                     if resp.status_code == 200:
                         data = resp.json()
                         epss_items = data.get("data", [])

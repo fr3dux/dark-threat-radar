@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import update_connector_health
 from app.ingestion.common import IOCRecord, upsert_ioc_records
 from app.ingestion.normalization import TYPE_IPV4
@@ -17,8 +19,12 @@ FEED_URL = "https://lists.blocklist.de/lists/all.txt"
 async def ingest_blocklist_de() -> int:
     started = time.time()
     try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            response = await client.get(FEED_URL, headers={"User-Agent": "DarkThreatRadar/1.10"})
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await safe_get(
+                client, FEED_URL, allowed_hosts={"lists.blocklist.de"},
+                max_bytes=10 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.10"},
+            )
             response.raise_for_status()
         now = datetime.now(timezone.utc)
         expires = (now + timedelta(hours=49)).isoformat()

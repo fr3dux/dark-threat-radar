@@ -19,6 +19,10 @@ let appSettings = {
   locale: document.body.dataset.locale || 'en'
 };
 
+function watchlistReadHeaders() {
+  return integrationAdminToken ? { 'X-Admin-Token': integrationAdminToken } : {};
+}
+
 const messageCatalogs = Object.freeze({
   en: {
     admin_required: 'Administrative authentication is required.',
@@ -1094,7 +1098,10 @@ async function openArtifact(type, identifier) {
   overlay.classList.add('open');
 
   try {
-    const res = await fetch(`/api/artifact/${type}/${encodeURIComponent(identifier)}`);
+    const res = await fetch(`/api/artifact/${type}/${encodeURIComponent(identifier)}`, {
+      cache: 'no-store',
+      headers: watchlistReadHeaders()
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const result = await res.json();
     const d = result.data;
@@ -2052,11 +2059,16 @@ async function runEmailLeakCheck() {
   const input = document.getElementById('leak-email-input');
   const btn = document.getElementById('btn-check-email');
   const resultsBox = document.getElementById('leak-email-results');
+  const consent = document.getElementById('leak-email-consent');
   if (!input || !btn || !resultsBox) return;
 
   const email = input.value.trim();
   if (!email || !email.includes('@')) {
     alert('Please enter a valid email address.');
+    return;
+  }
+  if (!consent?.checked) {
+    alert('Confirm the external lookup before sending this email address to XposedOrNot.');
     return;
   }
 
@@ -2069,7 +2081,7 @@ async function runEmailLeakCheck() {
     const res = await fetch('/api/leak-check/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email, consent: true })
     });
     const data = await res.json();
 
@@ -2122,21 +2134,24 @@ async function runPasswordLeakCheck() {
 
   try {
     const sha1 = await sha1Hex(password);
+    const suffix = sha1.slice(5);
     input.value = '';
     const res = await fetch('/api/leak-check/password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sha1_prefix: sha1.slice(0, 5), sha1_suffix: sha1.slice(5) })
+      body: JSON.stringify({ sha1_prefix: sha1.slice(0, 5) })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    const count = Number(data.suffixes?.[suffix]) || 0;
+    const exposed = count > 0;
 
-    if (data.exposed) {
+    if (exposed) {
       resultsBox.innerHTML = `
         <div class="leak-status-banner compromised">
           <div class="leak-status-title">☠️ PASSWORD COMPROMISED IN LEAKS!</div>
           <div class="leak-status-desc">
-            This password appeared exactly <strong>${data.count.toLocaleString('en-US')} times</strong> in global data breach dumps (Have I Been Pwned).
+            This password appeared exactly <strong>${count.toLocaleString('en-US')} times</strong> in global data breach dumps (Have I Been Pwned).
             <div style="margin-top: 6px; color: #ff7b72; font-weight: bold;">
               ⛔ NEVER use this password in production or personal accounts.
             </div>
@@ -2191,9 +2206,14 @@ function splitWatchlistCsv(value) {
 }
 
 function watchlistCountsFor(item) {
-  const exposure = (watchlistData.exposure_alerts || []).filter(alertItem =>
-    !Boolean(alertItem.acknowledged) && splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(item.id)
+  const exposureMatches = (watchlistData.exposure_alerts || []).filter(alertItem =>
+    splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(item.id)
+  );
+  const exposure = exposureMatches.length;
+  const unacknowledgedExposure = exposureMatches.filter(alertItem =>
+    !Boolean(alertItem.acknowledged)
   ).length;
+  const acknowledgedExposure = exposure - unacknowledgedExposure;
   const vulnerabilityMatches = (watchlistData.active_alerts || []).filter(alertItem =>
     alertItem.matched_watchlist_item?.id === item.id
   );
@@ -2201,17 +2221,32 @@ function watchlistCountsFor(item) {
   const critical = vulnerabilityMatches.filter(alertItem =>
     Number(alertItem.cvss_score) >= 9 || String(alertItem.cvss_severity || '').toUpperCase() === 'CRITICAL'
   ).length;
-  return { exposure, vulnerability, critical, total: exposure + vulnerability };
+  return {
+    exposure,
+    unacknowledgedExposure,
+    acknowledgedExposure,
+    vulnerability,
+    critical,
+    total: exposure + vulnerability
+  };
 }
 
 function watchlistVisualState(item) {
   const counts = watchlistCountsFor(item);
+  if (counts.unacknowledgedExposure) {
+    return {
+      counts,
+      state: 'danger',
+      status: `${counts.unacknowledgedExposure} ${counts.unacknowledgedExposure === 1 ? 'ALERT' : 'ALERTS'}`,
+      description: `${counts.unacknowledgedExposure} active public exposure ${counts.unacknowledgedExposure === 1 ? 'alert' : 'alerts'}`
+    };
+  }
   if (counts.exposure) {
     return {
       counts,
       state: 'danger',
-      status: `${counts.exposure} ${counts.exposure === 1 ? 'ALERT' : 'ALERTS'}`,
-      description: `${counts.exposure} active public exposure ${counts.exposure === 1 ? 'alert' : 'alerts'}`
+      status: `${counts.exposure} ${counts.exposure === 1 ? 'EXPOSURE' : 'EXPOSURES'}`,
+      description: `${counts.exposure} acknowledged public exposure ${counts.exposure === 1 ? 'record' : 'records'}`
     };
   }
   if (counts.critical) {
@@ -2312,28 +2347,29 @@ function centerSideBySideHoneycombs(layouts) {
 
 function renderWatchlistHoneycombs() {
   const allItems = watchlistData.watchlist || [];
-  const cveItems = allItems.filter(item =>
-    item.item_type === 'cve' || watchlistCountsFor(item).vulnerability > 0
-  );
-  const otherItems = allItems.filter(item => !cveItems.includes(item));
+  const entityItems = allItems.filter(item => watchlistCategory(item.item_type) === 'organization');
+  const technologyItems = allItems.filter(item => watchlistCategory(item.item_type) === 'technology');
   const interestLayout = renderWatchlistHoneycombGroup(
     'wl-honeycomb-interests',
-    otherItems,
+    entityItems,
     'wl-honeycomb-interests',
-    'ADD AN INTEREST TO START YOUR VISUAL MONITORING MAP'
+    'NO ENTITY-RELATED WATCHLIST ITEMS FOUND'
   );
   const cveLayout = renderWatchlistHoneycombGroup(
     'wl-honeycomb-cves',
-    cveItems,
+    technologyItems,
     'wl-honeycomb-cves',
-    'NO CVE-RELATED WATCHLIST ITEMS FOUND'
+    'NO TECHNOLOGY OR CVE WATCHLIST ITEMS FOUND'
   );
   centerSideBySideHoneycombs([interestLayout, cveLayout]);
 }
 
 async function loadWatchlist() {
   try {
-    const response = await fetch('/api/watchlist', { cache: 'no-store' });
+    const response = await fetch('/api/watchlist', {
+      cache: 'no-store',
+      headers: watchlistReadHeaders()
+    });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     watchlistData = await response.json();
 
@@ -2361,7 +2397,7 @@ async function loadWatchlist() {
   } catch (error) {
     console.error('Error loading watchlist:', error);
     const signals = document.getElementById('wl-signal-list');
-    if (signals) signals.innerHTML = '<div class="wl-empty-state"><strong>WATCHLIST UNAVAILABLE</strong><span>Could not load personalized intelligence.</span></div>';
+    if (signals) signals.innerHTML = '<div class="wl-empty-state"><strong>WATCHLIST LOCKED</strong><span>Unlock administrative access in Settings to load personalized intelligence.</span></div>';
   }
 }
 
@@ -2677,7 +2713,10 @@ function showWatchlistNotification(newMatches) {
 
 async function pollWatchlistAlerts() {
   try {
-    const response = await fetch('/api/watchlist/summary', { cache: 'no-store' });
+    const response = await fetch('/api/watchlist/summary', {
+      cache: 'no-store',
+      headers: watchlistReadHeaders()
+    });
     if (!response.ok) return;
     const data = await response.json();
     const total = Number(data.total_unacknowledged_alerts) || 0;
@@ -2845,6 +2884,7 @@ async function verifyIntegrationAccess() {
     await loadIntegrationSettings();
     await loadPublicSettings();
     await loadTlsSettings();
+    await loadWatchlist();
     ['settings-timezone', 'settings-locale', 'settings-save-general'].forEach(id => {
       const control = document.getElementById(id);
       if (control) control.disabled = false;

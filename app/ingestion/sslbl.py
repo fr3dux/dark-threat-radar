@@ -5,6 +5,8 @@ Uses recommended low-risk feeds only (excludes aggressive list).
 
 import csv
 import httpx
+
+from app.http_security import safe_get
 import logging
 import time
 from io import StringIO
@@ -49,9 +51,13 @@ async def ingest_sslbl() -> int:
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             # 1. Ingest SSL C2 IP Blacklist
-            resp_ip = await client.get(SSL_IP_CSV_URL, headers={"User-Agent": "DarkThreatRadar/1.8.0"})
+            resp_ip = await safe_get(
+                client, SSL_IP_CSV_URL, allowed_hosts={"sslbl.abuse.ch"},
+                max_bytes=10 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.8.0"},
+            )
             resp_ip.raise_for_status()
             if resp_ip.status_code == 200:
                 lines = [line for line in resp_ip.text.splitlines() if line and not line.startswith("#")]
@@ -103,7 +109,11 @@ async def ingest_sslbl() -> int:
                     await conn.commit()
 
             # 2. Ingest SSL Cert Fingerprints (SHA1)
-            resp_cert = await client.get(SSL_CERT_CSV_URL, headers={"User-Agent": "DarkThreatRadar/1.8.0"})
+            resp_cert = await safe_get(
+                client, SSL_CERT_CSV_URL, allowed_hosts={"sslbl.abuse.ch"},
+                max_bytes=10 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.8.0"},
+            )
             resp_cert.raise_for_status()
             if resp_cert.status_code == 200:
                 lines = [line for line in resp_cert.text.splitlines() if line and not line.startswith("#")]
@@ -152,7 +162,11 @@ async def ingest_sslbl() -> int:
                     await conn.commit()
 
             # 3. Ingest JA3 Fingerprints (capped lower confidence)
-            resp_ja3 = await client.get(JA3_CSV_URL, headers={"User-Agent": "DarkThreatRadar/1.8.0"})
+            resp_ja3 = await safe_get(
+                client, JA3_CSV_URL, allowed_hosts={"sslbl.abuse.ch"},
+                max_bytes=10 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.8.0"},
+            )
             resp_ja3.raise_for_status()
             if resp_ja3.status_code == 200:
                 lines = [line for line in resp_ja3.text.splitlines() if line and not line.startswith("#")]

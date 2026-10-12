@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import update_connector_health
 from app.ingestion.common import IOCRecord, upsert_ioc_records
 from app.ingestion.normalization import (
@@ -35,9 +37,11 @@ def _event_attributes(event: dict) -> list[dict]:
 async def ingest_circl_misp() -> int:
     started = time.time()
     try:
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            manifest_response = await client.get(
-                f"{FEED_URL}manifest.json", headers={"User-Agent": "DarkThreatRadar/1.10"}
+        async with httpx.AsyncClient(timeout=45) as client:
+            manifest_response = await safe_get(
+                client, f"{FEED_URL}manifest.json", allowed_hosts={"www.circl.lu"},
+                max_bytes=5 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.10"},
             )
             manifest_response.raise_for_status()
             manifest = manifest_response.json()
@@ -50,8 +54,11 @@ async def ingest_circl_misp() -> int:
             )[:10]
 
             async def fetch_event(event_id: str) -> dict | None:
-                response = await client.get(f"{FEED_URL}{event_id}.json")
-                if response.status_code != 200 or len(response.content) > 5_000_000:
+                response = await safe_get(
+                    client, f"{FEED_URL}{event_id}.json", allowed_hosts={"www.circl.lu"},
+                    max_bytes=5 * 1024 * 1024,
+                )
+                if response.status_code != 200:
                     return None
                 return response.json()
 

@@ -15,7 +15,15 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import HOST, PORT, BASE_DIR, SETTINGS_ADMIN_TOKEN
+from app.config import (
+    HOST,
+    PORT,
+    BASE_DIR,
+    SETTINGS_ADMIN_TOKEN,
+    WATCHLIST_PUBLIC_READ,
+    ALLOW_INSECURE_SENSITIVE_TRANSPORT,
+    ENABLE_API_DOCS,
+)
 from app.credential_store import (
     delete_provider_secret,
     openphish_is_enabled,
@@ -46,6 +54,7 @@ from app.schemas import (
     WatchlistAlertAcknowledge,
 )
 from app.security import RequestBodyLimitMiddleware, security_middleware
+from app.http_security import safe_get
 from app.database import (
     init_db,
     get_db,
@@ -166,7 +175,10 @@ app = FastAPI(
     title=f"{__app_name__} CTI Engine",
     description=__description__,
     version=__version__,
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
 )
 
 app.add_middleware(RequestBodyLimitMiddleware)
@@ -182,9 +194,13 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    safe_errors = [
+        {key: value for key, value in error.items() if key not in {"input", "ctx"}}
+        for error in exc.errors()
+    ]
     return JSONResponse(
         status_code=422,
-        content={"error": "Validation Error", "detail": exc.errors(), "status_code": 422}
+        content={"error": "Validation Error", "detail": safe_errors, "status_code": 422}
     )
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
@@ -192,14 +208,54 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 admin_token_header = APIKeyHeader(name="X-Admin-Token", auto_error=False)
 
 
+def _is_settings_admin(admin_token: Optional[str]) -> bool:
+    return bool(
+        SETTINGS_ADMIN_TOKEN
+        and admin_token
+        and secrets.compare_digest(admin_token, SETTINGS_ADMIN_TOKEN)
+    )
+
+
+def _public_record(row) -> dict:
+    """Remove provider payloads retained for local correlation from public APIs."""
+    record = dict(row)
+    record.pop("raw_json", None)
+    record.pop("raw_metadata", None)
+    return record
+
+
+def _is_secure_or_local(request: Request) -> bool:
+    client_host = request.client.host if request.client else ""
+    return (
+        request.url.scheme == "https"
+        or client_host in {"127.0.0.1", "::1", "localhost", "testclient"}
+        or ALLOW_INSECURE_SENSITIVE_TRANSPORT
+    )
+
+
 def require_settings_admin(
+    request: Request,
     admin_token: Optional[str] = Security(admin_token_header),
 ) -> None:
     """Protect state-changing endpoints on an otherwise public CTI portal."""
+    if not _is_secure_or_local(request):
+        raise HTTPException(
+            status_code=426,
+            detail="Administrative access requires HTTPS or a local connection",
+        )
     if not SETTINGS_ADMIN_TOKEN:
         raise HTTPException(status_code=503, detail="Administration is not enabled on this server")
-    if not admin_token or not secrets.compare_digest(admin_token, SETTINGS_ADMIN_TOKEN):
+    if not _is_settings_admin(admin_token):
         raise HTTPException(status_code=401, detail="Invalid administrative access code")
+
+
+def require_watchlist_read(
+    request: Request,
+    admin_token: Optional[str] = Security(admin_token_header),
+) -> None:
+    if WATCHLIST_PUBLIC_READ:
+        return
+    require_settings_admin(request, admin_token)
 
 
 # ==================== PAGE ROUTES ====================
@@ -221,7 +277,8 @@ async def index_page(request: Request):
             "feed_statuses": feed_statuses,
             "connectors": connectors,
             "app_settings": app_settings,
-            "sync_state": sync_state
+            "sync_state": sync_state,
+            "enable_api_docs": ENABLE_API_DOCS,
         }
     )
 
@@ -236,9 +293,13 @@ async def api_version():
 
 @app.get("/api/update/status", tags=["System"])
 async def api_update_status(
+    request: Request,
     force: bool = Query(False, description="Bypass the in-memory release cache"),
+    admin_token: Optional[str] = Security(admin_token_header),
 ):
     """Check the fixed official repository for a newer stable release."""
+    if force:
+        require_settings_admin(request, admin_token)
     return await get_update_status(force=force)
 
 
@@ -574,7 +635,7 @@ async def api_iocs(
             ioc_select_query,
             [*params, limit, offset],
         )
-        items = [dict(row) for row in await cursor.fetchall()]
+        items = [_public_record(row) for row in await cursor.fetchall()]
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
@@ -602,7 +663,7 @@ async def api_attack_knowledge(
             query + " ORDER BY object_type, name LIMIT ? OFFSET ?",
             [*params, limit, offset],
         )
-        items = [dict(row) for row in await cursor.fetchall()]
+        items = [_public_record(row) for row in await cursor.fetchall()]
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
@@ -640,17 +701,17 @@ async def api_vendor_advisories(
             advisory_query,
             [*params, limit, offset],
         )
-        items = [dict(row) for row in await cursor.fetchall()]
+        items = [_public_record(row) for row in await cursor.fetchall()]
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
 @app.get("/api/cves", response_model=CVEListResponse, tags=["Vulnerabilities"])
 async def api_cves(
-    q: Optional[str] = Query(None, description="Search keyword"),
-    source: Optional[str] = Query(None, description="cisa_kev or nvd"),
-    ransomware: Optional[str] = Query(None, description="Known or Unknown"),
+    q: Optional[str] = Query(None, max_length=300, description="Search keyword"),
+    source: Optional[str] = Query(None, max_length=40, description="cisa_kev or nvd"),
+    ransomware: Optional[str] = Query(None, max_length=20, description="Known or Unknown"),
     min_cvss: Optional[float] = Query(None, description="Minimum CVSS score"),
-    severity: Optional[str] = Query(None, description="CRITICAL, HIGH, etc."),
+    severity: Optional[str] = Query(None, max_length=20, description="CRITICAL, HIGH, etc."),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0)
 ):
@@ -692,16 +753,16 @@ async def api_cves(
 
         cur = await conn.execute(query, params)
         rows = await cur.fetchall()
-        items = [dict(r) for r in rows]
+        items = [_public_record(r) for r in rows]
 
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
 @app.get("/api/malware", response_model=MalwareListResponse, tags=["Malware"])
 async def api_malware(
-    q: Optional[str] = Query(None, description="Search hash, signature, filename"),
-    file_type: Optional[str] = Query(None, description="File type filter"),
-    signature: Optional[str] = Query(None, description="Signature filter"),
+    q: Optional[str] = Query(None, max_length=300, description="Search hash, signature, filename"),
+    file_type: Optional[str] = Query(None, max_length=40, description="File type filter"),
+    signature: Optional[str] = Query(None, max_length=100, description="Signature filter"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0)
 ):
@@ -733,7 +794,7 @@ async def api_malware(
 
         cur = await conn.execute(query, params)
         rows = await cur.fetchall()
-        items = [dict(r) for r in rows]
+        items = [_public_record(r) for r in rows]
 
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
@@ -742,9 +803,9 @@ async def api_malware(
 async def api_dshield():
     """SANS Internet Storm Center DShield telemetry (Infocon, attackers, targeted ports)."""
     async with get_db() as conn:
-        cur = await conn.execute("SELECT status, updated_at, raw_json FROM dshield_infocon WHERE id = 1;")
+        cur = await conn.execute("SELECT status, updated_at FROM dshield_infocon WHERE id = 1;")
         infocon_row = await cur.fetchone()
-        infocon = dict(infocon_row) if infocon_row else {"status": "unknown", "updated_at": None, "raw_json": None}
+        infocon = dict(infocon_row) if infocon_row else {"status": "unknown", "updated_at": None}
 
         cur = await conn.execute("SELECT * FROM dshield_sources ORDER BY attacks DESC LIMIT 50;")
         sources = [dict(r) for r in await cur.fetchall()]
@@ -761,8 +822,8 @@ async def api_dshield():
 
 @app.get("/api/news", response_model=NewsListResponse, tags=["Intel"])
 async def api_news(
-    q: Optional[str] = Query(None, description="Search title or snippet"),
-    source: Optional[str] = Query(None, description="Source filter"),
+    q: Optional[str] = Query(None, max_length=300, description="Search title or snippet"),
+    source: Optional[str] = Query(None, max_length=100, description="Source filter"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0)
 ):
@@ -793,18 +854,19 @@ async def api_news(
 
         cur = await conn.execute(query, params)
         rows = await cur.fetchall()
-        items = [dict(r) for r in rows]
+        items = [_public_record(r) for r in rows]
 
     return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
 @app.get("/api/ransomware", response_model=RansomwareListResponse, tags=["Ransomware"])
 async def api_ransomware(
-    q: Optional[str] = Query(None, description="Search victim, group, domain, incident details, or country"),
-    group: Optional[str] = Query("all", description="Filter by threat actor group"),
-    country: Optional[str] = Query("all", description="Filter by country code (e.g. BR)"),
+    q: Optional[str] = Query(None, max_length=300, description="Search victim, group, domain, incident details, or country"),
+    group: Optional[str] = Query("all", max_length=100, description="Filter by threat actor group"),
+    country: Optional[str] = Query("all", max_length=80, description="Filter by country code (e.g. BR)"),
     limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    admin_token: Optional[str] = Security(admin_token_header),
 ):
     query = "SELECT * FROM ransomware_victims WHERE 1=1"
     params = []
@@ -837,13 +899,15 @@ async def api_ransomware(
         row = await cur.fetchone()
         total = row["count"] if row else 0
 
-        watched_country_cur = await conn.execute(
-            "SELECT value FROM watchlist WHERE item_type = 'country'"
-        )
-        watched_country_codes = {
-            code for watched_row in await watched_country_cur.fetchall()
-            if (code := _country_code_for_value(watched_row["value"]))
-        }
+        watched_country_codes = set()
+        if WATCHLIST_PUBLIC_READ or _is_settings_admin(admin_token):
+            watched_country_cur = await conn.execute(
+                "SELECT value FROM watchlist WHERE item_type = 'country'"
+            )
+            watched_country_codes = {
+                code for watched_row in await watched_country_cur.fetchall()
+                if (code := _country_code_for_value(watched_row["value"]))
+            }
 
         cur_br = await conn.execute("SELECT COUNT(*) as count FROM ransomware_victims WHERE UPPER(country) = 'BR' OR UPPER(country) = 'BRAZIL';")
         row_br = await cur_br.fetchone()
@@ -856,7 +920,7 @@ async def api_ransomware(
         rows = await cur.fetchall()
         items = []
         for ransomware_row in rows:
-            item = dict(ransomware_row)
+            item = _public_record(ransomware_row)
             item["country_watched"] = _country_code_for_value(item.get("country")) in watched_country_codes
             items.append(item)
 
@@ -966,35 +1030,34 @@ async def api_live_attacks():
 async def api_leak_check_password(req: PasswordLeakCheckRequest):
     """Check password exposure using Troy Hunt / Cloudflare K-Anonymity protocol."""
     prefix = req.sha1_prefix.upper()
-    suffix = req.sha1_suffix.upper()
-
     url = f"https://api.pwnedpasswords.com/range/{prefix}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            res = await client.get(url, headers={"User-Agent": "DarkThreatRadar-CTI/1.6"})
+            res = await safe_get(
+                client, url, allowed_hosts={"api.pwnedpasswords.com"},
+                max_bytes=2 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar-CTI/1.6"},
+            )
             if res.status_code == 200:
-                count = 0
+                suffixes = {}
                 for line in res.text.splitlines():
                     parts = line.strip().split(":")
-                    if len(parts) == 2 and parts[0] == suffix:
-                        count = int(parts[1])
-                        break
+                    if len(parts) == 2 and len(parts[0]) == 35:
+                        suffixes[parts[0]] = int(parts[1])
                 return {
                     "status": "success",
-                    "exposed": count > 0,
-                    "count": count,
                     "sha1_prefix": prefix,
+                    "suffixes": suffixes,
                     "source": "Have I Been Pwned / Cloudflare K-Anonymity Engine"
                 }
-        except Exception as e:
-            logger.error(f"Error checking password leak: {e}")
+        except Exception:
+            logger.exception("Password range lookup failed")
             raise HTTPException(status_code=502, detail="Error querying K-Anonymity service")
 
     return {
         "status": "success",
-        "exposed": False,
-        "count": 0,
         "sha1_prefix": prefix,
+        "suffixes": {},
         "source": "Have I Been Pwned / Cloudflare K-Anonymity Engine"
     }
 
@@ -1009,7 +1072,11 @@ async def api_leak_check_email(req: EmailLeakCheckRequest):
     url = f"https://api.xposedornot.com/v1/check-email/{quote(email, safe='')}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            res = await client.get(url, headers={"User-Agent": "DarkThreatRadar-CTI/1.6"})
+            res = await safe_get(
+                client, url, allowed_hosts={"api.xposedornot.com"},
+                max_bytes=2 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar-CTI/1.6"},
+            )
             if res.status_code == 200:
                 data = res.json()
                 breaches = []
@@ -1032,8 +1099,8 @@ async def api_leak_check_email(req: EmailLeakCheckRequest):
                     "email": email,
                     "source": "XposedOrNot Community Breach Intelligence"
                 }
-        except Exception as e:
-            logger.error(f"Error checking email leak: {e}")
+        except Exception:
+            logger.error("External email breach lookup failed")
             raise HTTPException(status_code=502, detail="Error querying breach database")
 
     return {
@@ -1051,7 +1118,7 @@ async def api_leak_check_email(req: EmailLeakCheckRequest):
 # ==================== WATCHLIST & REMEDIATION (v1.7.0) ====================
 
 @app.get("/api/watchlist", tags=["Watchlist"])
-async def api_get_watchlist():
+async def api_get_watchlist(_read: None = Security(require_watchlist_read)):
     """Get monitored assets, vulnerability matches, and public exposure alerts."""
     import aiosqlite
     from app.database import get_db
@@ -1211,7 +1278,7 @@ async def api_get_watchlist():
 
 
 @app.get("/api/watchlist/summary", tags=["Watchlist"])
-async def api_watchlist_summary():
+async def api_watchlist_summary(_read: None = Security(require_watchlist_read)):
     """Return lightweight counts for automatic Watchlist alert signaling."""
     async with get_db() as conn:
         row = await (await conn.execute(
@@ -1326,20 +1393,37 @@ async def api_delete_watchlist(
     responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     tags=["Artifacts"]
 )
-async def api_artifact(artifact_type: str, identifier: str):
+async def api_artifact(
+    request: Request,
+    artifact_type: str,
+    identifier: str,
+    admin_token: Optional[str] = Security(admin_token_header),
+):
     """Deep inspection artifact retriever for CVEs, hashes, IPs, ports, and news."""
+    if artifact_type not in {"cve", "malware", "ip", "port", "ransomware", "news", "ioc", "attack", "advisory"}:
+        raise HTTPException(status_code=400, detail="Unknown artifact type")
+    if not identifier or len(identifier) > 500 or any(ord(char) < 32 for char in identifier):
+        raise HTTPException(status_code=422, detail="Invalid artifact identifier")
+    include_raw = _is_secure_or_local(request) and _is_settings_admin(admin_token)
+
+    def prepare_artifact(row) -> dict:
+        data = dict(row)
+        raw_value = data.pop("raw_json", None)
+        data.pop("raw_metadata", None)
+        if include_raw and raw_value:
+            try:
+                data["parsed_raw"] = json.loads(raw_value)
+            except (TypeError, json.JSONDecodeError):
+                data["parsed_raw"] = str(raw_value)[:100_000]
+        return data
+
     async with get_db() as conn:
         if artifact_type == "cve":
             cur = await conn.execute("SELECT * FROM cve_records WHERE cve_id = ?;", (identifier,))
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"CVE {identifier} not found")
-            data = dict(row)
-            if data.get("raw_json"):
-                try:
-                    data["parsed_raw"] = json.loads(data["raw_json"])
-                except Exception:
-                    data["parsed_raw"] = data["raw_json"]
+            data = prepare_artifact(row)
             return {"type": "cve", "identifier": identifier, "data": data}
 
         elif artifact_type == "malware":
@@ -1350,12 +1434,7 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"Malware sample {identifier} not found")
-            data = dict(row)
-            if data.get("raw_json"):
-                try:
-                    data["parsed_raw"] = json.loads(data["raw_json"])
-                except Exception:
-                    data["parsed_raw"] = data["raw_json"]
+            data = prepare_artifact(row)
             return {"type": "malware", "identifier": identifier, "data": data}
 
         elif artifact_type == "ip":
@@ -1363,7 +1442,7 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"Source IP {identifier} not found")
-            data = dict(row)
+            data = prepare_artifact(row)
             return {"type": "ip", "identifier": identifier, "data": data}
 
         elif artifact_type == "port":
@@ -1375,7 +1454,7 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"Port {identifier} not found")
-            data = dict(row)
+            data = prepare_artifact(row)
             return {"type": "port", "identifier": identifier, "data": data}
 
         elif artifact_type == "ransomware":
@@ -1383,12 +1462,7 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"Ransomware victim '{identifier}' not found")
-            data = dict(row)
-            if data.get("raw_json"):
-                try:
-                    data["parsed_raw"] = json.loads(data["raw_json"])
-                except Exception:
-                    data["parsed_raw"] = data["raw_json"]
+            data = prepare_artifact(row)
             sources = await (await conn.execute(
                 """SELECT source_name, source_record_id, incident_type, victim_name,
                           group_name, domain, discovered, description, reference_url,
@@ -1405,7 +1479,7 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"News item {identifier} not found")
-            data = dict(row)
+            data = prepare_artifact(row)
             return {"type": "news", "identifier": identifier, "data": data}
 
         elif artifact_type == "ioc":
@@ -1413,20 +1487,15 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"IOC {identifier} not found")
-            data = dict(row)
+            data = prepare_artifact(row)
             cur = await conn.execute(
                 """SELECT source_name, source_id, first_seen, last_seen, confidence,
-                          expires_at, active, raw_metadata
+                          expires_at, active
                    FROM ioc_sources WHERE ioc_id=?
                    ORDER BY active DESC, confidence DESC, source_name;""",
                 (identifier,),
             )
             data["source_observations"] = [dict(item) for item in await cur.fetchall()]
-            if data.get("raw_metadata"):
-                try:
-                    data["parsed_raw"] = json.loads(data["raw_metadata"])
-                except (TypeError, json.JSONDecodeError):
-                    data["parsed_raw"] = data["raw_metadata"]
             return {"type": "ioc", "identifier": identifier, "data": data}
 
         elif artifact_type == "attack":
@@ -1434,8 +1503,8 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"ATT&CK object {identifier} not found")
-            data = dict(row)
-            for key in ("aliases", "platforms", "tactics", "raw_json"):
+            data = prepare_artifact(row)
+            for key in ("aliases", "platforms", "tactics"):
                 if data.get(key):
                     try:
                         data[f"parsed_{key}"] = json.loads(data[key])
@@ -1448,13 +1517,5 @@ async def api_artifact(artifact_type: str, identifier: str):
             row = await cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail=f"Vendor advisory {identifier} not found")
-            data = dict(row)
-            if data.get("raw_json"):
-                try:
-                    data["parsed_raw"] = json.loads(data["raw_json"])
-                except (TypeError, json.JSONDecodeError):
-                    data["parsed_raw"] = data["raw_json"]
+            data = prepare_artifact(row)
             return {"type": "advisory", "identifier": identifier, "data": data}
-
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown artifact type: {artifact_type}")

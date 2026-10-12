@@ -4,6 +4,8 @@ Source: https://feodotracker.abuse.ch/downloads/ipblocklist.json
 """
 
 import httpx
+
+from app.http_security import safe_get
 import logging
 import time
 from datetime import datetime, timezone
@@ -33,8 +35,12 @@ async def ingest_feodo_tracker() -> int:
     http_code = None
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            resp = await client.get(BLOCKLIST_URL, headers={"User-Agent": "DarkThreatRadar/1.8.0"})
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await safe_get(
+                client, BLOCKLIST_URL, allowed_hosts={"feodotracker.abuse.ch"},
+                max_bytes=10 * 1024 * 1024,
+                headers={"User-Agent": "DarkThreatRadar/1.8.0"},
+            )
             http_code = resp.status_code
 
             if resp.status_code != 200:

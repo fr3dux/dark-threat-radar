@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import get_db, update_connector_health
 from app.ingestion.normalization import normalize_cve
 
@@ -34,8 +36,11 @@ async def ingest_msrc_csaf() -> int:
     created = updated = received = 0
     try:
         headers = {"User-Agent": "DarkThreatRadar/1.10", "Accept": "application/json"}
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            index_response = await client.get(UPDATES_URL, headers=headers)
+        async with httpx.AsyncClient(timeout=45) as client:
+            index_response = await safe_get(
+                client, UPDATES_URL, allowed_hosts={"api.msrc.microsoft.com"},
+                max_bytes=10 * 1024 * 1024, headers=headers,
+            )
             index_response.raise_for_status()
             releases = index_response.json().get("value") or []
             releases = sorted(
@@ -47,7 +52,11 @@ async def ingest_msrc_csaf() -> int:
                 release_id = str(release.get("ID") or "")
                 if not release_id:
                     continue
-                response = await client.get(DOCUMENT_URL.format(release_id=release_id), headers=headers)
+                response = await safe_get(
+                    client, DOCUMENT_URL.format(release_id=release_id),
+                    allowed_hosts={"api.msrc.microsoft.com"},
+                    max_bytes=15 * 1024 * 1024, headers=headers,
+                )
                 if response.status_code == 200:
                     documents.append((release_id, release, response.json()))
 

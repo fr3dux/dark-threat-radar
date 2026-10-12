@@ -5,6 +5,8 @@ import time
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.credential_store import get_provider_secret
 from app.database import update_connector_health
 from app.ingestion.exposure_incidents import ExposureRecord, upsert_exposure_records
@@ -56,9 +58,10 @@ async def ingest_threatcluster() -> int:
         )
         return 0
     try:
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            response = await client.get(
-                API_URL, params={"days": 7},
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await safe_get(
+                client, API_URL, allowed_hosts={"threatcluster.io"},
+                max_bytes=10 * 1024 * 1024, params={"days": 7},
                 headers={"X-API-Key": key, "Accept": "application/json", "User-Agent": "DarkThreatRadar/1.13"},
             )
         if response.status_code in {401, 403}:

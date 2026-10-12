@@ -1,6 +1,8 @@
 import logging
 import json
 import httpx
+
+from app.http_security import safe_get
 from datetime import datetime, timezone
 from app.database import get_db, update_feed_status
 
@@ -49,18 +51,24 @@ async def ingest_dshield() -> int:
     try:
         async with httpx.AsyncClient(timeout=20.0, headers={"User-Agent": "ThreatRadar-CTI/1.0"}) as client:
             # 1. Infocon
-            infocon_resp = await client.get(INFOCON_URL)
+            infocon_resp = await safe_get(
+                client, INFOCON_URL, allowed_hosts={"isc.sans.edu"}, max_bytes=2 * 1024 * 1024,
+            )
             infocon_resp.raise_for_status()
             infocon_data = infocon_resp.json()
             infocon_status = str(infocon_data.get("status", "green")).lower()
 
             # 2. Top Sources
-            sources_resp = await client.get(TOP_SOURCES_URL)
+            sources_resp = await safe_get(
+                client, TOP_SOURCES_URL, allowed_hosts={"isc.sans.edu"}, max_bytes=2 * 1024 * 1024,
+            )
             sources_resp.raise_for_status()
             sources_data = sources_resp.json()
 
             # 3. Top Ports
-            ports_resp = await client.get(TOP_PORTS_URL)
+            ports_resp = await safe_get(
+                client, TOP_PORTS_URL, allowed_hosts={"isc.sans.edu"}, max_bytes=2 * 1024 * 1024,
+            )
             ports_resp.raise_for_status()
             ports_data = ports_resp.json()
 

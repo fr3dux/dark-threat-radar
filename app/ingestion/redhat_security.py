@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from app.http_security import safe_get
+
 from app.database import get_db, update_connector_health
 from app.ingestion.normalization import normalize_cve
 
@@ -19,9 +21,10 @@ async def ingest_redhat_security() -> int:
     created = updated = dropped = 0
     after = (datetime.now(timezone.utc) - timedelta(days=14)).date().isoformat()
     try:
-        async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
-            response = await client.get(
-                API_URL, params={"after": after},
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await safe_get(
+                client, API_URL, allowed_hosts={"access.redhat.com"},
+                max_bytes=10 * 1024 * 1024, params={"after": after},
                 headers={"User-Agent": "DarkThreatRadar/1.10", "Accept": "application/json"},
             )
         response.raise_for_status()

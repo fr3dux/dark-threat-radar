@@ -57,7 +57,12 @@ def test_update_status_endpoint(client, monkeypatch):
         }
 
     monkeypatch.setattr(main_module, "get_update_status", fake_status)
-    response = client.get("/api/update/status?force=true")
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "update-status-code")
+    assert client.get("/api/update/status?force=true").status_code == 401
+    response = client.get(
+        "/api/update/status?force=true",
+        headers={"X-Admin-Token": "update-status-code"},
+    )
     assert response.status_code == 200
     assert response.json()["update_available"] is True
     assert requested["force"] is True
@@ -112,6 +117,30 @@ def test_tls_settings_require_admin_and_never_return_key_material(client, monkey
     assert response.json()["fqdn"] == "radar.example.com"
     assert "private_key" not in response.text
     rate_limiter.clear()
+
+
+def test_administrative_requests_are_audited_without_secrets(client, monkeypatch):
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "audit-admin-code")
+    marker = "audit-secret-must-not-be-stored"
+    response = client.get(
+        "/api/admin/settings/tls",
+        headers={"X-Admin-Token": marker, "User-Agent": "security-test"},
+    )
+    assert response.status_code == 401
+
+    async def latest_event():
+        async with main_module.get_db() as conn:
+            return await (
+                await conn.execute(
+                    "SELECT path, status_code, user_agent FROM security_audit ORDER BY id DESC LIMIT 1"
+                )
+            ).fetchone()
+
+    event = asyncio.run(latest_event())
+    assert event["path"] == "/api/admin/settings/tls"
+    assert event["status_code"] == 401
+    assert event["user_agent"] == "security-test"
+    assert marker not in "|".join(str(value) for value in event)
 
 
 def test_update_install_requires_admin_and_queues(client, monkeypatch):
@@ -286,8 +315,8 @@ def test_artifact_invalid_port(client):
     assert data["status_code"] == 400
 
 
-def test_artifact_ransomware_returns_record_and_parsed_payload(client, monkeypatch):
-    """Ransomware inspection must return a complete artifact instead of HTTP 500."""
+def test_artifact_ransomware_hides_raw_payload_without_admin(client, monkeypatch):
+    """Public artifact inspection must not expose provider payloads."""
 
     @asynccontextmanager
     async def ransomware_test_db():
@@ -340,9 +369,18 @@ def test_artifact_ransomware_returns_record_and_parsed_payload(client, monkeypat
     assert payload["type"] == "ransomware"
     assert payload["identifier"] == "victim-test-id"
     assert payload["data"]["victim_name"] == "Example Corp"
-    assert payload["data"]["parsed_raw"] == {"source": "ransomware.live"}
-    assert isinstance(payload["data"]["raw_json"], str)
+    assert "parsed_raw" not in payload["data"]
+    assert "raw_json" not in payload["data"]
     assert payload["data"]["source_observations"][0]["source_name"] == "Ransomware.live"
+
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "a" * 48)
+    privileged = client.get(
+        "/api/artifact/ransomware/victim-test-id",
+        headers={"X-Admin-Token": "a" * 48},
+    )
+    assert privileged.status_code == 200
+    assert privileged.json()["data"]["parsed_raw"] == {"source": "ransomware.live"}
+    assert "raw_json" not in privileged.json()["data"]
 
 
 def test_index_page_version_injection(client):
@@ -363,6 +401,11 @@ def test_index_page_version_injection(client):
     assert 'id="wl-honeycomb-cves"' in html
     assert 'class="wl-honeycomb-grid"' in html
     assert 'centerSideBySideHoneycombs' in client.get('/static/js/app.js').text
+    app_js = client.get('/static/js/app.js').text
+    assert "const entityItems = allItems.filter(item => watchlistCategory(item.item_type) === 'organization')" in app_js
+    assert "const technologyItems = allItems.filter(item => watchlistCategory(item.item_type) === 'technology')" in app_js
+    assert "const unacknowledgedExposure = exposureMatches.filter" in app_js
+    assert "status: `${counts.exposure} ${counts.exposure === 1 ? 'EXPOSURE' : 'EXPOSURES'}`" in app_js
     assert 'id="wl-honeycomb-interests-clear-count"' in html
     assert 'aria-label="Watchlist status legend"' in html
     assert 'INTELLIGENCE FOR YOU' in html
@@ -393,7 +436,6 @@ def test_index_page_version_injection(client):
     assert 'source-health-footer' not in html
     assert 'source-health-updated' not in html
     assert 'FEED SETTINGS' not in html
-    app_js = client.get('/static/js/app.js').text
     assert 'renderSourceHealth(data.connectors, data.sync || {})' in app_js
     assert 'splitSourceHealthGroups' in app_js
     assert "renderSourceHealthFlow('left', leftGroups)" in app_js
@@ -438,9 +480,10 @@ def test_index_page_version_injection(client):
     assert html.index("CVSS SEVERITY DISTRIBUTION") < html.index("HIGH-CONFIDENCE IOC ACTIVITY")
     assert html.index("HIGH-CONFIDENCE IOC ACTIVITY") < html.index('id="panel-intel"')
     # Footer
-    assert f"Dark Threat Radar v{__version__} // SOC Engine //" in html
+    assert f"Dark Threat Radar v{__version__} // SOC Engine" in html
+    assert 'API Docs (/docs)' not in html
+    assert client.get('/docs').status_code == 404
     assert 'class="app-footer"' in html
-    assert '<a href="/docs"' in html
 
 
 def test_source_health_summary_uses_red_only_for_real_failures(client, monkeypatch):
@@ -591,6 +634,7 @@ def test_api_ransomware_searches_country_codes_and_localized_names(client, monke
             await conn.close()
 
     monkeypatch.setattr(main_module, "get_db", ransomware_country_db)
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "country-watch-code")
 
     brazil = client.get("/api/ransomware?q=Brasil")
     assert brazil.status_code == 200
@@ -600,7 +644,9 @@ def test_api_ransomware_searches_country_codes_and_localized_names(client, monke
     assert united_states.status_code == 200
     assert [item["id"] for item in united_states.json()["items"]] == ["us-victim"]
 
-    country_code = client.get("/api/ransomware?q=DE")
+    country_code = client.get(
+        "/api/ransomware?q=DE", headers={"X-Admin-Token": "country-watch-code"}
+    )
     assert country_code.status_code == 200
     assert [item["id"] for item in country_code.json()["items"]] == ["de-victim"]
     assert country_code.json()["items"][0]["country_watched"] is True
@@ -665,29 +711,50 @@ def test_schema_migration_150(client):
     asyncio.run(check())
 
 
-def test_leak_check_password(client):
+def test_leak_check_password(client, monkeypatch):
     """Test /api/leak-check/password with known leaked password."""
+    async def fake_safe_get(*_args, **_kwargs):
+        import httpx
+        return httpx.Response(
+            200,
+            text="C6008F9CAB4083784CBD1874F76618D2A97:12345\n",
+            request=httpx.Request("GET", "https://api.pwnedpasswords.com/range/CBFDA"),
+        )
+
+    monkeypatch.setattr(main_module, "safe_get", fake_safe_get)
     response = client.post(
         "/api/leak-check/password",
         json={
             "sha1_prefix": "CBFDA",
-            "sha1_suffix": "C6008F9CAB4083784CBD1874F76618D2A97",
         },
     )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
-    assert data["exposed"] is True
-    assert data["count"] > 1000
+    assert data["suffixes"]["C6008F9CAB4083784CBD1874F76618D2A97"] > 1000
     assert "Have I Been Pwned" in data["source"]
 
     plaintext = client.post("/api/leak-check/password", json={"password": "password123"})
     assert plaintext.status_code == 422
 
 
-def test_leak_check_email(client):
+def test_leak_check_email(client, monkeypatch):
     """Test /api/leak-check/email endpoint."""
-    response = client.post("/api/leak-check/email", json={"email": "test@example.com"})
+    async def fake_safe_get(*_args, **_kwargs):
+        import httpx
+        return httpx.Response(
+            200,
+            json={"breaches": [["Example Breach"]]},
+            request=httpx.Request("GET", "https://api.xposedornot.com/v1/check-email/test"),
+        )
+
+    monkeypatch.setattr(main_module, "safe_get", fake_safe_get)
+    assert client.post(
+        "/api/leak-check/email", json={"email": "test@example.com", "consent": False}
+    ).status_code == 422
+    response = client.post(
+        "/api/leak-check/email", json={"email": "test@example.com", "consent": True}
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -737,7 +804,8 @@ def test_api_watchlist_crud(client):
     ).status_code == 422
 
     # 2. Get list and verify matching
-    get_res = client.get("/api/watchlist")
+    assert client.get("/api/watchlist").status_code == 401
+    get_res = client.get("/api/watchlist", headers=headers)
     assert get_res.status_code == 200
     data = get_res.json()
     assert data["total_items"] >= 1
@@ -789,7 +857,7 @@ def test_watchlist_correlated_alert_acknowledgement(client):
 
     asyncio.run(seed_correlated_incident())
     try:
-        before = client.get("/api/watchlist").json()
+        before = client.get("/api/watchlist", headers=headers).json()
         incident = next(
             item for item in before["exposure_alerts"]
             if item["artifact_id"] == "ack-artifact-1"
@@ -813,7 +881,7 @@ def test_watchlist_correlated_alert_acknowledgement(client):
         assert acknowledged.status_code == 200
         assert acknowledged.json()["status"] == "acknowledged"
 
-        after = client.get("/api/watchlist").json()
+        after = client.get("/api/watchlist", headers=headers).json()
         incident = next(
             item for item in after["exposure_alerts"]
             if item["artifact_id"] == "ack-artifact-1"
