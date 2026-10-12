@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.2] - 2026-10-12
+
+### Fixed
+- **Growing Source Health Canvas**: Removes the internal connector-list scrollbar and lets the Source Health card, bilateral paths, and centered DTR engine grow with the number of configured sources.
+- **Actionable AlienVault OTX Health**: Preserves upstream HTTP codes, reports provider-side 5xx responses and transport failures as temporary degradation, and keeps credential or permanent request failures distinct.
+
 ## [1.17.1] - 2026-10-12
 
 ### Changed
