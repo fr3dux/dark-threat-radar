@@ -2002,6 +2002,15 @@ table.data-table tr:last-child td {
 
 .wl-overview-actions { display: flex; align-items: center; }
 
+.wl-honeycomb-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.wl-honeycomb-grid .wl-honeycomb-card { margin-bottom: 0; }
+
 .wl-honeycomb-card {
   margin-bottom: 14px;
   padding: 15px 18px 18px;
@@ -2296,6 +2305,7 @@ table.data-table tr:last-child td {
 }
 
 @media (max-width: 850px) {
+  .wl-honeycomb-grid { grid-template-columns: minmax(0, 1fr); }
   .wl-metric-strip { grid-template-columns: repeat(2, 1fr); }
   .wl-metric:nth-child(2) { border-right: 0; }
   .wl-workspace { grid-template-columns: 1fr; }
