@@ -12,6 +12,7 @@ let watchlistData = { watchlist: [], exposure_alerts: [], active_alerts: [] };
 let watchlistScope = 'all';
 let watchlistView = 'all';
 let selectedWatchlistId = '';
+let watchlistHoneycombResizeTimer = null;
 const loadedAppVersion = document.body.dataset.version || '';
 let appSettings = {
   timezone: document.body.dataset.timezone || 'UTC',
@@ -183,6 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
   requestAnimationFrame(updateStickyNavigationOffset);
   loadPublicSettings();
   window.addEventListener('resize', updateStickyNavigationOffset, { passive: true });
+  window.addEventListener('resize', () => {
+    if (currentTab !== 'panel-watchlist') return;
+    clearTimeout(watchlistHoneycombResizeTimer);
+    watchlistHoneycombResizeTimer = setTimeout(renderWatchlistHoneycombs, 120);
+  }, { passive: true });
 
   const appHeader = document.querySelector('header.app-header');
   if (appHeader && 'ResizeObserver' in window) {
@@ -2098,10 +2104,119 @@ function watchlistCountsFor(item) {
   const exposure = (watchlistData.exposure_alerts || []).filter(alertItem =>
     !Boolean(alertItem.acknowledged) && splitWatchlistCsv(alertItem.matched_watchlist_ids).includes(item.id)
   ).length;
-  const vulnerability = (watchlistData.active_alerts || []).filter(alertItem =>
+  const vulnerabilityMatches = (watchlistData.active_alerts || []).filter(alertItem =>
     alertItem.matched_watchlist_item?.id === item.id
+  );
+  const vulnerability = vulnerabilityMatches.length;
+  const critical = vulnerabilityMatches.filter(alertItem =>
+    Number(alertItem.cvss_score) >= 9 || String(alertItem.cvss_severity || '').toUpperCase() === 'CRITICAL'
   ).length;
-  return { exposure, vulnerability, total: exposure + vulnerability };
+  return { exposure, vulnerability, critical, total: exposure + vulnerability };
+}
+
+function watchlistVisualState(item) {
+  const counts = watchlistCountsFor(item);
+  if (counts.exposure) {
+    return {
+      counts,
+      state: 'danger',
+      status: `${counts.exposure} ${counts.exposure === 1 ? 'ALERT' : 'ALERTS'}`,
+      description: `${counts.exposure} active public exposure ${counts.exposure === 1 ? 'alert' : 'alerts'}`
+    };
+  }
+  if (counts.critical) {
+    return {
+      counts,
+      state: 'danger',
+      status: `${counts.critical} CRITICAL`,
+      description: `${counts.critical} critical vulnerability ${counts.critical === 1 ? 'match' : 'matches'}`
+    };
+  }
+  if (counts.vulnerability) {
+    return {
+      counts,
+      state: 'warning',
+      status: `${counts.vulnerability} ${counts.vulnerability === 1 ? 'MATCH' : 'MATCHES'}`,
+      description: `${counts.vulnerability} relevant vulnerability ${counts.vulnerability === 1 ? 'match' : 'matches'}`
+    };
+  }
+  return { counts, state: 'clear', status: 'MONITORED', description: 'No active matches' };
+}
+
+function renderWatchlistHoneycombGroup(containerId, items, countPrefix, emptyMessage) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  items = [...items].sort((a, b) => {
+    const stateRank = { danger: 2, warning: 1, clear: 0 };
+    const stateDiff = stateRank[watchlistVisualState(b).state] - stateRank[watchlistVisualState(a).state];
+    return stateDiff || String(a.value || '').localeCompare(String(b.value || ''));
+  });
+  const states = items.map(watchlistVisualState);
+  const stateTotals = states.reduce((totals, itemState) => {
+    totals[itemState.state] += 1;
+    return totals;
+  }, { clear: 0, warning: 0, danger: 0 });
+  const clearCount = document.getElementById(`${countPrefix}-clear-count`);
+  const warningCount = document.getElementById(`${countPrefix}-warning-count`);
+  const dangerCount = document.getElementById(`${countPrefix}-danger-count`);
+  if (clearCount) clearCount.textContent = stateTotals.clear;
+  if (warningCount) warningCount.textContent = stateTotals.warning;
+  if (dangerCount) dangerCount.textContent = stateTotals.danger;
+
+  if (!items.length) {
+    container.style.height = '84px';
+    container.innerHTML = `<div class="wl-honeycomb-empty mono">${escapeHtml(emptyMessage)}</div>`;
+    return;
+  }
+
+  const availableWidth = Math.max(280, Math.floor(container.clientWidth || 1000));
+  const cellWidth = availableWidth < 430 ? 94 : (availableWidth < 760 ? 106 : 122);
+  const cellHeight = Math.round(cellWidth * 0.866);
+  const horizontalStep = Math.round(cellWidth * 0.76);
+  const verticalGap = 7;
+  const verticalStep = cellHeight + verticalGap;
+  const maxColumns = Math.max(1, Math.floor((availableWidth - cellWidth) / horizontalStep) + 1);
+  const balancedColumns = Math.max(1, Math.ceil(Math.sqrt(items.length * 1.75)));
+  const columns = Math.min(maxColumns, balancedColumns);
+  const usedWidth = cellWidth + ((columns - 1) * horizontalStep);
+  const startX = Math.max(0, Math.floor((availableWidth - usedWidth) / 2));
+  let requiredHeight = cellHeight;
+
+  container.innerHTML = items.map((item, index) => {
+    const itemState = states[index];
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const left = startX + (column * horizontalStep);
+    const top = (row * verticalStep) + (column % 2 ? Math.round((cellHeight + verticalGap) / 2) : 0);
+    requiredHeight = Math.max(requiredHeight, top + cellHeight);
+    const selectedClass = selectedWatchlistId === item.id ? ' selected' : '';
+    const accessibleLabel = `${watchlistTypeLabel(item.item_type)} ${item.value}: ${itemState.description}`;
+    return `<button type="button" class="wl-honeycomb-cell ${itemState.state}${selectedClass}" ` +
+      `data-watchlist-interest="${escapeHtml(item.id)}" aria-label="${escapeHtml(accessibleLabel)}" aria-pressed="${selectedWatchlistId === item.id}" ` +
+      `style="left:${left}px;top:${top}px;width:${cellWidth}px;height:${cellHeight}px">` +
+      '<span class="wl-honeycomb-inner">' +
+        `<span class="wl-honeycomb-type">${escapeHtml(watchlistTypeLabel(item.item_type))}</span>` +
+        `<strong class="wl-honeycomb-value" title="${escapeHtml(item.value)}">${escapeHtml(item.value)}</strong>` +
+        `<span class="wl-honeycomb-status"><i></i>${escapeHtml(itemState.status)}</span>` +
+      '</span></button>';
+  }).join('');
+  container.style.height = `${requiredHeight + 4}px`;
+}
+
+function renderWatchlistHoneycombs() {
+  const allItems = watchlistData.watchlist || [];
+  renderWatchlistHoneycombGroup(
+    'wl-honeycomb-interests',
+    allItems.filter(item => item.item_type !== 'cve'),
+    'wl-honeycomb-interests',
+    'ADD AN INTEREST TO START YOUR VISUAL MONITORING MAP'
+  );
+  renderWatchlistHoneycombGroup(
+    'wl-honeycomb-cves',
+    allItems.filter(item => item.item_type === 'cve'),
+    'wl-honeycomb-cves',
+    'NO CVES HAVE BEEN ADDED TO YOUR WATCHLIST'
+  );
 }
 
 async function loadWatchlist() {
@@ -2149,6 +2264,7 @@ function renderWatchlistWorkspace() {
   if (!container || !signalList) return;
 
   const allItems = watchlistData.watchlist || [];
+  renderWatchlistHoneycombs();
   const query = (document.getElementById('wl-interest-search')?.value || '').trim().toLowerCase();
   const visibleItems = allItems.filter(item => {
     const categoryMatches = watchlistScope === 'all' || watchlistCategory(item.item_type) === watchlistScope;
@@ -2177,11 +2293,9 @@ function renderWatchlistWorkspace() {
       if (!items.length) return '';
       return '<div class="wl-interest-group"><div class="wl-interest-group-title">' + title + '<span>' + items.length + '</span></div>' +
         items.map(item => {
-          const counts = watchlistCountsFor(item);
-          const stateClass = counts.exposure ? 'danger' : (counts.vulnerability ? 'warning' : 'clear');
-          const stateText = counts.exposure
-            ? counts.exposure + ' exposure ' + (counts.exposure === 1 ? 'alert' : 'alerts')
-            : (counts.vulnerability ? counts.vulnerability + ' vulnerability ' + (counts.vulnerability === 1 ? 'match' : 'matches') : 'No active matches');
+          const visualState = watchlistVisualState(item);
+          const stateClass = visualState.state;
+          const stateText = visualState.description;
           return '<article class="wl-interest-card ' + stateClass + (selectedWatchlistId === item.id ? ' selected' : '') + '" data-watchlist-interest="' + escapeHtml(item.id) + '">' +
             '<div class="wl-interest-main"><span class="badge badge-filetype mono">' + escapeHtml(watchlistTypeLabel(item.item_type)) + '</span>' +
               '<strong>' + escapeHtml(item.value) + '</strong></div>' +

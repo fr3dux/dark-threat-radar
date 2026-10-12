@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.15.3-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.16.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -151,6 +151,8 @@ Dark Threat Radar includes a hardware-accelerated 60 FPS HTML5 Canvas Cyberattac
 ## Watchlist and Remediation Radar
 
 The Watchlist module combines technical exposure management with organization monitoring:
+
+- **Visual Watchlist Honeycombs:** Separates monitored organizations, domains, countries, vendors, and products from a dedicated CVE map. Green cells are monitored without active findings, amber cells have relevant non-critical vulnerabilities, and red cells indicate critical vulnerabilities or public-exposure alerts; selecting a cell filters the intelligence workspace below.
 - **Technical Targets:** Register Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler), or Specific CVE targets for vulnerability and remediation correlation.
 - **Organization Targets:** Register a Company, Brand, Domain, or Keyword to detect public mentions that may indicate data exposure, extortion, phishing infrastructure, or another security incident.
 - **Persistent Exposure Alerts:** Cross-references ransomware disclosures, non-ransomware breach reporting, CTI news, official vendor advisories, and normalized public IOCs after every ingestion cycle. One source is enough to alert; independent confirmations raise confidence without duplicating the incident.
@@ -383,7 +385,7 @@ Interactive documentation with live OpenAPI testing is available at `/docs` (Swa
 | `GET` | `/api/watchlist` | Retrieve registered targets, persistent organization-exposure alerts, and vulnerability remediation matches. |
 | `GET` | `/api/watchlist/summary` | Lightweight public-exposure alert counts for dashboard signaling. |
 | `POST`| `/api/watchlist/alerts/acknowledge` | Acknowledge one correlated public-exposure incident while retaining its history; requires `X-Admin-Token`. |
-| `POST`| `/api/watchlist` | Add a technical or organization target (`vendor`, `product`, `cve`, `company`, `brand`, `domain`, or `keyword`); requires `X-Admin-Token`. |
+| `POST`| `/api/watchlist` | Add a technical, geographic, or organization target (`vendor`, `product`, `cve`, `company`, `brand`, `domain`, `country`, or `keyword`); requires `X-Admin-Token`. |
 | `DELETE`| `/api/watchlist/{id}` | Remove a target; requires `X-Admin-Token`. |
 | `POST`| `/api/leak-check/email` | Validate email exposure in known global data breaches (XposedOrNot). |
 | `POST`| `/api/leak-check/password` | Validate password exposure via K-Anonymity SHA-1 range (Have I Been Pwned). |

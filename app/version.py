@@ -2,10 +2,10 @@
 Centralized Semantic Versioning (SemVer)
 """
 
-__version__ = "1.15.3"
+__version__ = "1.16.0"
 __app_name__ = "Dark Threat Radar"
 __description__ = "Autonomous Standalone Cyber Threat Intelligence Hub & SOC Radar"
-__release_date__ = "2026-10-11"
+__release_date__ = "2026-10-12"
 __author__ = "Dark Threat Radar Team"
 __license__ = "MIT"
 

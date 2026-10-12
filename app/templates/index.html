@@ -1084,6 +1084,32 @@
         </div>
       </section>
 
+      <section class="wl-honeycomb-card" aria-label="Watchlist visual monitoring map">
+        <div class="wl-honeycomb-header legend-only">
+          <div class="wl-honeycomb-legend mono" aria-label="Watchlist status legend">
+            <span class="clear"><i></i><strong id="wl-honeycomb-interests-clear-count">0</strong> MONITORED</span>
+            <span class="warning"><i></i><strong id="wl-honeycomb-interests-warning-count">0</strong> ATTENTION</span>
+            <span class="danger"><i></i><strong id="wl-honeycomb-interests-danger-count">0</strong> CRITICAL / ALERT</span>
+          </div>
+        </div>
+        <div class="wl-honeycomb" id="wl-honeycomb-interests" role="group" aria-label="Monitored Watchlist interests" aria-live="polite">
+          <div class="wl-honeycomb-empty mono">LOADING MONITORED INTERESTS...</div>
+        </div>
+      </section>
+
+      <section class="wl-honeycomb-card" aria-label="Monitored CVE visual map">
+        <div class="wl-honeycomb-header legend-only">
+          <div class="wl-honeycomb-legend mono" aria-label="Monitored CVE status legend">
+            <span class="clear"><i></i><strong id="wl-honeycomb-cves-clear-count">0</strong> MONITORED</span>
+            <span class="warning"><i></i><strong id="wl-honeycomb-cves-warning-count">0</strong> ATTENTION</span>
+            <span class="danger"><i></i><strong id="wl-honeycomb-cves-danger-count">0</strong> CRITICAL</span>
+          </div>
+        </div>
+        <div class="wl-honeycomb" id="wl-honeycomb-cves" role="group" aria-label="Monitored CVEs" aria-live="polite">
+          <div class="wl-honeycomb-empty mono">LOADING MONITORED CVES...</div>
+        </div>
+      </section>
+
       <section class="wl-alert-banner" id="wl-alert-banner" hidden aria-live="polite">
         <div class="wl-alert-pulse" aria-hidden="true"></div>
         <div class="wl-alert-copy">

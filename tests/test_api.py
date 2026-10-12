@@ -359,6 +359,10 @@ def test_index_page_version_injection(client):
     assert 'id="infocon-val"' in html
     assert 'id="panel-intel"' in html
     assert '<h2>WATCHLIST</h2>' in html
+    assert 'id="wl-honeycomb-interests"' in html
+    assert 'id="wl-honeycomb-cves"' in html
+    assert 'id="wl-honeycomb-interests-clear-count"' in html
+    assert 'aria-label="Watchlist status legend"' in html
     assert 'INTELLIGENCE FOR YOU' in html
     assert 'MY THREAT RADAR' not in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html

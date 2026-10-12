@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-10-12
+
+### Added
+- **Interactive Watchlist Honeycombs**: Adds two responsive visual monitoring maps directly below the personalized intelligence summary: one for organizations, domains, countries, vendors, and products, and one dedicated to explicitly monitored CVEs.
+- **Operational Status at a Glance**: Uses green for monitored interests without active findings, amber for relevant non-critical vulnerabilities, and red for critical vulnerabilities or unacknowledged public exposure alerts, including live status totals and accessible labels.
+
+### Changed
+- **Unified Watchlist Selection**: Selecting a honeycomb cell filters the existing intelligence workspace and synchronizes the selected state with the detailed interest list.
+
 ## [1.15.3] - 2026-10-11
 
 ### Added
