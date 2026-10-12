@@ -1,4 +1,5 @@
 import asyncio
+import gzip
 
 import httpx
 import pytest
@@ -75,6 +76,31 @@ def test_safe_get_allows_bounded_same_host_redirect():
     response = asyncio.run(run())
     assert response.url == "https://api.example.com/final"
     assert response.json() == {"ok": True}
+
+
+def test_safe_get_does_not_decode_compressed_body_twice():
+    payload = b'{"ok":true}'
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            headers={"Content-Encoding": "gzip", "Content-Length": "999"},
+            content=gzip.compress(payload),
+            request=request,
+        )
+    )
+
+    async def run():
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await safe_get(
+                client,
+                "https://api.example.com/feed",
+                allowed_hosts={"api.example.com"},
+            )
+
+    response = asyncio.run(run())
+    assert response.json() == {"ok": True}
+    assert "content-encoding" not in response.headers
+    assert response.headers["content-length"] == str(len(payload))
 
 
 def test_safe_post_rejects_redirects():

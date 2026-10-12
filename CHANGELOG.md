@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.5] - 2026-10-12
+
+### Fixed
+- **Compressed Provider Responses**: Preserves the decoded response body without retaining stale wire-compression metadata, preventing a second decompression attempt across NVD, GitHub Advisories, Red Hat, RansomFeed, Blocklist.de, Feodo Tracker, and SSLBL.
+- **MITRE ATT&CK Bundle Limit**: Applies a bounded 100 MiB provider-specific ceiling to the official Enterprise STIX catalog, which legitimately exceeds the general 10 MiB response limit while remaining protected against unbounded downloads.
+
 ## [1.17.4] - 2026-10-12
 
 ### Fixed

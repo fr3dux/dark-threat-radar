@@ -23,7 +23,10 @@ async def ingest_mitre_attack() -> int:
         async with httpx.AsyncClient(timeout=90) as client:
             response = await safe_get(
                 client, STIX_URL, allowed_hosts={"raw.githubusercontent.com"},
-                max_bytes=50 * 1024 * 1024,
+                # The official Enterprise STIX bundle is currently above 50 MiB.
+                # Keep an explicit provider-specific ceiling rather than removing
+                # the general outbound response limit.
+                max_bytes=100 * 1024 * 1024,
                 headers={"User-Agent": "DarkThreatRadar/1.10"},
             )
         response.raise_for_status()

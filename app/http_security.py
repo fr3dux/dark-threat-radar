@@ -16,6 +16,7 @@ import httpx
 
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024
+DECODED_BODY_HEADERS = {"content-encoding", "content-length", "transfer-encoding"}
 
 
 class UnsafeOutboundURL(ValueError):
@@ -24,6 +25,15 @@ class UnsafeOutboundURL(ValueError):
 
 class OutboundResponseTooLarge(ValueError):
     """Raised before an untrusted response can consume unbounded memory."""
+
+
+def _decoded_response_headers(headers: httpx.Headers) -> list[tuple[str, str]]:
+    """Drop wire-encoding metadata after httpx has decoded the response body."""
+    return [
+        (name, value)
+        for name, value in headers.multi_items()
+        if name.casefold() not in DECODED_BODY_HEADERS
+    ]
 
 
 def validate_outbound_url(url: str, allowed_hosts: Iterable[str]) -> str:
@@ -100,7 +110,7 @@ async def safe_get(
 
             return httpx.Response(
                 status_code=upstream.status_code,
-                headers=upstream.headers,
+                headers=_decoded_response_headers(upstream.headers),
                 content=bytes(content),
                 request=upstream.request,
                 extensions=upstream.extensions,
@@ -145,7 +155,7 @@ async def safe_post(
                 raise OutboundResponseTooLarge("Provider response exceeded the safety limit")
         return httpx.Response(
             status_code=upstream.status_code,
-            headers=upstream.headers,
+            headers=_decoded_response_headers(upstream.headers),
             content=bytes(content),
             request=upstream.request,
             extensions=upstream.extensions,
