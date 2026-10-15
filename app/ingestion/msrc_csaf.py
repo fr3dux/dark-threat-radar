@@ -15,6 +15,7 @@ from app.ingestion.normalization import normalize_cve
 logger = logging.getLogger("ingestion.msrc_csaf")
 UPDATES_URL = "https://api.msrc.microsoft.com/cvrf/v3.0/updates"
 DOCUMENT_URL = "https://api.msrc.microsoft.com/cvrf/v3.0/cvrf/{release_id}"
+MSRC_DOCUMENT_MAX_BYTES = 40 * 1024 * 1024
 
 
 def _note(vulnerability: dict) -> str:
@@ -55,7 +56,9 @@ async def ingest_msrc_csaf() -> int:
                 response = await safe_get(
                     client, DOCUMENT_URL.format(release_id=release_id),
                     allowed_hosts={"api.msrc.microsoft.com"},
-                    max_bytes=15 * 1024 * 1024, headers=headers,
+                    # Monthly CVRF documents can exceed 25 MiB decoded. Keep a
+                    # provider-specific ceiling while retaining bounded egress.
+                    max_bytes=MSRC_DOCUMENT_MAX_BYTES, headers=headers,
                 )
                 if response.status_code == 200:
                     documents.append((release_id, release, response.json()))

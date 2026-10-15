@@ -11,7 +11,7 @@ from app import database
 from app import credential_store
 from app.ingestion import _run_group
 from app import ingestion
-from app.ingestion import abuseipdb, alienvault_otx, ransomware_live, threatfox, urlhaus
+from app.ingestion import abuseipdb, alienvault_otx, msrc_csaf, ransomware_live, threatfox, urlhaus
 from app.ingestion.spamhaus_drop import parse_ndjson
 from app.ingestion.sslbl import _recent
 from app.ingestion.urlhaus import parse_recent_csv
@@ -100,6 +100,36 @@ def test_ransomware_live_keeps_primary_feed_when_enrichment_fails(monkeypatch):
     assert result == 1
     assert health["state"] == "healthy"
     assert health["items_received"] == 1
+
+
+def test_msrc_uses_bounded_provider_specific_document_limit(monkeypatch):
+    requested_limits = []
+    health = {}
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return None
+
+    async def fake_safe_get(_client, url, **kwargs):
+        requested_limits.append((url, kwargs["max_bytes"]))
+        request = httpx.Request("GET", url)
+        if url == msrc_csaf.UPDATES_URL:
+            return httpx.Response(200, json={"value": [{"ID": "2026-Oct"}]}, request=request)
+        return httpx.Response(200, json={"Vulnerability": []}, request=request)
+
+    async def capture_health(_source, _category, state, **kwargs):
+        health.update(state=state, **kwargs)
+
+    monkeypatch.setattr(msrc_csaf.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+    monkeypatch.setattr(msrc_csaf, "safe_get", fake_safe_get)
+    monkeypatch.setattr(msrc_csaf, "update_connector_health", capture_health)
+
+    assert asyncio.run(msrc_csaf.ingest_msrc_csaf()) == 0
+    assert requested_limits == [
+        (msrc_csaf.UPDATES_URL, 10 * 1024 * 1024),
+        (msrc_csaf.DOCUMENT_URL.format(release_id="2026-Oct"), 40 * 1024 * 1024),
+    ]
+    assert health["state"] == "healthy"
 
 
 def test_migration_is_idempotent_and_openphish_disabled(tmp_path, monkeypatch):

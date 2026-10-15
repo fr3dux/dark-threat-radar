@@ -821,6 +821,36 @@ def test_api_watchlist_crud(client):
     assert client.delete(f"/api/watchlist/{country_item_id}", headers=headers).status_code == 200
 
 
+def test_watchlist_read_session_is_signed_persistent_and_read_only(client, monkeypatch):
+    client.cookies.clear()
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "watchlist-session-admin-code")
+
+    assert client.get("/api/watchlist").status_code == 401
+    session = client.post(
+        "/api/admin/watchlist-session",
+        headers={"X-Admin-Token": "watchlist-session-admin-code"},
+    )
+    assert session.status_code == 200
+    assert session.json()["expires_in"] == 7 * 24 * 60 * 60
+    set_cookie = session.headers["set-cookie"].lower()
+    assert "httponly" in set_cookie
+    assert "samesite=strict" in set_cookie
+
+    # The HttpOnly cookie restores private reads without exposing the admin code.
+    assert client.get("/api/watchlist").status_code == 200
+    # The read session never authorizes state changes.
+    assert client.post(
+        "/api/watchlist",
+        json={"item_type": "vendor", "value": "Read Session Must Not Write"},
+    ).status_code == 401
+
+    # Rotating the administrative code invalidates every existing signed session.
+    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "rotated-watchlist-admin-code")
+    assert client.get("/api/watchlist").status_code == 401
+    client.cookies.clear()
+    rate_limiter.clear()
+
+
 def test_watchlist_correlated_alert_acknowledgement(client):
     """One source incident matched by company and domain has one alert lifecycle."""
     main_module.SETTINGS_ADMIN_TOKEN = "watchlist-ack-code"

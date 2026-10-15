@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.6] - 2026-10-15
+
+### Fixed
+- **Persistent Private Watchlist Access**: Creates a signed, HttpOnly, SameSite read session after successful administrative verification so private Watchlist intelligence survives reloads for seven days without storing or exposing the administrative code. Mutating operations continue to require the code explicitly.
+- **Truthful Locked Watchlist State**: Displays unavailable metrics as locked instead of incorrectly replacing existing monitored interests and alerts with zeroes when authentication is absent.
+- **Microsoft MSRC CSAF Capacity**: Applies a bounded 40 MiB provider-specific ceiling to current monthly CVRF documents, which now exceed 25 MiB decoded, while retaining the general outbound response limit for other providers.
+
 ## [1.17.5] - 2026-10-12
 
 ### Fixed

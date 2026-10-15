@@ -2370,7 +2370,11 @@ async function loadWatchlist() {
       cache: 'no-store',
       headers: watchlistReadHeaders()
     });
-    if (!response.ok) throw new Error('HTTP ' + response.status);
+    if (!response.ok) {
+      const error = new Error('HTTP ' + response.status);
+      error.status = response.status;
+      throw error;
+    }
     watchlistData = await response.json();
 
     const exposureTotal = Number(watchlistData.total_exposure_alerts) || 0;
@@ -2396,8 +2400,28 @@ async function loadWatchlist() {
     renderWatchlistWorkspace();
   } catch (error) {
     console.error('Error loading watchlist:', error);
+    watchlistData = { watchlist: [], exposure_alerts: [], active_alerts: [] };
+    const locked = [401, 403, 426].includes(error.status);
+    const title = locked ? 'WATCHLIST LOCKED' : 'WATCHLIST UNAVAILABLE';
+    const detail = locked
+      ? 'Unlock administrative access in Settings to load personalized intelligence.'
+      : 'The server could not load personalized intelligence. Try again shortly.';
+    ['wl-badge-count', 'wl-exposure-badge', 'wl-vulnerability-badge', 'wl-alerts-badge'].forEach(id => {
+      const metric = document.getElementById(id);
+      if (metric) metric.textContent = '—';
+    });
+    const exposureDetail = document.getElementById('wl-exposure-detail');
+    if (exposureDetail) exposureDetail.textContent = locked ? 'access required' : 'temporarily unavailable';
+    const tabCount = document.getElementById('tab-count-watchlist');
+    if (tabCount) tabCount.textContent = '';
+    ['wl-honeycomb-interests', 'wl-honeycomb-cves'].forEach(id => {
+      const honeycomb = document.getElementById(id);
+      if (honeycomb) honeycomb.innerHTML = `<div class="wl-honeycomb-empty mono">${title}</div>`;
+    });
+    const monitored = document.getElementById('wl-items-container');
+    if (monitored) monitored.innerHTML = `<div class="wl-empty-state"><strong>${title}</strong><span>${detail}</span></div>`;
     const signals = document.getElementById('wl-signal-list');
-    if (signals) signals.innerHTML = '<div class="wl-empty-state"><strong>WATCHLIST LOCKED</strong><span>Unlock administrative access in Settings to load personalized intelligence.</span></div>';
+    if (signals) signals.innerHTML = `<div class="wl-empty-state"><strong>${title}</strong><span>${detail}</span></div>`;
   }
 }
 
@@ -2881,6 +2905,11 @@ async function verifyIntegrationAccess() {
   integrationAdminToken = token;
   setIntegrationMessage(translateMessage('verifying_admin'));
   try {
+    const sessionResponse = await fetch('/api/admin/watchlist-session', {
+      method: 'POST',
+      headers: { 'X-Admin-Token': integrationAdminToken }
+    });
+    await parseIntegrationResponse(sessionResponse);
     await loadIntegrationSettings();
     await loadPublicSettings();
     await loadTlsSettings();

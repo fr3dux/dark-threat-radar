@@ -1,13 +1,17 @@
-import httpx
 import asyncio
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import secrets
+import time
 import unicodedata
 from contextlib import asynccontextmanager
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import httpx
 from fastapi import FastAPI, Request, Query, BackgroundTasks, HTTPException, Security, UploadFile, File, Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import APIKeyHeader
@@ -206,6 +210,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 admin_token_header = APIKeyHeader(name="X-Admin-Token", auto_error=False)
+WATCHLIST_SESSION_COOKIE = "dtr_watchlist_session"
+WATCHLIST_SESSION_MAX_AGE = 7 * 24 * 60 * 60
 
 
 def _is_settings_admin(admin_token: Optional[str]) -> bool:
@@ -214,6 +220,46 @@ def _is_settings_admin(admin_token: Optional[str]) -> bool:
         and admin_token
         and secrets.compare_digest(admin_token, SETTINGS_ADMIN_TOKEN)
     )
+
+
+def _watchlist_session_signature(payload: str) -> str:
+    if not SETTINGS_ADMIN_TOKEN:
+        return ""
+    digest = hmac.new(
+        SETTINGS_ADMIN_TOKEN.encode("utf-8"),
+        f"dtr-watchlist-session:{payload}".encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def _create_watchlist_session() -> str:
+    expires_at = int(time.time()) + WATCHLIST_SESSION_MAX_AGE
+    payload = f"v1.{expires_at}"
+    return f"{payload}.{_watchlist_session_signature(payload)}"
+
+
+def _has_valid_watchlist_session(request: Request) -> bool:
+    value = request.cookies.get(WATCHLIST_SESSION_COOKIE, "")
+    try:
+        version, raw_expiry, supplied_signature = value.split(".", 2)
+        expires_at = int(raw_expiry)
+    except (TypeError, ValueError):
+        return False
+    if version != "v1" or not supplied_signature:
+        return False
+    now = int(time.time())
+    if expires_at < now or expires_at > now + WATCHLIST_SESSION_MAX_AGE:
+        return False
+    expected_signature = _watchlist_session_signature(f"{version}.{raw_expiry}")
+    return bool(expected_signature) and secrets.compare_digest(
+        supplied_signature, expected_signature
+    )
+
+
+def _request_uses_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    return request.url.scheme == "https" or forwarded_proto.casefold() == "https"
 
 
 def _public_record(row) -> dict:
@@ -254,6 +300,13 @@ def require_watchlist_read(
     admin_token: Optional[str] = Security(admin_token_header),
 ) -> None:
     if WATCHLIST_PUBLIC_READ:
+        return
+    if _has_valid_watchlist_session(request):
+        if not _is_secure_or_local(request):
+            raise HTTPException(
+                status_code=426,
+                detail="Administrative access requires HTTPS or a local connection",
+            )
         return
     require_settings_admin(request, admin_token)
 
@@ -316,6 +369,29 @@ async def api_public_settings():
         "supported_locales": ["en", "pt-BR", "es"],
         "supported_timezones": timezones,
     }
+
+
+@app.post("/api/admin/watchlist-session", tags=["Administration"])
+async def api_create_watchlist_session(
+    request: Request,
+    admin_token: Optional[str] = Security(admin_token_header),
+):
+    """Issue a short-lived, HttpOnly read session for private Watchlist data."""
+    require_settings_admin(request, admin_token)
+    response = JSONResponse({
+        "status": "authenticated",
+        "expires_in": WATCHLIST_SESSION_MAX_AGE,
+    })
+    response.set_cookie(
+        key=WATCHLIST_SESSION_COOKIE,
+        value=_create_watchlist_session(),
+        max_age=WATCHLIST_SESSION_MAX_AGE,
+        httponly=True,
+        secure=_request_uses_https(request),
+        samesite="strict",
+        path="/",
+    )
+    return response
 
 
 @app.put("/api/admin/settings/general", tags=["Administration"])
