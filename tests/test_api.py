@@ -76,6 +76,22 @@ def test_update_bootstrap_uses_public_cached_status(client):
     assert "UPDATE CHECK UNAVAILABLE" in app_js
 
 
+@pytest.mark.parametrize(
+    "host",
+    ["127.0.0.1", "10.205.0.15", "172.16.0.1", "172.31.255.254", "192.168.50.4", "::1", "fd12::4"],
+)
+def test_private_network_hosts_allow_lan_administration(host):
+    assert main_module._is_private_network_host(host) is True
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["8.8.8.8", "172.15.255.255", "172.32.0.1", "203.0.113.9", "2001:4860:4860::8888", "invalid"],
+)
+def test_public_network_hosts_do_not_allow_plain_http_administration(host):
+    assert main_module._is_private_network_host(host) is False
+
+
 def test_general_settings_require_admin_and_validate_iana_timezone(client, monkeypatch):
     monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "settings-admin-code")
     payload = {"timezone": "America/Sao_Paulo", "locale": "pt-BR"}

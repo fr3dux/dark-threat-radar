@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.8] - 2026-10-15
+
+### Fixed
+- **Private-Network Administration**: Restores administrative access over HTTP for direct RFC 1918 and local IPv6 clients, preserving the established LAN deployment workflow while continuing to reject unencrypted administrative credentials from public-network addresses.
+
 ## [1.17.7] - 2026-10-15
 
 ### Fixed

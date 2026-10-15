@@ -1,6 +1,6 @@
 # Dark Threat Radar
 
-[![Version](https://img.shields.io/badge/version-1.17.7-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.17.8-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -304,9 +304,10 @@ sudo ./venv/bin/python scripts/install_tls_manager.py --project-root "$(pwd)" --
 ```
 
 Replace `ubuntu` with the unprivileged account configured in the systemd unit.
-For the first activation, connect locally or through an SSH tunnel (for example,
-forward local port 9220 to `127.0.0.1:9220`); administrative secrets are rejected
-over remote plain HTTP. Then open **Settings → HTTPS & Access**, unlock
+Administrative access over HTTP is accepted from directly connected RFC 1918
+private networks and local IPv6 addresses. Public-network clients must use HTTPS
+or an SSH tunnel (for example, forward local port 9220 to `127.0.0.1:9220`).
+Then open **Settings → HTTPS & Access**, unlock
 administration, and provide:
 
 - the application FQDN, with DNS already pointing to the server;

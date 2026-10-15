@@ -2,6 +2,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import secrets
@@ -274,9 +275,33 @@ def _is_secure_or_local(request: Request) -> bool:
     client_host = request.client.host if request.client else ""
     return (
         request.url.scheme == "https"
-        or client_host in {"127.0.0.1", "::1", "localhost", "testclient"}
+        or _is_private_network_host(client_host)
         or ALLOW_INSECURE_SENSITIVE_TRANSPORT
     )
+
+
+_PRIVATE_ADMIN_NETWORKS = tuple(
+    ipaddress.ip_network(cidr)
+    for cidr in (
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "127.0.0.0/8",
+        "::1/128",
+        "fc00::/7",
+    )
+)
+
+
+def _is_private_network_host(host: str) -> bool:
+    """Allow HTTP administration only from directly connected private clients."""
+    if host in {"localhost", "testclient"}:
+        return True
+    try:
+        address = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        return False
+    return any(address in network for network in _PRIVATE_ADMIN_NETWORKS)
 
 
 def require_settings_admin(
@@ -287,7 +312,7 @@ def require_settings_admin(
     if not _is_secure_or_local(request):
         raise HTTPException(
             status_code=426,
-            detail="Administrative access requires HTTPS or a local connection",
+            detail="Administrative access requires HTTPS or a local/private-network connection",
         )
     if not SETTINGS_ADMIN_TOKEN:
         raise HTTPException(status_code=503, detail="Administration is not enabled on this server")
@@ -305,7 +330,7 @@ def require_watchlist_read(
         if not _is_secure_or_local(request):
             raise HTTPException(
                 status_code=426,
-                detail="Administrative access requires HTTPS or a local connection",
+                detail="Administrative access requires HTTPS or a local/private-network connection",
             )
         return
     require_settings_admin(request, admin_token)
