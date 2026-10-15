@@ -216,7 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(pollStatus, 15000);
   pollWatchlistAlerts();
   setInterval(pollWatchlistAlerts, 60000);
-  checkForUpdate(true);
+  // The public bootstrap only needs the cached, verified release state.
+  // Bypassing the cache is an administrative operation and must never be
+  // attempted by an anonymous page load.
+  checkForUpdate();
   setInterval(() => checkForUpdate(), 21600000);
 
   // Dynamic CTI records use data attributes instead of inline JavaScript.
@@ -365,7 +368,18 @@ async function checkForUpdate(force = false) {
       updateStatusPoll = null;
     }
   } catch (_error) {
-    if (updateStatusPoll) setUpdateMessage('Service is restarting; waiting to reconnect...');
+    const pill = document.getElementById('update-available-pill');
+    const pillText = document.getElementById('update-pill-text');
+    if (pill) {
+      pill.className = 'update-status-pill is-error';
+      pill.title = 'The stable release channel could not be checked';
+    }
+    if (pillText) pillText.textContent = 'UPDATE CHECK UNAVAILABLE';
+    if (updateStatusPoll) {
+      setUpdateMessage('Service is restarting; waiting to reconnect...');
+    } else {
+      setUpdateMessage('The release status could not be checked. Try again later.', 'error');
+    }
   }
 }
 
