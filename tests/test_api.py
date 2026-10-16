@@ -57,22 +57,17 @@ def test_update_status_endpoint(client, monkeypatch):
         }
 
     monkeypatch.setattr(main_module, "get_update_status", fake_status)
-    monkeypatch.setattr(main_module, "SETTINGS_ADMIN_TOKEN", "update-status-code")
-    assert client.get("/api/update/status?force=true").status_code == 401
-    response = client.get(
-        "/api/update/status?force=true",
-        headers={"X-Admin-Token": "update-status-code"},
-    )
+    response = client.get("/api/update/status?force=true")
     assert response.status_code == 200
     assert response.json()["update_available"] is True
     assert requested["force"] is True
 
 
-def test_update_bootstrap_uses_public_cached_status(client):
+def test_update_bootstrap_refreshes_official_status(client):
     app_js = client.get("/static/js/app.js").text
     bootstrap = app_js.split("// ==================== SAFE APPLICATION UPDATE", 1)[0]
-    assert "checkForUpdate();" in bootstrap
-    assert "checkForUpdate(true);" not in bootstrap
+    assert "checkForUpdate(true);" in bootstrap
+    assert "backend globally debounces refreshes" in bootstrap
     assert "UPDATE CHECK UNAVAILABLE" in app_js
 
 

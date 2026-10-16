@@ -142,3 +142,34 @@ def test_transient_check_failure_preserves_verified_cached_release(monkeypatch):
     assert status["latest_version"] == "1.14.3"
     assert status["check_error"] is None
     assert "temporarily unavailable" in status["check_warning"]
+
+
+def test_forced_release_refresh_is_globally_debounced(monkeypatch):
+    calls = 0
+    now = [100.0]
+    cached_release = {
+        "version": "1.18.1",
+        "tag": "v1.18.1",
+        "name": "Dark Threat Radar v1.18.1",
+        "url": "https://github.com/fr3dux/dark-threat-radar/releases/tag/v1.18.1",
+        "published_at": None,
+        "changelog": "Cached notes",
+    }
+
+    async def fake_release_check():
+        nonlocal calls
+        calls += 1
+        return cached_release
+
+    monkeypatch.setattr(updater.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(updater, "_fetch_latest_release", fake_release_check)
+    updater._cache.update({
+        "checked_at": 90.0, "release": cached_release, "error": None, "warning": None,
+    })
+
+    asyncio.run(updater.get_update_status(force=True))
+    assert calls == 0
+
+    now[0] = 121.0
+    asyncio.run(updater.get_update_status(force=True))
+    assert calls == 1

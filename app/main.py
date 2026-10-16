@@ -371,13 +371,9 @@ async def api_version():
 
 @app.get("/api/update/status", tags=["System"])
 async def api_update_status(
-    request: Request,
-    force: bool = Query(False, description="Bypass the in-memory release cache"),
-    admin_token: Optional[str] = Security(admin_token_header),
+    force: bool = Query(False, description="Request a rate-limited refresh of the official release status"),
 ):
     """Check the fixed official repository for a newer stable release."""
-    if force:
-        require_settings_admin(request, admin_token)
     return await get_update_status(force=force)
 
 

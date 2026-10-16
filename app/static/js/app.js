@@ -202,10 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Start periodic status check (every 15s)
   pollStatus();
   setInterval(pollStatus, 15000);
-  // The public bootstrap only needs the cached, verified release state.
-  // Bypassing the cache is an administrative operation and must never be
-  // attempted by an anonymous page load.
-  checkForUpdate();
+  // Refresh the fixed official release channel when the page loads. The
+  // backend globally debounces refreshes and applies a per-client rate limit.
+  checkForUpdate(true);
   setInterval(() => checkForUpdate(), 21600000);
 
   // Dynamic CTI records use data attributes instead of inline JavaScript.
@@ -344,7 +343,7 @@ function openUpdateModal() {
   overlay.classList.add('open');
   overlay.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
-  checkForUpdate();
+  checkForUpdate(true);
 }
 
 function closeUpdateModal() {

@@ -36,6 +36,7 @@ _cache: dict[str, Any] = {
     "warning": None,
 }
 _cache_lock = asyncio.Lock()
+FORCED_REFRESH_MIN_INTERVAL_SECONDS = 30
 
 
 def parse_version(value: str) -> tuple[int, int, int]:
@@ -171,7 +172,13 @@ async def _fetch_latest_release_from_web(client: httpx.AsyncClient) -> dict[str,
 async def get_update_status(force: bool = False) -> dict[str, Any]:
     now = time.monotonic()
     async with _cache_lock:
-        if force or not _cache["release"] or now - _cache["checked_at"] >= UPDATE_CHECK_INTERVAL_SECONDS:
+        cache_age = now - _cache["checked_at"]
+        refresh_due = (
+            not _cache["release"]
+            or cache_age >= UPDATE_CHECK_INTERVAL_SECONDS
+            or (force and cache_age >= FORCED_REFRESH_MIN_INTERVAL_SECONDS)
+        )
+        if refresh_due:
             try:
                 _cache["release"] = await _fetch_latest_release()
                 _cache["error"] = None
