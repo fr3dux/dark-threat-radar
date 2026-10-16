@@ -420,19 +420,10 @@ def test_index_page_version_injection(client):
     assert 'id="infocon-badge"' not in html
     assert 'id="infocon-val"' in html
     assert 'id="panel-intel"' in html
-    assert '<h2>WATCHLIST</h2>' in html
-    assert 'id="wl-honeycomb-interests"' in html
-    assert 'id="wl-honeycomb-cves"' in html
-    assert 'class="wl-honeycomb-grid"' in html
-    assert 'centerSideBySideHoneycombs' in client.get('/static/js/app.js').text
     app_js = client.get('/static/js/app.js').text
-    assert "const entityItems = allItems.filter(item => watchlistCategory(item.item_type) === 'organization')" in app_js
-    assert "const technologyItems = allItems.filter(item => watchlistCategory(item.item_type) === 'technology')" in app_js
-    assert "const unacknowledgedExposure = exposureMatches.filter" in app_js
-    assert "status: `${counts.exposure} ${counts.exposure === 1 ? 'EXPOSURE' : 'EXPOSURES'}`" in app_js
-    assert 'id="wl-honeycomb-interests-clear-count"' in html
-    assert 'aria-label="Watchlist status legend"' in html
-    assert 'INTELLIGENCE FOR YOU' in html
+    assert '<h2>WATCHLIST</h2>' not in html
+    assert 'id="tab-watchlist"' not in html
+    assert 'id="panel-watchlist"' not in html
     assert 'MY THREAT RADAR' not in html
     assert "HIGH-CONFIDENCE IOC ACTIVITY" in html
     assert 'id="tab-settings"' in html
@@ -445,7 +436,7 @@ def test_index_page_version_injection(client):
         "tab-count-news",
     ):
         assert f'id="{redundant_count_id}"' not in html
-    assert 'id="tab-count-watchlist"' in html
+    assert 'id="tab-count-watchlist"' not in html
     assert "REAL-TIME PROBES" not in html
     assert 'id="feed-summary-btn"' not in html
     assert "SCHEDULED SYNC" not in html
@@ -480,7 +471,6 @@ def test_index_page_version_injection(client):
     assert html.count("NO FILE SELECTED") == 3
     assert "DISPLAY &amp; REGIONAL SETTINGS" in html
     assert "CTI FEEDS &amp; SERVER-SIDE SECRETS" in html
-    assert '<option value="country">Country / Region</option>' in html
     assert 'id="integration-modal-overlay"' not in html
     for search_id in (
         "cve-search",

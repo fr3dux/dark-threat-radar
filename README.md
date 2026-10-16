@@ -6,12 +6,12 @@
 > updates. Collection and stored data are not affected. Upgrade to v1.17.8 and
 > follow [RECOVERY.md](RECOVERY.md) if the installation cannot update itself.
 
-[![Version](https://img.shields.io/badge/version-1.17.8-blue.svg)](app/version.py)
+[![Version](https://img.shields.io/badge/version-1.18.0-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Threat Intelligence](https://img.shields.io/badge/CTI-Autonomous%20Engine-red.svg)](https://github.com/fr3dux/dark-threat-radar)
-[![Tests Passing](https://img.shields.io/badge/tests-83%2F83%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-116%2F116%20passed-brightgreen.svg)](tests/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
 
 Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelligence (CTI) aggregator, SOC radar, and search engine. Built on top of FastAPI and asynchronous SQLite (`aiosqlite`), it continuously ingests, correlates, and normalizes high-fidelity vulnerability intelligence, active malware telemetry, global attack traffic, ransomware extortion disclosures, credential leak checks, and asset-specific remediation guidance into a single pane of glass and high-speed REST API.
@@ -27,7 +27,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - [Architecture and Data Pipeline](#architecture-and-data-pipeline)
 - [Integrated Threat Intelligence Sources](#integrated-threat-intelligence-sources)
 - [Global Internet Activity (Live Map)](#global-internet-activity-live-map)
-- [Watchlist and Remediation Radar](#watchlist-and-remediation-radar)
+- [Commercial Watchlist and Remediation Radar](#commercial-watchlist-and-remediation-radar)
 - [Leak Check Credential Scanner](#leak-check-credential-scanner)
 - [Hardware Sizing and System Requirements](#hardware-sizing-and-system-requirements)
 - [Quickstart with Docker Compose](#quickstart-with-docker-compose)
@@ -51,7 +51,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 - **Global Internet Activity Map:** 60 FPS HTML5 Canvas vector radar featuring real cartographic coastlines (287 country polygons) with ballistic laser trajectories connecting real SANS ISC DShield scanner IPs to targeted global ports.
 - **Animated Source Health Topology:** Presents all CTI connectors by category below the activity map, with live state indicators, animated ingestion paths into the DTR engine, scheduler visibility, and direct access to feed settings.
 - **Critical Vendor Threat Spotlight:** Current visibility into high-impact vulnerabilities and actively exploited CISA KEV entries published or updated in recent weeks.
-- **Asset Watchlist and Official Remediation:** Register internal vendors, operating systems, or specific CVEs to cross-reference against CISA KEV and NVD feeds, automatically delivering required mitigation directives and official patch due dates.
+- **Commercial Watchlist and Official Remediation:** The commercial interface can register internal vendors, operating systems, organizations, domains, or specific CVEs for exposure and remediation correlation.
 - **Ransomware Extortion Tracker:** Dedicated monitoring of active ransomware gang victim disclosures (LockBit, Akira, Qilin, MedusaLocker) with specialized country filtering and immediate highlighting for Brazilian targets.
 - **Leak Check Credential Scanner:** Interactive validation of compromised email addresses (XposedOrNot Community DB) and passwords via the NIST SP 800-63B compliant K-Anonymity SHA-1 protocol (Have I Been Pwned / Cloudflare).
 - **EPSS Scoring Correlation:** Enriches all vulnerability records with FIRST.org Exploit Prediction Scoring System (EPSS) probabilities and percentiles alongside CVSS scores.
@@ -101,7 +101,7 @@ Dark Threat Radar is an autonomous, lightweight, standalone Cyber Threat Intelli
 ┌────────────────────────────────────────────────────────────────────────┐
 │                      CTI Dashboard & Explorer                          │
 │ Internet activity │ CVEs + EPSS │ IOC search │ malware │ ransomware   │
-│ source health │ watchlist + remediation │ news │ credential leak check│
+│ source health │ vendor advisories │ news │ credential leak check     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -155,9 +155,9 @@ Dark Threat Radar includes a hardware-accelerated 60 FPS HTML5 Canvas Cyberattac
 
 ---
 
-## Watchlist and Remediation Radar
+## Commercial Watchlist and Remediation Radar
 
-The Watchlist module combines technical exposure management with organization monitoring:
+The Watchlist interface is not shown in the Community edition. Its data model, correlation pipeline, background monitoring, and compatibility APIs remain intact so upgrades do not erase existing records and commercial deployments can use the feature.
 
 - **Visual Watchlist Honeycombs:** Separates interests with correlated vulnerabilities—including monitored vendors and products—from organizations, domains, countries, and other interests without CVE matches. Green cells are monitored without active findings, amber cells have relevant non-critical vulnerabilities, and red cells indicate critical vulnerabilities or public-exposure alerts; selecting a cell filters the intelligence workspace below.
 - **Technical Targets:** Register Vendor (e.g., Citrix, Palo Alto), Product/OS (e.g., PAN-OS, NetScaler), or Specific CVE targets for vulnerability and remediation correlation.
@@ -478,7 +478,7 @@ O Dark Threat Radar é uma plataforma autônoma e leve de inteligência de amea�
 
 A área **Settings** centraliza o timezone global, a base de localização para inglês, português do Brasil e espanhol, as credenciais protegidas dos feeds e, em instalações Linux nativas, o FQDN, portas públicas e certificado HTTPS. O proxy Nginx é gerenciado por um serviço externo privilegiado, com validação e rollback; a chave privada nunca é devolvida ao navegador. Todos os eventos continuam armazenados em UTC e são convertidos apenas na apresentação ao analista.
 
-Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. Incidentes de exposição unem Ransomware.live, RansomFeed, RansomLook, DataBreaches.net e, opcionalmente, ThreatCluster, preservando todas as fontes, primeiro registro e última atualização. O painel oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias, Watchlist com remediação e verificação de credenciais expostas.
+Os indicadores são normalizados, deduplicados, pontuados por confiança e correlacionados entre fontes. Incidentes de exposição unem Ransomware.live, RansomFeed, RansomLook, DataBreaches.net e, opcionalmente, ThreatCluster, preservando todas as fontes, primeiro registro e última atualização. O painel Community oferece mapa de atividade global, pesquisa de CVEs e IOCs, telemetria DShield, malware, ransomware, notícias e verificação de credenciais expostas. A interface da Watchlist é exclusiva da edição comercial; os dados e o processamento existente são preservados.
 
 Para dimensionamento, o mínimo suportado é **2 vCPU, 2 GB de RAM e 10 GB livres em SSD**. Para operação contínua com todos os conectores e uma pequena equipe, recomenda-se **4 vCPU, 4 GB de RAM e 20 GB livres**. Uma publicação aberta à Internet ou com maior retenção deve partir de **4 vCPU, 8 GB de RAM e 40 GB livres**, além de proxy reverso, monitoramento e backups.
 
