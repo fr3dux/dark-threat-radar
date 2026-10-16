@@ -1,5 +1,11 @@
 # Dark Threat Radar
 
+> [!IMPORTANT]
+> Community installations running **v1.17.3 through v1.17.7** over HTTP on a
+> private LAN can have administrative actions blocked, including one-click
+> updates. Collection and stored data are not affected. Upgrade to v1.17.8 and
+> follow [RECOVERY.md](RECOVERY.md) if the installation cannot update itself.
+
 [![Version](https://img.shields.io/badge/version-1.17.8-blue.svg)](app/version.py)
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
